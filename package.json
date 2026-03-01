@@ -1,0 +1,19 @@
+{
+  "name": "ww3-build-plan",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate:country": "tsx src/validation/validateCountryFile.ts",
+    "validate:countries": "tsx src/validation/validateAllCountries.ts"
+  },
+  "dependencies": {
+    "yaml": "^2.8.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

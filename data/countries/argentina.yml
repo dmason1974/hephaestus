@@ -1,0 +1,98 @@
+version: 1
+
+country:
+  id: argentina
+  name: Argentina
+  doctrine: western
+
+cities:
+  - id: buenos_aires
+    name: Buenos Aires
+    capital: true
+    resource: electronics
+    population: 6
+    starting:
+      army_base: 1
+      air_base: 1
+      naval_base: 1
+      arms_industry: 0
+      local_industry: 0
+      recruiting_office: 0
+
+  - id: cordoba
+    name: Cordoba
+    capital: false
+    resource: rares
+    population: 4
+    starting:
+      army_base: 1
+      air_base: 0
+      naval_base: 0
+      arms_industry: 0
+      local_industry: 0
+      recruiting_office: 0
+
+  - id: rosario
+    name: Rosario
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      army_base: 1
+      air_base: 0
+      naval_base: 0
+      arms_industry: 0
+      local_industry: 0
+      recruiting_office: 0
+
+  - id: mendoza
+    name: Mendoza
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      army_base: 1
+      air_base: 0
+      naval_base: 1
+      arms_industry: 0
+      local_industry: 0
+      recruiting_office: 0
+
+  - id: san_miguel
+    name: San Miguel
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      army_base: 1
+      air_base: 0
+      naval_base: 1
+      arms_industry: 0
+      local_industry: 0
+      recruiting_office: 0
+
+  - id: la_plata
+    name: La Plata
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      army_base: 1
+      air_base: 0
+      naval_base: 1
+      arms_industry: 0
+      local_industry: 0
+      recruiting_office: 0
+
+  - id: mar_del_plata
+    name: Mar del Plata
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      army_base: 1
+      air_base: 0
+      naval_base: 1
+      arms_industry: 0
+      local_industry: 0
+      recruiting_office: 0

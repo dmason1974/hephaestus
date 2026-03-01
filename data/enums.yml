@@ -1,0 +1,13 @@
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - manpower
+  - cash
+
+doctrines:
+  - western
+  - eastern
+  - european

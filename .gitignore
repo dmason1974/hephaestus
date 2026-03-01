@@ -137,3 +137,32 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Runtime database
+*.sqlite3
+*.sqlite
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Local game state
+state/
+local-db/
+*.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Mac noise
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Optional if you use pm2 locally
+ecosystem.config.js

@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "validate:country": "tsx src/validation/validateCountryFile.ts",
-    "validate:countries": "tsx src/validation/validateAllCountries.ts"
+    "validate:countries": "tsx src/validation/validateAllCountries.ts",
+    "smoke:morale": "tsx src/economy/_smokeMorale.ts",
+    "smoke:resource": "tsx src/economy/_smokeResource.ts",
+    "smoke:multipliers": "tsx src/economy/_smokeMultipliers.ts"
   },
   "dependencies": {
     "yaml": "^2.8.2",

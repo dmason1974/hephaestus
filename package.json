@@ -8,7 +8,10 @@
     "validate:countries": "tsx src/validation/validateAllCountries.ts",
     "smoke:morale": "tsx src/economy/_smokeMorale.ts",
     "smoke:resource": "tsx src/economy/_smokeResource.ts",
-    "smoke:multipliers": "tsx src/economy/_smokeMultipliers.ts"
+    "smoke:resource:hourly": "tsx src/economy/_smokeHourlyResource.ts",
+    "smoke:argentina:hourly": "tsx src/economy/_smokeArgentinaHourly.ts",
+    "smoke:multipliers": "tsx src/economy/_smokeMultipliers.ts",
+    "test": "node --import tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "yaml": "^2.8.2",

@@ -35,8 +35,29 @@ export const HOMELAND_TARGET_MORALE = 90;
 export const DEFAULT_MORALE_DECAY_D = 8;
 
 /**
+ * Population growth support
+ */
+export type StartingPopulation = 4 | 5 | 6;
+
+export const MIN_POPULATION = 4;
+export const POPULATION_CAP = 10;
+
+/**
+ * Days required to grow from pop N to pop N + 1.
+ * Days are measured as elapsed whole days since Day 1.
+ */
+export const POPULATION_GROWTH_DAYS_BY_POP = {
+  4: 5,
+  5: 10,
+  6: 15,
+  7: 25,
+  8: 35,
+  9: 45,
+} as const;
+
+/**
  * Population → percent modifier
- * Used for linear interpolation between integer population values.
+ * Used as the default resource multiplier table for population tiers.
  */
 export const POPULATION_MODIFIER_TABLE: ReadonlyArray<{
   population: number;
@@ -62,8 +83,8 @@ export const POPULATION_MODIFIER_TABLE: ReadonlyArray<{
  * We'll recalibrate from observations later.
  */
 
-export const POPULATION_CAP = 10;
-export const POP_GROWTH_B_PER_DAY = 0.0186;
+// Retained for comparison with the legacy exponential approximation.
+export const POP_GROWTH_B_PER_DAY = 0.022314355;
 
 /**
  * Game Speed → resource modifier

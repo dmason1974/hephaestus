@@ -1,25 +1,36 @@
 import {
   BASE_RESOURCE_PRODUCTION,
   GAME_SPEED_MULTIPLIER,
+  MIN_POPULATION,
+  POPULATION_CAP,
   POPULATION_MODIFIER_TABLE,
   type GameSpeed,
   type Resource,
+  type StartingPopulation,
 } from "./constants.js";
 
-import { populationAtDay } from "./population-model.js";
+import {
+  dayAtPopulation,
+  daysToNextPopulation,
+  populationAtDay,
+  type PopulationMode,
+  type PopulationModelOptions,
+} from "./population-model.js";
 import { moraleOnDay, type MoraleParams } from "./morale-model.js";
 import { moraleProductionMultiplier } from "./morale-modifier.js";
 
 export type CityResourceInputs = {
   resource: Resource; // "supplies" | "components" | ...
-  startPop: number; // your YAML pop level (typically 1..10)
+  startPop: StartingPopulation;
 
   // ✅ required to compute morale multiplier
   moraleParams: MoraleParams;
 
   ecoInfraMultiplier?: number; // default 1.0
   hiddenMultiplierOverride?: number; // optional; otherwise derived from game speed
-  populationOpts?: { cap?: number; b?: number }; // optional overrides
+  populationMode?: PopulationMode;
+  populationOpts?: PopulationModelOptions;
+  multiplierByPop?: Record<number, number>;
 };
 
 export type DailyResourceRow = {
@@ -30,6 +41,32 @@ export type DailyResourceRow = {
 export type DailyResourceTable = {
   rows: DailyResourceRow[];
   total: number;
+};
+
+export type HourlyResourceRow = {
+  hour: number; // 1..days*24
+  day: number; // 1-based day number
+  hourOfDay: number; // 1..24
+  amount: number; // produced units during this game hour
+};
+
+export type HourlyResourceTable = {
+  rows: HourlyResourceRow[];
+  total: number;
+};
+
+export type HourlyBalanceRow = {
+  hour: number;
+  day: number;
+  hourOfDay: number;
+  production: number;
+  balanceStart: number;
+  balanceEnd: number;
+};
+
+export type HourlyBalanceTable = {
+  rows: HourlyBalanceRow[];
+  endingBalance: number;
 };
 
 // --- helpers ---
@@ -43,41 +80,150 @@ function roundInt(x: number) {
   return Math.round(x);
 }
 
-/**
- * POPULATION_MODIFIER_TABLE stores percent deltas (-80..25).
- * We interpolate between integer pop levels and return a multiplier (1 + pct/100).
- */
-export function populationToMultiplier(popLevelContinuous: number): number {
-  const table = POPULATION_MODIFIER_TABLE;
+export const DEFAULT_MULTIPLIER_BY_POP = Object.fromEntries(
+  POPULATION_MODIFIER_TABLE.map(({ population, percent }) => [population, 1 + percent / 100])
+) as Record<number, number>;
 
-  const minPop = table[0].population;
-  const maxPop = table[table.length - 1].population;
+function resolveMultiplierBounds(multiplierByPop: Record<number, number>) {
+  const populations = Object.keys(multiplierByPop)
+    .map(key => Number(key))
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
 
-  const p = clamp(popLevelContinuous, minPop, maxPop);
-
-  const lo = Math.floor(p);
-  const hi = Math.ceil(p);
-
-  const loRow = table.find((r) => r.population === lo);
-  const hiRow = table.find((r) => r.population === hi);
-
-  if (!loRow || !hiRow) {
-    throw new Error(`populationToMultiplier: missing table rows for lo=${lo}, hi=${hi}`);
+  if (populations.length === 0) {
+    throw new Error("multiplierByPop must contain at least one population entry");
   }
 
-  if (lo === hi) return 1 + loRow.percent / 100;
+  return {
+    minPop: populations[0],
+    maxPop: populations[populations.length - 1],
+  };
+}
+
+export function populationToMultiplier(
+  popLevelContinuous: number,
+  multiplierByPop: Record<number, number> = DEFAULT_MULTIPLIER_BY_POP
+): number {
+  const { minPop, maxPop } = resolveMultiplierBounds(multiplierByPop);
+  const p = clamp(popLevelContinuous, minPop, maxPop);
+  const lo = Math.floor(p);
+  const hi = Math.ceil(p);
+  const loMultiplier = multiplierByPop[lo];
+  const hiMultiplier = multiplierByPop[hi];
+
+  if (loMultiplier === undefined || hiMultiplier === undefined) {
+    throw new Error(`Missing population multiplier for pop range ${lo}..${hi}`);
+  }
+
+  if (lo === hi) return loMultiplier;
 
   const t = (p - lo) / (hi - lo);
-  const pct = loRow.percent + (hiRow.percent - loRow.percent) * t;
+  return loMultiplier + (hiMultiplier - loMultiplier) * t;
+}
 
-  return 1 + pct / 100;
+export function populationToEffectiveLevel(population: {
+  popInt: number;
+  popFloat?: number;
+  progressToNext?: number;
+}) {
+  if (population.popFloat !== undefined) return population.popFloat;
+  if (population.progressToNext === undefined || population.progressToNext >= 1) {
+    return population.popInt;
+  }
+
+  return population.popInt + population.progressToNext;
+}
+
+export type PopulationMultiplierDetails = {
+  popInt: number;
+  multiplier: number;
+  incrementalGain: number;
+  marginalGainPerDay: number;
+  daysToNextPop?: number;
+};
+
+export function populationMultiplierDetails(
+  popInt: number,
+  multiplierByPop: Record<number, number>,
+  populationOpts?: PopulationModelOptions
+): PopulationMultiplierDetails {
+  const minPop = populationOpts?.minPop ?? MIN_POPULATION;
+  const maxPop = populationOpts?.maxPop ?? POPULATION_CAP;
+  const clampedPop = clamp(Math.floor(popInt), minPop, maxPop);
+  const multiplier = populationToMultiplier(clampedPop, multiplierByPop);
+  const previousMultiplier =
+    clampedPop > minPop
+      ? populationToMultiplier(clampedPop - 1, multiplierByPop)
+      : multiplier;
+  const incrementalGain = clampedPop > minPop ? multiplier - previousMultiplier : 0;
+  const durationDays = daysToNextPopulation(clampedPop, populationOpts);
+
+  return {
+    popInt: clampedPop,
+    multiplier,
+    incrementalGain,
+    marginalGainPerDay:
+      durationDays === undefined || durationDays === 0
+        ? 0
+        : incrementalGain / durationDays,
+    daysToNextPop: durationDays,
+  };
+}
+
+export type MarginalReturnsRow = {
+  popFrom: number;
+  popTo: number;
+  dayStartInclusive: number;
+  dayEndExclusive: number;
+  durationDays: number;
+  multiplierFrom: number;
+  multiplierTo: number;
+  incrementalGain: number;
+  marginalGainPerDay: number;
+};
+
+export function marginalReturnsSchedule(
+  startPop: StartingPopulation,
+  horizonDays: number,
+  multiplierByPop: Record<number, number>,
+  populationOpts?: PopulationModelOptions
+): MarginalReturnsRow[] {
+  if (!Number.isFinite(horizonDays) || horizonDays < 1) {
+    throw new Error(`horizonDays must be >= 1, got ${horizonDays}`);
+  }
+
+  const maxPop = populationOpts?.maxPop ?? POPULATION_CAP;
+  const rows: MarginalReturnsRow[] = [];
+
+  for (let popFrom = startPop; popFrom < maxPop; popFrom++) {
+    const dayStartInclusive = dayAtPopulation(popFrom, startPop, "step", populationOpts);
+    if (dayStartInclusive > horizonDays) break;
+
+    const popTo = popFrom + 1;
+    const dayEndExclusive = dayAtPopulation(popTo, startPop, "step", populationOpts);
+    const durationDays = dayEndExclusive - dayStartInclusive;
+    const multiplierFrom = populationToMultiplier(popFrom, multiplierByPop);
+    const multiplierTo = populationToMultiplier(popTo, multiplierByPop);
+    const incrementalGain = multiplierTo - multiplierFrom;
+
+    rows.push({
+      popFrom,
+      popTo,
+      dayStartInclusive,
+      dayEndExclusive,
+      durationDays,
+      multiplierFrom,
+      multiplierTo,
+      incrementalGain,
+      marginalGainPerDay: incrementalGain / durationDays,
+    });
+  }
+
+  return rows;
 }
 
 /**
  * Builds a day-by-day produced amount for a single city/resource.
- *
- * NOTE: populationAtDay uses "days since game start" (t = max(0, day)).
- * To make Day 1 equal to the starting population, we use (day - 1) as t.
  *
  * Formula (while ignoring build improvements beyond ecoInfraMultiplier):
  * amount = round(base * ecoInfra * moraleMul * popMul * hidden)
@@ -90,6 +236,8 @@ export function buildDailyResourceTable(
   if (!Number.isFinite(days) || days < 1) throw new Error(`days must be >= 1, got ${days}`);
 
   const ecoInfra = city.ecoInfraMultiplier ?? 1.0;
+  const populationMode = city.populationMode ?? "step";
+  const multiplierByPop = city.multiplierByPop ?? DEFAULT_MULTIPLIER_BY_POP;
 
   const speedMul = GAME_SPEED_MULTIPLIER[gameSpeed];
   if (speedMul === undefined) {
@@ -107,9 +255,8 @@ export function buildDailyResourceTable(
     const morale = moraleOnDay(day, city.moraleParams);
     const moraleMul = moraleProductionMultiplier(morale);
 
-    // ✅ population (Day 1 is start pop)
-    const popLevel = populationAtDay(city.startPop, day - 1, city.populationOpts);
-    const popMul = populationToMultiplier(popLevel);
+    const population = populationAtDay(day, city.startPop, populationMode, city.populationOpts);
+    const popMul = populationToMultiplier(populationToEffectiveLevel(population), multiplierByPop);
 
     const amount = roundInt(base * ecoInfra * moraleMul * popMul * hidden);
 
@@ -120,30 +267,106 @@ export function buildDailyResourceTable(
   return { rows, total };
 }
 
+export function buildHourlyResourceTable(
+  days: number,
+  gameSpeed: GameSpeed,
+  city: CityResourceInputs
+): HourlyResourceTable {
+  const daily = buildDailyResourceTable(days, gameSpeed, city);
+  const rows: HourlyResourceRow[] = [];
+  let total = 0;
+
+  for (const dailyRow of daily.rows) {
+    const hourlyAmount = Math.floor(dailyRow.amount / 24);
+
+    for (let hourOfDay = 1; hourOfDay <= 24; hourOfDay++) {
+      rows.push({
+        hour: ((dailyRow.day - 1) * 24) + hourOfDay,
+        day: dailyRow.day,
+        hourOfDay,
+        amount: hourlyAmount,
+      });
+      total += hourlyAmount;
+    }
+  }
+
+  return { rows, total };
+}
+
+export function buildHourlyResourceBalanceTable(
+  days: number,
+  gameSpeed: GameSpeed,
+  city: CityResourceInputs,
+  opts?: {
+    startingBalance?: number;
+  }
+): HourlyBalanceTable {
+  const hourly = buildHourlyResourceTable(days, gameSpeed, city);
+  const rows: HourlyBalanceRow[] = [];
+  let balance = opts?.startingBalance ?? 0;
+
+  if (!Number.isFinite(balance)) {
+    throw new Error(`startingBalance must be finite, got ${balance}`);
+  }
+
+  for (const hourRow of hourly.rows) {
+    const balanceStart = balance;
+    balance += hourRow.amount;
+
+    rows.push({
+      hour: hourRow.hour,
+      day: hourRow.day,
+      hourOfDay: hourRow.hourOfDay,
+      production: hourRow.amount,
+      balanceStart,
+      balanceEnd: balance,
+    });
+  }
+
+  return {
+    rows,
+    endingBalance: balance,
+  };
+}
+
 export type DailyMultiplierRow = {
   day: number;
   morale: number;
   moraleMul: number;
-  popLevel: number;
+  popDecimal: number;
   popMul: number;
 };
 
 export function buildDailyMultipliersTable(
   days: number,
-  city: { startPop: number; populationOpts?: { cap?: number; b?: number }; moraleParams: MoraleParams }
+  city: {
+    startPop: StartingPopulation;
+    populationMode?: PopulationMode;
+    populationOpts?: PopulationModelOptions;
+    moraleParams: MoraleParams;
+    multiplierByPop?: Record<number, number>;
+  }
 ): { rows: DailyMultiplierRow[] } {
   const rows: DailyMultiplierRow[] = [];
+  const populationMode = city.populationMode ?? "step";
+  const multiplierByPop = city.multiplierByPop ?? DEFAULT_MULTIPLIER_BY_POP;
 
   for (let day = 1; day <= days; day++) {
     // morale is 1-based day index
     const morale = moraleOnDay(day, city.moraleParams);
     const moraleMul = moraleProductionMultiplier(morale);
 
-    // populationAtDay uses "days since start", so Day 1 should be startPop => day - 1
-    const popLevel = populationAtDay(city.startPop, day - 1, city.populationOpts);
-    const popMul = populationToMultiplier(popLevel);
+    const population = populationAtDay(day, city.startPop, populationMode, city.populationOpts);
+    const popDecimal = populationToEffectiveLevel(population);
+    const popMul = populationToMultiplier(popDecimal, multiplierByPop);
 
-    rows.push({ day, morale, moraleMul, popLevel, popMul });
+    rows.push({
+      day,
+      morale,
+      moraleMul,
+      popDecimal,
+      popMul,
+    });
   }
 
   return { rows };

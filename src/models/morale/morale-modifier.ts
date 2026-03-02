@@ -1,4 +1,4 @@
-import { MORALE_MULTIPLIER_COEFFICIENT, MORALE_MULTIPLIER_OFFSET } from "./constants.js";
+import { MORALE_MULTIPLIER_COEFFICIENT, MORALE_MULTIPLIER_OFFSET } from "../../core/constants.js";
 
 /**
  * (morale * 0.8)/100 + 0.25

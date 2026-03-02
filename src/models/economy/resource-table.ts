@@ -8,7 +8,7 @@ import {
   type GameSpeed,
   type Resource,
   type StartingPopulation,
-} from "./constants.js";
+} from "../../core/constants.js";
 
 import {
   dayAtPopulation,
@@ -16,9 +16,9 @@ import {
   populationAtDay,
   type PopulationMode,
   type PopulationModelOptions,
-} from "./population-model.js";
-import { moraleOnDay, type MoraleParams } from "./morale-model.js";
-import { moraleProductionMultiplier } from "./morale-modifier.js";
+} from "../population/population-model.js";
+import { moraleOnDay, type MoraleParams } from "../morale/morale-model.js";
+import { moraleProductionMultiplier } from "../morale/morale-modifier.js";
 
 export type CityResourceInputs = {
   resource: Resource; // "supplies" | "components" | ...

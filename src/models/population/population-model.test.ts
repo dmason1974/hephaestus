@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { BASE_RESOURCE_PRODUCTION } from "./constants.js";
+import { BASE_RESOURCE_PRODUCTION } from "../../core/constants.js";
 import {
   dayAtPopulation,
   populationAtDay,
 } from "./population-model.js";
-import { buildCountryHourlyResourceBalanceTable } from "./country-resource-balance.js";
+import { buildCountryHourlyResourceBalanceTable } from "../economy/country-resource-balance.js";
 import {
   DEFAULT_MULTIPLIER_BY_POP,
   buildDailyResourceTable,
@@ -17,7 +17,7 @@ import {
   populationMultiplierDetails,
   populationToManpower,
   populationToMultiplier,
-} from "./resource-table.js";
+} from "../economy/resource-table.js";
 
 test("step mode uses exact 1-based threshold days for startPop 4", () => {
   const expected = new Map([

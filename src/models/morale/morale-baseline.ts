@@ -2,7 +2,7 @@ import {
   STARTING_MORALE_DAY1,
   HOMELAND_TARGET_MORALE,
   DEFAULT_MORALE_DECAY_D,
-} from "./constants.js";
+} from "../../core/constants.js";
 import { moraleOnDay } from "./morale-model.js";
 
 export function baselineHomelandMoraleOnDay(day: number): number {

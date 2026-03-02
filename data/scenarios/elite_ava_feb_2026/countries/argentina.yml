@@ -16,7 +16,6 @@ cities:
       air_base: 1
       naval_base: 1
       arms_industry: 0
-      local_industry: 0
       recruiting_office: 0
 
   - id: cordoba
@@ -29,7 +28,6 @@ cities:
       air_base: 0
       naval_base: 0
       arms_industry: 0
-      local_industry: 0
       recruiting_office: 0
 
   - id: rosario
@@ -42,7 +40,6 @@ cities:
       air_base: 0
       naval_base: 0
       arms_industry: 0
-      local_industry: 0
       recruiting_office: 0
 
   - id: mendoza
@@ -55,7 +52,6 @@ cities:
       air_base: 0
       naval_base: 1
       arms_industry: 0
-      local_industry: 0
       recruiting_office: 0
 
   - id: san_miguel
@@ -68,7 +64,6 @@ cities:
       air_base: 0
       naval_base: 1
       arms_industry: 0
-      local_industry: 0
       recruiting_office: 0
 
   - id: la_plata
@@ -81,7 +76,6 @@ cities:
       air_base: 0
       naval_base: 1
       arms_industry: 0
-      local_industry: 0
       recruiting_office: 0
 
   - id: mar_del_plata
@@ -94,5 +88,4 @@ cities:
       air_base: 0
       naval_base: 1
       arms_industry: 0
-      local_industry: 0
       recruiting_office: 0

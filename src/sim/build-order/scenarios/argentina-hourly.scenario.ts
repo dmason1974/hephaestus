@@ -1,15 +1,18 @@
-import path from "node:path";
-
 import {
   buildCountryHourlyResourceBalanceTable,
-  loadCountry,
-} from "./country-resource-balance.js";
-import { projectRoot } from "../validation/enums.js";
+  loadScenarioCountry,
+} from "../../../models/economy/country-resource-balance.js";
+import {
+  loadScenarioFile,
+} from "../../../validation/scenarioPaths.js";
 
-const countryPath = path.join(projectRoot(), "data", "countries", "argentina.yml");
-const country = loadCountry(countryPath);
+const scenarioId = "elite_ava_feb_2026";
+const scenario = loadScenarioFile(scenarioId);
+const country = loadScenarioCountry(scenarioId, "argentina");
 
-const table = buildCountryHourlyResourceBalanceTable(country, 2, "4x");
+const table = buildCountryHourlyResourceBalanceTable(country, 2, scenario.speed, {
+  startingBalances: scenario.starting_balance,
+});
 
 console.table(
   table.rows.map(row => ({

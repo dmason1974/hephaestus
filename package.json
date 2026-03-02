@@ -6,12 +6,13 @@
   "scripts": {
     "validate:country": "tsx src/validation/validateCountryFile.ts",
     "validate:countries": "tsx src/validation/validateAllCountries.ts",
-    "smoke:morale": "tsx src/economy/_smokeMorale.ts",
-    "smoke:resource": "tsx src/economy/_smokeResource.ts",
-    "smoke:resource:hourly": "tsx src/economy/_smokeHourlyResource.ts",
-    "smoke:argentina:hourly": "tsx src/economy/_smokeArgentinaHourly.ts",
-    "smoke:multipliers": "tsx src/economy/_smokeMultipliers.ts",
-    "test": "node --import tsx --test src/**/*.test.ts"
+    "smoke:morale": "tsx src/sim/build-order/scenarios/morale.scenario.ts",
+    "smoke:resource": "tsx src/sim/build-order/scenarios/resource.scenario.ts",
+    "smoke:resource:hourly": "tsx src/sim/build-order/scenarios/hourly-resource.scenario.ts",
+    "smoke:argentina:hourly": "tsx src/sim/build-order/scenarios/argentina-hourly.scenario.ts",
+    "smoke:build-order": "tsx src/sim/build-order/scenarios/build-order.scenario.ts",
+    "smoke:multipliers": "tsx src/sim/build-order/scenarios/multipliers.scenario.ts",
+    "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "yaml": "^2.8.2",

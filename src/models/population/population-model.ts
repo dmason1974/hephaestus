@@ -3,7 +3,7 @@ import {
   POPULATION_CAP,
   POPULATION_GROWTH_DAYS_BY_POP,
   type StartingPopulation,
-} from "./constants.js";
+} from "../../core/constants.js";
 
 export type PopulationMode = "step" | "smooth";
 

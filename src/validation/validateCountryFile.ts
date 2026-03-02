@@ -70,7 +70,7 @@ if (isCli) {
   const arg = process.argv[2];
   if (!arg) {
     console.error(
-      "Usage: npm run validate:country -- data/countries/<country>.yml"
+      "Usage: npm run validate:country -- data/scenarios/<scenarioId>/countries/<country>.yml"
     );
     process.exit(2);
   }

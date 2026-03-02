@@ -1,10 +1,10 @@
-import { buildHourlyResourceBalanceTable } from "./resource-table.js";
+import { buildHourlyResourceBalanceTable } from "../../../models/economy/resource-table.js";
 import {
   DEFAULT_MORALE_DECAY_D,
   HOMELAND_TARGET_MORALE,
   STARTING_MORALE_DAY1,
   type Resource,
-} from "./constants.js";
+} from "../../../core/constants.js";
 
 const cityResource: Resource = "supplies";
 

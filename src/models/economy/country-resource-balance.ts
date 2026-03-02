@@ -8,13 +8,14 @@ import {
   STARTING_MORALE_DAY1,
   type Resource,
   type StartingPopulation,
-} from "./constants.js";
+} from "../../core/constants.js";
 import {
   buildHourlyResourceTable,
   type CityResourceInputs,
 } from "./resource-table.js";
-import { buildCountrySchema, type Country } from "../validation/countrySchema.js";
-import { loadEnumerations, projectRoot } from "../validation/enums.js";
+import { buildCountrySchema, type Country } from "../../validation/countrySchema.js";
+import { loadEnumerations, projectRoot } from "../../validation/enums.js";
+import { getScenarioCountryPath } from "../../validation/scenarioPaths.js";
 
 export type CountryHourlyBalanceRow = {
   hour: number;
@@ -69,6 +70,10 @@ export function loadCountry(countryPath: string): Country {
   const raw = fs.readFileSync(countryPath, "utf8");
   const parsed = YAML.parse(raw);
   return schema.parse(parsed);
+}
+
+export function loadScenarioCountry(scenarioId: string, countryId: string): Country {
+  return loadCountry(getScenarioCountryPath(scenarioId, countryId));
 }
 
 export function buildCountryHourlyResourceBalanceTable(

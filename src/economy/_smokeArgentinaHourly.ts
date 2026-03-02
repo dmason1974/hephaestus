@@ -21,6 +21,8 @@ console.table(
     fuel: row.balances.fuel ?? 0,
     electronics: row.balances.electronics ?? 0,
     rare: row.balances.rares ?? 0,
+    manpower: row.balances.manpower ?? 0,
+    cash: row.balances.cash ?? 0,
   }))
 );
 
@@ -30,4 +32,6 @@ console.log("Ending balances:", {
   fuel: table.endingBalances.fuel ?? 0,
   electronics: table.endingBalances.electronics ?? 0,
   rare: table.endingBalances.rares ?? 0,
+  manpower: table.endingBalances.manpower ?? 0,
+  cash: table.endingBalances.cash ?? 0,
 });

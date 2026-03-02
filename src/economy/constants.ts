@@ -7,15 +7,31 @@ export type Resource =
   | "components"
   | "fuel"
   | "rares"
-  | "electronics";
+  | "electronics"
+  | "cash"
+  | "manpower";
 
-export const BASE_RESOURCE_PRODUCTION: Record<Resource, number> = {
+export const BASE_RESOURCE_PRODUCTION: Record<Exclude<Resource, "manpower">, number> = {
   supplies: 2100,
   components: 1800,
   fuel: 2100,
   electronics: 1500,
   rares: 1200,
+  cash: 1500,
 };
+
+export const MANPOWER_BY_POPULATION_TABLE: ReadonlyArray<{
+  population: number;
+  amount: number;
+}> = [
+  { population: 4, amount: 125 },
+  { population: 5, amount: 140 },
+  { population: 6, amount: 150 },
+  { population: 7, amount: 160 },
+  { population: 8, amount: 180 },
+  { population: 9, amount: 190 },
+  { population: 10, amount: 200 },
+];
 
 /**
  * Morale multiplier coefficients

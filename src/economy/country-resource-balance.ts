@@ -42,10 +42,11 @@ function buildZeroBalances(resources: readonly Resource[]) {
 
 function toCityResourceInputs(
   city: Country["cities"][number],
+  resource: Resource,
   opts?: CountryResourceBalanceOptions
 ): CityResourceInputs {
   return {
-    resource: city.resource as Resource,
+    resource,
     startPop: city.population as StartingPopulation,
     moraleParams: {
       S: STARTING_MORALE_DAY1,
@@ -81,7 +82,12 @@ export function buildCountryHourlyResourceBalanceTable(
   }
 
   const resources = Array.from(
-    new Set(country.cities.map(city => city.resource as Resource))
+    new Set([
+      "cash" as Resource,
+      "manpower" as Resource,
+      ...country.cities.map(city => city.resource as Resource),
+      ...Object.keys(opts?.startingBalances ?? {}).map(resource => resource as Resource),
+    ])
   ).sort() as Resource[];
   const hourlyCount = days * 24;
   const productionByHour = Array.from({ length: hourlyCount }, () => buildZeroBalances(resources));
@@ -96,9 +102,15 @@ export function buildCountryHourlyResourceBalanceTable(
   }
 
   for (const city of country.cities) {
-    const hourly = buildHourlyResourceTable(days, gameSpeed, toCityResourceInputs(city, opts));
-    for (const row of hourly.rows) {
-      productionByHour[row.hour - 1][city.resource as Resource] += row.amount;
+    const generatedResources = Array.from(
+      new Set<Resource>([city.resource as Resource, "cash", "manpower"])
+    );
+
+    for (const resource of generatedResources) {
+      const hourly = buildHourlyResourceTable(days, gameSpeed, toCityResourceInputs(city, resource, opts));
+      for (const row of hourly.rows) {
+        productionByHour[row.hour - 1][resource] += row.amount;
+      }
     }
   }
 

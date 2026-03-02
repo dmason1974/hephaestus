@@ -3,11 +3,13 @@ import {
   DEFAULT_MORALE_DECAY_D,
   HOMELAND_TARGET_MORALE,
   STARTING_MORALE_DAY1,
+  type Resource,
 } from "./constants.js";
 
-const table = buildHourlyResourceBalanceTable(2, "4x", {
-  resource: "supplies",
-  startPop: 5,
+const cityResource: Resource = "supplies";
+
+const cityInputs = {
+  startPop: 5 as const,
   ecoInfraMultiplier: 1.0,
   moraleParams: {
     S: STARTING_MORALE_DAY1,
@@ -15,19 +17,46 @@ const table = buildHourlyResourceBalanceTable(2, "4x", {
     N: 0,
     D: DEFAULT_MORALE_DECAY_D,
   },
+};
+
+const resourceTable = buildHourlyResourceBalanceTable(2, "4x", {
+  resource: cityResource,
+  ...cityInputs,
 }, {
-  startingBalance: 1000,
+  startingBalance: 0,
 });
 
+const cashTable = buildHourlyResourceBalanceTable(2, "4x", {
+  resource: "cash",
+  ...cityInputs,
+}, {
+  startingBalance: 0,
+});
+
+const manpowerTable = buildHourlyResourceBalanceTable(2, "4x", {
+  resource: "manpower",
+  ...cityInputs,
+}, {
+  startingBalance: 0,
+});
+
+console.log(`City resource: ${cityResource}`);
 console.table(
-  table.rows.map(row => ({
+  resourceTable.rows.map((row, index) => ({
     hour: row.hour,
     day: row.day,
     hourOfDay: row.hourOfDay,
-    production: row.production,
-    balanceStart: row.balanceStart,
-    balanceEnd: row.balanceEnd,
+    [cityResource]: row.production,
+    manpower: manpowerTable.rows[index]?.production ?? 0,
+    cash: cashTable.rows[index]?.production ?? 0,
+    [`${cityResource}Balance`]: row.balanceEnd,
+    manpowerBalance: manpowerTable.rows[index]?.balanceEnd ?? 0,
+    cashBalance: cashTable.rows[index]?.balanceEnd ?? 0,
   }))
 );
 
-console.log("Ending balance:", table.endingBalance);
+console.log("Ending balances:", {
+  [cityResource]: resourceTable.endingBalance,
+  manpower: manpowerTable.endingBalance,
+  cash: cashTable.endingBalance,
+});

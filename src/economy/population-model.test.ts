@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { BASE_RESOURCE_PRODUCTION } from "./constants.js";
 import {
   dayAtPopulation,
   populationAtDay,
@@ -14,6 +15,7 @@ import {
   buildDailyMultipliersTable,
   marginalReturnsSchedule,
   populationMultiplierDetails,
+  populationToManpower,
   populationToMultiplier,
 } from "./resource-table.js";
 
@@ -130,6 +132,17 @@ test("population modifier interpolates incrementally within a tier", () => {
   assert.equal(populationToMultiplier(6, DEFAULT_MULTIPLIER_BY_POP), 1.05);
 });
 
+test("cash is available as a resource class with base production", () => {
+  assert.equal(BASE_RESOURCE_PRODUCTION.cash, 1500);
+});
+
+test("manpower is derived from population", () => {
+  assert.equal(populationToManpower(4), 125);
+  assert.equal(populationToManpower(5), 140);
+  assert.equal(populationToManpower(5.5), 145);
+  assert.equal(populationToManpower(10), 200);
+});
+
 test("step growth still yields incremental production modifiers via progress", () => {
   const table = buildDailyMultipliersTable(10, {
     startPop: 5,
@@ -244,6 +257,8 @@ test("country hourly balance table accumulates balances per resource", () => {
   assert.equal(table.rows[0].hour, 1);
   assert.equal(table.rows[0].balances.supplies >= 100, true);
   assert.equal(table.rows[0].balances.fuel >= 50, true);
+  assert.equal(table.rows[0].balances.cash > 0, true);
+  assert.equal(table.rows[0].balances.manpower > 0, true);
   assert.equal(table.rows[0].balances.components, undefined);
   assert.equal(
     table.endingBalances.supplies,
@@ -252,5 +267,13 @@ test("country hourly balance table accumulates balances per resource", () => {
   assert.equal(
     table.endingBalances.fuel,
     table.rows[23].balances.fuel
+  );
+  assert.equal(
+    table.endingBalances.cash,
+    table.rows[23].balances.cash
+  );
+  assert.equal(
+    table.endingBalances.manpower,
+    table.rows[23].balances.manpower
   );
 });

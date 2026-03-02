@@ -1,6 +1,7 @@
 import {
   BASE_RESOURCE_PRODUCTION,
   GAME_SPEED_MULTIPLIER,
+  MANPOWER_BY_POPULATION_TABLE,
   MIN_POPULATION,
   POPULATION_CAP,
   POPULATION_MODIFIER_TABLE,
@@ -119,6 +120,25 @@ export function populationToMultiplier(
 
   const t = (p - lo) / (hi - lo);
   return loMultiplier + (hiMultiplier - loMultiplier) * t;
+}
+
+export function populationToManpower(popLevelContinuous: number): number {
+  const minPop = MANPOWER_BY_POPULATION_TABLE[0].population;
+  const maxPop = MANPOWER_BY_POPULATION_TABLE[MANPOWER_BY_POPULATION_TABLE.length - 1].population;
+  const p = clamp(popLevelContinuous, minPop, maxPop);
+  const lo = Math.floor(p);
+  const hi = Math.ceil(p);
+  const loRow = MANPOWER_BY_POPULATION_TABLE.find(row => row.population === lo);
+  const hiRow = MANPOWER_BY_POPULATION_TABLE.find(row => row.population === hi);
+
+  if (!loRow || !hiRow) {
+    throw new Error(`Missing manpower row for pop range ${lo}..${hi}`);
+  }
+
+  if (lo === hi) return loRow.amount;
+
+  const t = (p - lo) / (hi - lo);
+  return loRow.amount + ((hiRow.amount - loRow.amount) * t);
 }
 
 export function populationToEffectiveLevel(population: {
@@ -245,8 +265,6 @@ export function buildDailyResourceTable(
   }
   const hidden = city.hiddenMultiplierOverride ?? speedMul;
 
-  const base = BASE_RESOURCE_PRODUCTION[city.resource];
-
   const rows: DailyResourceRow[] = [];
   let total = 0;
 
@@ -256,9 +274,12 @@ export function buildDailyResourceTable(
     const moraleMul = moraleProductionMultiplier(morale);
 
     const population = populationAtDay(day, city.startPop, populationMode, city.populationOpts);
-    const popMul = populationToMultiplier(populationToEffectiveLevel(population), multiplierByPop);
+    const popDecimal = populationToEffectiveLevel(population);
+    const popMul = populationToMultiplier(popDecimal, multiplierByPop);
 
-    const amount = roundInt(base * ecoInfra * moraleMul * popMul * hidden);
+    const amount = city.resource === "manpower"
+      ? roundInt(populationToManpower(popDecimal))
+      : roundInt(BASE_RESOURCE_PRODUCTION[city.resource] * ecoInfra * moraleMul * popMul * hidden);
 
     rows.push({ day, amount });
     total += amount;

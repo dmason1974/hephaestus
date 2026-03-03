@@ -3,6 +3,7 @@
 ## Smoke Tests
 
 The repo includes a set of smoke scripts for checking the economy, morale, and build-order models from the command line.
+The smoke entrypoints now live under `src/harness/smoke/`, separate from the core model and simulation code.
 
 Run them with:
 
@@ -13,6 +14,7 @@ npm run smoke:resource
 npm run smoke:resource:hourly
 npm run smoke:argentina:hourly
 npm run smoke:build-order
+npm run smoke:build-order:compare
 ```
 
 ### Scenario Ground Truth
@@ -37,16 +39,17 @@ Hourly and daily reporting now use map time, not "24 hours since scenario start"
 
 `smoke:morale`
 
-- Prints the baseline homeland morale by game day.
+- Prints the baseline homeland morale as a map-time table.
 - Uses scenario start time for display context.
-- Prints `dayStartAbs` using fixed map-day boundaries.
+- Prints `day`, `hourOfDay`, and `morale`.
 - Does not use starting balances.
 
 `smoke:multipliers`
 
 - Prints daily morale and population multipliers.
 - Uses scenario start time for display context.
-- Prints `dayStartAbs` using fixed map-day boundaries.
+- Prints `day`, `morale`, `moraleMul`, `popDecimal`, and `popMul`.
+- Rounds `popDecimal` to 1 decimal place and `popMul` to 2 decimal places.
 - Does not use starting balances.
 
 `smoke:resource`
@@ -55,7 +58,7 @@ Hourly and daily reporting now use map time, not "24 hours since scenario start"
 - Uses scenario `speed`.
 - Uses hourly-to-daily rollup over fixed map-day windows.
 - Prints a partial first day when the scenario starts mid-day.
-- Prints `dayStartAbs` and `hoursCounted` for each map day.
+- Prints `hoursCounted` for each map day.
 - Prints scenario start time and starting balances for context.
 
 `smoke:resource:hourly`
@@ -63,9 +66,8 @@ Hourly and daily reporting now use map time, not "24 hours since scenario start"
 - Prints hourly production and running balances for a single example city resource plus `manpower` and `cash`.
 - Uses scenario `speed`.
 - Uses scenario `starting_balance` for the displayed resource, `cash`, and `manpower`.
-- Prints absolute hour using scenario start time.
 - Uses calendar day for morale ticks, so morale changes at absolute hours `24`, `48`, `72`, ...
-- Prints `calendarDay`, `scenarioRelativeDay`, and `morale` for debugging.
+- Prints `day`, `hourOfDay`, and `morale` alongside hourly production and balances.
 
 `smoke:argentina:hourly`
 
@@ -73,8 +75,8 @@ Hourly and daily reporting now use map time, not "24 hours since scenario start"
 - Aggregates hourly country balances for `supplies`, `components`, `fuel`, `electronics`, `rare`, `manpower`, and `cash`.
 - Uses scenario `speed`.
 - Uses scenario `starting_balance`.
-- Prints absolute hour using scenario start time.
 - Uses fixed map-day/hour labels derived from absolute time.
+- Prints `day` and `hourOfDay` alongside the country balance columns.
 - Starts on the scenario start hour and truncates output at the end of the requested map-day window.
 
 `smoke:build-order`
@@ -85,7 +87,16 @@ Hourly and daily reporting now use map time, not "24 hours since scenario start"
   - scenario start and absolute `t0`
   - per-build `start_rel_hour`, `duration_hours`, `completion_abs`, `activationDay`
   - per-day `dayStart_abs` and bunker level at day start
-  - hourly production table with absolute hours
+  - hourly production table with absolute hours, morale, and multiplier
+
+`smoke:build-order:compare`
+
+- Compares two single-city build orders over the first 28 map days:
+  - `AI5 -> B3`
+  - `B3 -> AI5`
+- Uses Argentina's Buenos Aires city as the exemplar input.
+- Uses the shared city economic inputs directly from the city's starting population, produced resource, and scenario speed.
+- Prints per-build timings, final cumulative output, and day-by-day cumulative deltas for the city resource and cash.
 
 ## Tests
 

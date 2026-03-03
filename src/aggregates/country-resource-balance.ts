@@ -8,14 +8,16 @@ import {
   STARTING_MORALE_DAY1,
   type Resource,
   type StartingPopulation,
-} from "../../core/constants.js";
+} from "../core/constants.js";
 import {
   buildHourlyResourceTable,
   type CityResourceInputs,
-} from "./resource-table.js";
-import { buildCountrySchema, type Country } from "../../validation/countrySchema.js";
-import { loadEnumerations, projectRoot } from "../../validation/enums.js";
-import { getScenarioCountryPath } from "../../validation/scenarioPaths.js";
+} from "../models/economy/city-production.js";
+import { getEconomicBuildingEffectsForLevels } from "../models/economy/building-modifiers.js";
+import { buildCountrySchema, type Country } from "../validation/countrySchema.js";
+import { loadEnumerations, projectRoot } from "../validation/enums.js";
+import { getScenarioCountryPath } from "../validation/scenarioPaths.js";
+import { validateBuildingsFile, type BuildingsFile } from "../validation/buildingSchema.js";
 
 export type CountryHourlyBalanceRow = {
   hour: number;
@@ -32,6 +34,7 @@ export type CountryHourlyBalanceTable = {
 type CountryResourceBalanceOptions = {
   startingBalances?: Partial<Record<Resource, number>>;
   startAbsoluteHour?: number;
+  buildingsFile?: BuildingsFile;
   cityDefaults?: Pick<
     CityResourceInputs,
     "ecoInfraMultiplier" | "hiddenMultiplierOverride" | "populationMode" | "populationOpts" | "multiplierByPop"
@@ -45,6 +48,7 @@ function buildZeroBalances(resources: readonly Resource[]) {
 function toCityResourceInputs(
   city: Country["cities"][number],
   resource: Resource,
+  buildingsFile: BuildingsFile,
   opts?: CountryResourceBalanceOptions
 ): CityResourceInputs {
   return {
@@ -61,6 +65,9 @@ function toCityResourceInputs(
     populationMode: opts?.cityDefaults?.populationMode,
     populationOpts: opts?.cityDefaults?.populationOpts,
     multiplierByPop: opts?.cityDefaults?.multiplierByPop,
+    buildingEffects: getEconomicBuildingEffectsForLevels(buildingsFile, {
+      arms_industry: city.starting.arms_industry,
+    }),
   };
 }
 
@@ -99,6 +106,9 @@ export function buildCountryHourlyResourceBalanceTable(
   const productionByHour = Array.from({ length: hourlyCount }, () => buildZeroBalances(resources));
   const balances = buildZeroBalances(resources);
   const startAbsoluteHour = opts?.startAbsoluteHour ?? 0;
+  const buildingsFile =
+    opts?.buildingsFile ??
+    validateBuildingsFile(path.join(projectRoot(), "data", "buildings.yml"));
 
   for (const resource of resources) {
     const startingBalance = opts?.startingBalances?.[resource] ?? 0;
@@ -114,9 +124,14 @@ export function buildCountryHourlyResourceBalanceTable(
     );
 
     for (const resource of generatedResources) {
-      const hourly = buildHourlyResourceTable(days, gameSpeed, toCityResourceInputs(city, resource, opts), {
-        startAbsoluteHour: opts?.startAbsoluteHour,
-      });
+      const hourly = buildHourlyResourceTable(
+        days,
+        gameSpeed,
+        toCityResourceInputs(city, resource, buildingsFile, opts),
+        {
+          startAbsoluteHour: opts?.startAbsoluteHour,
+        }
+      );
       for (const row of hourly.rows) {
         productionByHour[row.hour - 1][resource] += row.amount;
       }

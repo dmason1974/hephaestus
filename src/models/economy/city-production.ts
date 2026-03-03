@@ -16,9 +16,13 @@ import {
   populationAtDay,
   type PopulationMode,
   type PopulationModelOptions,
-} from "../population/population-model.js";
-import { moraleOnDay, type MoraleParams } from "../morale/morale-model.js";
-import { moraleProductionMultiplier } from "../morale/morale-modifier.js";
+} from "./population.js";
+import {
+  moraleOnDay,
+  moraleProductionMultiplier,
+  type MoraleParams,
+} from "./morale.js";
+import { type EconomicBuildingEffects } from "./building-modifiers.js";
 
 export type CityResourceInputs = {
   resource: Resource; // "supplies" | "components" | ...
@@ -32,6 +36,7 @@ export type CityResourceInputs = {
   populationMode?: PopulationMode;
   populationOpts?: PopulationModelOptions;
   multiplierByPop?: Record<number, number>;
+  buildingEffects?: EconomicBuildingEffects;
 };
 
 export type DailyResourceRow = {
@@ -54,6 +59,12 @@ export type HourlyResourceRow = {
 export type HourlyResourceTable = {
   rows: HourlyResourceRow[];
   total: number;
+};
+
+export type HourlyResourcePoint = {
+  day: number;
+  hourOfDay: number;
+  amount: number;
 };
 
 export type HourlyBalanceRow = {
@@ -79,6 +90,13 @@ function clamp(n: number, min: number, max: number) {
 function roundInt(x: number) {
   // matches your sheet style rounding
   return Math.round(x);
+}
+
+function flatBonusForResource(
+  buildingEffects: EconomicBuildingEffects | undefined,
+  resource: Resource
+) {
+  return buildingEffects?.flatBonuses[resource] ?? 0;
 }
 
 export const DEFAULT_MULTIPLIER_BY_POP = Object.fromEntries(
@@ -258,6 +276,7 @@ export function buildDailyResourceTable(
   const ecoInfra = city.ecoInfraMultiplier ?? 1.0;
   const populationMode = city.populationMode ?? "step";
   const multiplierByPop = city.multiplierByPop ?? DEFAULT_MULTIPLIER_BY_POP;
+  const buildingEffects = city.buildingEffects;
 
   const speedMul = GAME_SPEED_MULTIPLIER[gameSpeed];
   if (speedMul === undefined) {
@@ -276,10 +295,15 @@ export function buildDailyResourceTable(
     const population = populationAtDay(day, city.startPop, populationMode, city.populationOpts);
     const popDecimal = populationToEffectiveLevel(population);
     const popMul = populationToMultiplier(popDecimal, multiplierByPop);
+    const productionMultiplier = 1 + (buildingEffects?.productionBonusPct ?? 0);
+    const flatBonus = flatBonusForResource(buildingEffects, city.resource);
 
     const amount = city.resource === "manpower"
       ? roundInt(populationToManpower(popDecimal))
-      : roundInt(BASE_RESOURCE_PRODUCTION[city.resource] * ecoInfra * moraleMul * popMul * hidden);
+      : roundInt(
+          (BASE_RESOURCE_PRODUCTION[city.resource] * ecoInfra * moraleMul * popMul * hidden * productionMultiplier) +
+          (flatBonus * 24)
+        );
 
     rows.push({ day, amount });
     total += amount;
@@ -299,42 +323,62 @@ export function buildHourlyResourceTable(
   const rows: HourlyResourceRow[] = [];
   let total = 0;
   const startAbsoluteHour = opts?.startAbsoluteHour ?? 0;
+
+  for (let index = 0; index < days * 24; index++) {
+    const absoluteHour = startAbsoluteHour + index;
+    const point = hourlyResourcePointAtAbsoluteHour(gameSpeed, city, absoluteHour);
+    const hour = index + 1;
+
+    rows.push({
+      hour,
+      day: point.day,
+      hourOfDay: point.hourOfDay,
+      amount: point.amount,
+    });
+    total += point.amount;
+  }
+
+  return { rows, total };
+}
+
+export function hourlyResourcePointAtAbsoluteHour(
+  gameSpeed: GameSpeed,
+  city: CityResourceInputs,
+  absoluteHour: number
+): HourlyResourcePoint {
   const ecoInfra = city.ecoInfraMultiplier ?? 1.0;
   const populationMode = city.populationMode ?? "step";
   const multiplierByPop = city.multiplierByPop ?? DEFAULT_MULTIPLIER_BY_POP;
+  const buildingEffects = city.buildingEffects;
 
   const speedMul = GAME_SPEED_MULTIPLIER[gameSpeed];
   if (speedMul === undefined) {
     throw new Error(`Unknown gameSpeed="${gameSpeed}"`);
   }
   const hidden = city.hiddenMultiplierOverride ?? speedMul;
+  const calendarDay = Math.floor(absoluteHour / 24) + 1;
+  const morale = moraleOnDay(calendarDay, city.moraleParams);
+  const moraleMul = moraleProductionMultiplier(morale);
+  const population = populationAtDay(calendarDay, city.startPop, populationMode, city.populationOpts);
+  const popDecimal = populationToEffectiveLevel(population);
+  const popMul = populationToMultiplier(popDecimal, multiplierByPop);
+  const productionMultiplier = 1 + (buildingEffects?.productionBonusPct ?? 0);
+  const flatBonus = flatBonusForResource(buildingEffects, city.resource);
+  const dailyAmount =
+    city.resource === "manpower"
+      ? roundInt(populationToManpower(popDecimal))
+      : roundInt(
+          (BASE_RESOURCE_PRODUCTION[city.resource] * ecoInfra * moraleMul * popMul * hidden * productionMultiplier) +
+          (flatBonus * 24)
+        );
+  const hourlyAmount = Math.floor(dailyAmount / 24);
+  const hourOfDay = (absoluteHour % 24) + 1;
 
-  for (let index = 0; index < days * 24; index++) {
-    const absoluteHour = startAbsoluteHour + index;
-    const calendarDay = Math.floor(absoluteHour / 24) + 1;
-    const morale = moraleOnDay(calendarDay, city.moraleParams);
-    const moraleMul = moraleProductionMultiplier(morale);
-    const population = populationAtDay(calendarDay, city.startPop, populationMode, city.populationOpts);
-    const popDecimal = populationToEffectiveLevel(population);
-    const popMul = populationToMultiplier(popDecimal, multiplierByPop);
-    const dailyAmount =
-      city.resource === "manpower"
-        ? roundInt(populationToManpower(popDecimal))
-        : roundInt(BASE_RESOURCE_PRODUCTION[city.resource] * ecoInfra * moraleMul * popMul * hidden);
-    const hourlyAmount = Math.floor(dailyAmount / 24);
-    const hour = index + 1;
-    const hourOfDay = (absoluteHour % 24) + 1;
-
-    rows.push({
-      hour,
-      day: calendarDay,
-      hourOfDay,
-      amount: hourlyAmount,
-    });
-    total += hourlyAmount;
-  }
-
-  return { rows, total };
+  return {
+    day: calendarDay,
+    hourOfDay,
+    amount: hourlyAmount,
+  };
 }
 
 export function buildHourlyResourceBalanceTable(

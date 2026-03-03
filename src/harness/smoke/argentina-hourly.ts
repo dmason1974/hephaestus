@@ -1,12 +1,12 @@
 import {
   buildCountryHourlyResourceBalanceTable,
   loadScenarioCountry,
-} from "../../../models/economy/country-resource-balance.js";
+} from "../../aggregates/country-resource-balance.js";
 import {
   loadScenarioFile,
-} from "../../../validation/scenarioPaths.js";
-import { scenarioStartAbsoluteHour } from "../../../core/time.js";
-import { hourOfMapDay, mapDayForAbsoluteHour, scenarioReportWindow } from "./scenario-reporting.js";
+} from "../../validation/scenarioPaths.js";
+import { scenarioStartAbsoluteHour } from "../../core/time.js";
+import { hourOfMapDay, mapDayForAbsoluteHour, scenarioReportWindow } from "../../aggregates/scenario-reporting.js";
 
 const scenarioId = "elite_ava_feb_2026";
 const scenario = loadScenarioFile(scenarioId);
@@ -28,13 +28,13 @@ console.log(
 console.log("Scenario starting balances:", scenario.starting_balance);
 
 const filteredRows = table.rows
-  .map(row => {
+  .flatMap(row => {
     const absoluteHour = scenarioStartAbsoluteHour(scenario) + row.hour - 1;
-    return {
-      hour: row.hour,
+    if (absoluteHour >= reportWindow.endAbsExclusive) return [];
+
+    return [{
       day: mapDayForAbsoluteHour(absoluteHour),
       hourOfDay: hourOfMapDay(absoluteHour),
-      absoluteHour,
       supplies: row.balances.supplies ?? 0,
       components: row.balances.components ?? 0,
       fuel: row.balances.fuel ?? 0,
@@ -42,9 +42,8 @@ const filteredRows = table.rows
       rare: row.balances.rares ?? 0,
       manpower: row.balances.manpower ?? 0,
       cash: row.balances.cash ?? 0,
-    };
-  })
-  .filter(row => row.absoluteHour < reportWindow.endAbsExclusive);
+    }];
+  });
 
 console.table(filteredRows);
 

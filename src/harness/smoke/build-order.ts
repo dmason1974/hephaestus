@@ -1,11 +1,21 @@
 import path from "node:path";
 
-import { simulateBuildOrder, type CityState } from "../build-order-sim.js";
-import { dayStartAbsoluteHour, scenarioStartAbsoluteHour } from "../../../core/time.js";
-import { baselineHomelandMoraleOnDay } from "../../../models/morale/morale-baseline.js";
-import { moraleProductionMultiplier } from "../../../models/morale/morale-modifier.js";
-import { validateBuildingsFile } from "../../../validation/buildingSchema.js";
-import { loadScenarioFile } from "../../../validation/scenarioPaths.js";
+import {
+  DEFAULT_MORALE_DECAY_D,
+  HOMELAND_TARGET_MORALE,
+  STARTING_MORALE_DAY1,
+} from "../../core/constants.js";
+import { simulateBuildOrder, type CityState } from "../../sim/build-order/build-order-sim.js";
+import { scenarioStartAbsoluteHour } from "../../core/time.js";
+import {
+  baselineHomelandMoraleOnDay,
+  homelandMoraleOnDayWithBunkers,
+  moraleProductionMultiplier,
+} from "../../models/economy/morale.js";
+import { hourlyResourcePointAtAbsoluteHour } from "../../models/economy/city-production.js";
+import { getEconomicBuildingEffectsForLevels } from "../../models/economy/building-modifiers.js";
+import { validateBuildingsFile } from "../../validation/buildingSchema.js";
+import { loadScenarioFile } from "../../validation/scenarioPaths.js";
 
 const scenarioId = "elite_ava_feb_2026";
 const scenario = loadScenarioFile(scenarioId);
@@ -15,15 +25,8 @@ const buildings = validateBuildingsFile(
 
 const city: CityState = {
   cityId: "supplies_city",
-  baseHourlyProduction: {
-    supplies: 1000,
-    components: 0,
-    fuel: 0,
-    rares: 0,
-    electronics: 0,
-    cash: 1500,
-    manpower: 150,
-  },
+  resource: "supplies",
+  startPop: 6,
   buildings: { arms_industry: 0, underground_bunkers: 0 },
 };
 
@@ -78,17 +81,63 @@ console.table(
   }))
 );
 
-const initialMultiplier = moraleProductionMultiplier(baselineHomelandMoraleOnDay(1));
+const initialAbsoluteHour = scenarioStartAbsoluteHour(scenario);
+const initialMapDay = Math.floor(initialAbsoluteHour / 24) + 1;
+const initialBaseEffects = getEconomicBuildingEffectsForLevels(buildings, city.buildings);
+const initialMultiplier = moraleProductionMultiplier(baselineHomelandMoraleOnDay(initialMapDay));
 
 const initialRow = {
   hour: 0,
-  absoluteHour: scenarioStartAbsoluteHour(scenario),
-  dayIndex: 1,
-  dayStartAbs: dayStartAbsoluteHour(scenario, 1),
+  absoluteHour: initialAbsoluteHour,
+  dayIndex: initialMapDay,
+  dayStartAbs: Math.floor(initialAbsoluteHour / 24) * 24,
+  morale: baselineHomelandMoraleOnDay(initialMapDay),
   multiplier: initialMultiplier,
-  supplies: Math.round(city.baseHourlyProduction.supplies * initialMultiplier),
-  cash: Math.round(city.baseHourlyProduction.cash * initialMultiplier),
-  manpower: Math.round(city.baseHourlyProduction.manpower * initialMultiplier),
+  supplies: hourlyResourcePointAtAbsoluteHour(
+    scenario.speed,
+    {
+      resource: "supplies",
+      startPop: city.startPop,
+      moraleParams: {
+        S: STARTING_MORALE_DAY1,
+        T: HOMELAND_TARGET_MORALE,
+        N: initialBaseEffects.moraleBonusN,
+        D: DEFAULT_MORALE_DECAY_D,
+      },
+      buildingEffects: initialBaseEffects,
+    },
+    initialAbsoluteHour
+  ).amount,
+  cash: hourlyResourcePointAtAbsoluteHour(
+    scenario.speed,
+    {
+      resource: "cash",
+      startPop: city.startPop,
+      moraleParams: {
+        S: STARTING_MORALE_DAY1,
+        T: HOMELAND_TARGET_MORALE,
+        N: initialBaseEffects.moraleBonusN,
+        D: DEFAULT_MORALE_DECAY_D,
+      },
+      buildingEffects: initialBaseEffects,
+    },
+    initialAbsoluteHour
+  ).amount,
+  manpower: hourlyResourcePointAtAbsoluteHour(
+    scenario.speed,
+    {
+      resource: "manpower",
+      startPop: city.startPop,
+      moraleParams: {
+        S: STARTING_MORALE_DAY1,
+        T: HOMELAND_TARGET_MORALE,
+        N: initialBaseEffects.moraleBonusN,
+        D: DEFAULT_MORALE_DECAY_D,
+      },
+      buildingEffects: initialBaseEffects,
+    },
+    initialAbsoluteHour
+  ).amount,
   fromLevel: 0,
   toLevel: 0,
 };
@@ -101,10 +150,18 @@ console.table(
       return {
         hour: row.hour + 1,
         absoluteHour: debug?.absoluteHour ?? (scenarioStartAbsoluteHour(scenario) + row.hour),
-        dayIndex: debug?.dayIndex ?? Math.floor(row.hour / 24) + 1,
+        dayIndex:
+          debug?.dayIndex ??
+          (Math.floor((scenarioStartAbsoluteHour(scenario) + row.hour) / 24) + 1),
         dayStartAbs:
           debug?.dayStartAbsoluteHour ??
-          dayStartAbsoluteHour(scenario, Math.floor(row.hour / 24) + 1),
+          (Math.floor((scenarioStartAbsoluteHour(scenario) + row.hour) / 24) * 24),
+        morale: homelandMoraleOnDayWithBunkers(
+          debug?.dayIndex ??
+            (Math.floor((scenarioStartAbsoluteHour(scenario) + row.hour) / 24) + 1),
+          debug?.bunkerLevelAtDayStart ?? 0,
+          buildings
+        ),
         multiplier: Number(row.multiplier.toPrecision(3)),
         supplies: Math.round(row.production.supplies),
         cash: Math.round(row.production.cash),
@@ -118,6 +175,7 @@ console.table(
       absoluteHour: row.absoluteHour,
       dayIndex: row.dayIndex,
       dayStartAbs: row.dayStartAbs,
+      morale: row.morale,
       multiplier: row.multiplier.toFixed(2),
       supplies: row.supplies,
       cash: row.cash,

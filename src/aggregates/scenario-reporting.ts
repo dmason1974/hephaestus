@@ -1,4 +1,4 @@
-import { scenarioStartAbsoluteHour, toAbsoluteHour, type ScenarioStartLike } from "../../../core/time.js";
+import { scenarioStartAbsoluteHour, toAbsoluteHour, type ScenarioStartLike } from "../core/time.js";
 
 export function mapDayStartAbsoluteHour(mapDay: number): number {
   return toAbsoluteHour(mapDay, 0);

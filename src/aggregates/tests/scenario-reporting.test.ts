@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { aggregateHourlyAmountsByMapDay } from "./scenario-reporting.js";
+import { aggregateHourlyAmountsByMapDay } from "../scenario-reporting.js";
 
 test("map-day aggregation counts a partial first day from scenario start hour", () => {
   const rows = Array.from({ length: 48 }, (_, index) => ({

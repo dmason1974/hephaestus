@@ -1,14 +1,14 @@
-import { scenarioStartAbsoluteHour } from "../../../core/time.js";
-import { buildHourlyResourceBalanceTable } from "../../../models/economy/resource-table.js";
+import { scenarioStartAbsoluteHour } from "../../core/time.js";
+import { buildHourlyResourceBalanceTable } from "../../models/economy/city-production.js";
 import {
   DEFAULT_MORALE_DECAY_D,
   HOMELAND_TARGET_MORALE,
   STARTING_MORALE_DAY1,
   type Resource,
-} from "../../../core/constants.js";
-import { moraleOnDay } from "../../../models/morale/morale-model.js";
-import { loadScenarioFile } from "../../../validation/scenarioPaths.js";
-import { hourOfMapDay, mapDayForAbsoluteHour, scenarioReportWindow } from "./scenario-reporting.js";
+} from "../../core/constants.js";
+import { moraleOnDay } from "../../models/economy/morale.js";
+import { loadScenarioFile } from "../../validation/scenarioPaths.js";
+import { hourOfMapDay, mapDayForAbsoluteHour, scenarioReportWindow } from "../../aggregates/scenario-reporting.js";
 
 const scenarioId = "elite_ava_feb_2026";
 const scenario = loadScenarioFile(scenarioId);
@@ -64,15 +64,13 @@ console.log("Scenario starting balances:", {
 });
 console.log(`City resource: ${cityResource}`);
 const filteredRows = resourceTable.rows
-  .map((row, index) => {
+  .flatMap((row, index) => {
     const absoluteHour = scenarioStartAbsoluteHour(scenario) + row.hour - 1;
-    return {
-      hour: row.hour,
+    if (absoluteHour >= reportWindow.endAbsExclusive) return [];
+
+    return [{
       day: mapDayForAbsoluteHour(absoluteHour),
       hourOfDay: hourOfMapDay(absoluteHour),
-      absoluteHour,
-      calendarDay: mapDayForAbsoluteHour(absoluteHour),
-      scenarioRelativeDay: Math.floor((absoluteHour - reportWindow.startAbs) / 24) + 1,
       morale: moraleOnDay(mapDayForAbsoluteHour(absoluteHour), cityInputs.moraleParams),
       [cityResource]: row.production,
       manpower: manpowerTable.rows[index]?.production ?? 0,
@@ -80,9 +78,8 @@ const filteredRows = resourceTable.rows
       [`${cityResource}Balance`]: row.balanceEnd,
       manpowerBalance: manpowerTable.rows[index]?.balanceEnd ?? 0,
       cashBalance: cashTable.rows[index]?.balanceEnd ?? 0,
-    };
-  })
-  .filter(row => row.absoluteHour < reportWindow.endAbsExclusive);
+    }];
+  });
 
 console.table(filteredRows);
 

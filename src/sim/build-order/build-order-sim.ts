@@ -1,29 +1,50 @@
 import type { BuildingsFile } from "../../validation/buildingSchema.js";
-import { type Resource as EconomyResource } from "../../core/constants.js";
 import {
-  dayStartAbsoluteHour,
-  scenarioStartAbsoluteHour,
-  type ScenarioStartLike,
-} from "../../core/time.js";
-import { bunkerMoraleBonusN } from "../../models/morale/bunker.js";
-import { homelandMoraleOnDayWithBunkers } from "../../models/morale/morale-baseline.js";
-import { moraleProductionMultiplier } from "../../models/morale/morale-modifier.js";
+  DEFAULT_MORALE_DECAY_D,
+  HOMELAND_TARGET_MORALE,
+  STARTING_MORALE_DAY1,
+  type GameSpeed,
+  type Resource as EconomyResource,
+  type StartingPopulation,
+} from "../../core/constants.js";
+import { scenarioStartAbsoluteHour, type ScenarioStartLike } from "../../core/time.js";
+import {
+  getEconomicBuildingEffectsForLevels,
+  interpolateArmsIndustryEffects,
+} from "../../models/economy/building-modifiers.js";
+import {
+  hourlyResourcePointAtAbsoluteHour,
+  type CityResourceInputs,
+} from "../../models/economy/city-production.js";
+import {
+  moraleOnDay,
+  moraleProductionMultiplier,
+  type MoraleParams,
+} from "../../models/economy/morale.js";
+import {
+  getBuildingStateAtHourEnd,
+  getCompletedBuildingLevelAtDayStart,
+  scheduleBuildSegments,
+  type BuildAction,
+  type BuildingLevels,
+} from "../../models/orchestration/build-order-timeline.js";
 
 export type Resource = EconomyResource;
+type ProducedResource = Exclude<Resource, "cash" | "manpower">;
 
 export type CityState = {
   cityId: string;
-  baseHourlyProduction: Record<Resource, number>;
-  buildings: { arms_industry: number; underground_bunkers: number };
+  resource: ProducedResource;
+  startPop: StartingPopulation;
+  buildings: BuildingLevels;
+  moraleParams?: MoraleParams;
+  ecoInfraMultiplier?: CityResourceInputs["ecoInfraMultiplier"];
+  hiddenMultiplierOverride?: CityResourceInputs["hiddenMultiplierOverride"];
+  populationMode?: CityResourceInputs["populationMode"];
+  populationOpts?: CityResourceInputs["populationOpts"];
+  multiplierByPop?: CityResourceInputs["multiplierByPop"];
 };
-
-export type BuildAction = {
-  cityId: string;
-  buildingId: "arms_industry" | "underground_bunkers";
-  targetLevel: number;
-  startRelHour?: number;
-  startHour?: number;
-};
+export type { BuildAction } from "../../models/orchestration/build-order-timeline.js";
 
 export type HourlyCityResult = {
   hour: number;
@@ -76,28 +97,6 @@ export type SimulationResult = {
   };
 };
 
-type ArmsIndustryLevelData = {
-  level: number;
-  productionBonusPct: number;
-  flatCash: number;
-  buildTimeMinutes: number;
-};
-
-type UndergroundBunkerLevelData = {
-  level: number;
-  buildTimeMinutes: number;
-};
-
-type BuildSegment = {
-  cityId: string;
-  buildingId: "arms_industry" | "underground_bunkers";
-  fromLevel: number;
-  toLevel: number;
-  startMinute: number;
-  endMinute: number;
-  startRelHour: number;
-};
-
 const RESOURCE_KEYS: Resource[] = [
   "supplies",
   "components",
@@ -120,254 +119,32 @@ function zeroProduction(): Record<Resource, number> {
   };
 }
 
-function cloneProduction(source: Record<Resource, number>): Record<Resource, number> {
-  return {
-    supplies: source.supplies,
-    components: source.components,
-    fuel: source.fuel,
-    rares: source.rares,
-    electronics: source.electronics,
-    cash: source.cash,
-    manpower: source.manpower,
+function buildCityResourceInputs(
+  city: CityState,
+  resource: Resource,
+  moraleBonusN: number,
+  buildingEffects: CityResourceInputs["buildingEffects"]
+): CityResourceInputs {
+  const moraleParams = city.moraleParams ?? {
+    S: STARTING_MORALE_DAY1,
+    T: HOMELAND_TARGET_MORALE,
+    N: 0,
+    D: DEFAULT_MORALE_DECAY_D,
   };
-}
-
-function lerp(a: number, b: number, t: number) {
-  return a + ((b - a) * t);
-}
-
-function buildTimeToMinutes(buildTime: {
-  days?: number;
-  hours?: number;
-  minutes?: number;
-  seconds?: number;
-}) {
-  const days = buildTime.days ?? 0;
-  const hours = buildTime.hours ?? 0;
-  const minutes = buildTime.minutes ?? 0;
-  const seconds = buildTime.seconds ?? 0;
-  return (days * 24 * 60) + (hours * 60) + minutes + (seconds / 60);
-}
-
-function getArmsIndustryLevels(buildings: BuildingsFile): Record<number, ArmsIndustryLevelData> {
-  const building = buildings.buildings.arms_industry;
-  if (!building) {
-    throw new Error('buildings file is missing "arms_industry"');
-  }
-
-  const levels: Record<number, ArmsIndustryLevelData> = {
-    0: {
-      level: 0,
-      productionBonusPct: 0,
-      flatCash: 0,
-      buildTimeMinutes: 0,
-    },
-  };
-
-  for (const [levelKey, levelData] of Object.entries(building.levels)) {
-    if (!levelData) continue;
-    const level = Number(levelKey);
-    levels[level] = {
-      level,
-      productionBonusPct: levelData.production_bonus_pct ?? 0,
-      flatCash: levelData.flat_bonus?.cash ?? 0,
-      buildTimeMinutes: buildTimeToMinutes(levelData.build_time),
-    };
-  }
-
-  return levels;
-}
-
-function getUndergroundBunkerLevels(
-  buildings: BuildingsFile
-): Record<number, UndergroundBunkerLevelData> {
-  const building = buildings.buildings.underground_bunkers;
-  if (!building) {
-    throw new Error('buildings file is missing "underground_bunkers"');
-  }
-
-  const levels: Record<number, UndergroundBunkerLevelData> = {
-    0: {
-      level: 0,
-      buildTimeMinutes: 0,
-    },
-  };
-
-  for (const [levelKey, levelData] of Object.entries(building.levels)) {
-    if (!levelData) continue;
-    const level = Number(levelKey);
-    levels[level] = {
-      level,
-      buildTimeMinutes: buildTimeToMinutes(levelData.build_time),
-    };
-  }
-
-  return levels;
-}
-
-function scheduleBuildSegments(
-  cities: CityState[],
-  buildOrder: BuildAction[],
-  armsIndustryLevels: Record<number, ArmsIndustryLevelData>,
-  undergroundBunkerLevels: Record<number, UndergroundBunkerLevelData>,
-  scenario: ScenarioStartLike
-) {
-  const scenarioStartMinute = scenarioStartAbsoluteHour(scenario) * 60;
-  const cityLevels = new Map<string, { arms_industry: number; underground_bunkers: number }>();
-  const cityAvailableMinute = new Map<string, number>();
-  const segmentsByCity = new Map<
-    string,
-    { arms_industry: BuildSegment[]; underground_bunkers: BuildSegment[] }
-  >();
-
-  for (const city of cities) {
-    cityLevels.set(city.cityId, { ...city.buildings });
-    cityAvailableMinute.set(city.cityId, scenarioStartMinute);
-    segmentsByCity.set(city.cityId, { arms_industry: [], underground_bunkers: [] });
-  }
-
-  for (const action of buildOrder) {
-    const currentLevels = cityLevels.get(action.cityId);
-    if (currentLevels === undefined) {
-      throw new Error(`unknown cityId "${action.cityId}" in build order`);
-    }
-
-    const currentLevel = currentLevels[action.buildingId];
-
-    if (action.targetLevel <= currentLevel) continue;
-    if (action.targetLevel < 0 || action.targetLevel > 5) {
-      throw new Error(`targetLevel must be between 0 and 5, got ${action.targetLevel}`);
-    }
-
-    let nextStartMinute = Math.max(
-      scenarioStartMinute + ((action.startRelHour ?? action.startHour ?? 0) * 60),
-      cityAvailableMinute.get(action.cityId) ?? 0
-    );
-
-    for (let level = currentLevel + 1; level <= action.targetLevel; level++) {
-      const levelInfo =
-        action.buildingId === "arms_industry"
-          ? armsIndustryLevels[level]
-          : undergroundBunkerLevels[level];
-      if (!levelInfo) {
-        throw new Error(`missing ${action.buildingId} level ${level} in buildings data`);
-      }
-
-      const segment: BuildSegment = {
-        cityId: action.cityId,
-        buildingId: action.buildingId,
-        fromLevel: level - 1,
-        toLevel: level,
-        startMinute: nextStartMinute,
-        endMinute: nextStartMinute + levelInfo.buildTimeMinutes,
-        startRelHour: (nextStartMinute - scenarioStartMinute) / 60,
-      };
-
-      segmentsByCity.get(action.cityId)?.[action.buildingId].push(segment);
-      nextStartMinute = segment.endMinute;
-    }
-
-    cityLevels.set(action.cityId, {
-      ...currentLevels,
-      [action.buildingId]: action.targetLevel,
-    });
-    cityAvailableMinute.set(action.cityId, nextStartMinute);
-  }
-
-  return segmentsByCity;
-}
-
-function getBunkerLevelAtDayStart(args: {
-  dayIndex: number;
-  startingLevel: number;
-  segments: BuildSegment[];
-  scenario: ScenarioStartLike;
-}) {
-  const dayStartHourAbs = dayStartAbsoluteHour(args.scenario, args.dayIndex);
-  let completedLevel = args.startingLevel;
-
-  for (const segment of args.segments) {
-    const completionHour = segment.endMinute / 60;
-    if (completionHour < dayStartHourAbs) {
-      completedLevel = segment.toLevel;
-      continue;
-    }
-    break;
-  }
-
-  return completedLevel;
-}
-
-function getCityStateAtHourEnd(args: {
-  cityId: string;
-  hour: number;
-  segments: BuildSegment[];
-  levelData: Record<number, ArmsIndustryLevelData>;
-  scenario: ScenarioStartLike;
-}) {
-  const endMinute = (scenarioStartAbsoluteHour(args.scenario) + args.hour + 1) * 60;
-  let effectiveBonusPct = 0;
-  let flatCash = 0;
-  let currentFromLevel = 0;
-  let currentToLevel = 0;
-  let progressRatio = 1;
-  let segmentStartMinute: number | null = null;
-  let segmentEndMinute: number | null = null;
-  let flatCashActiveLevel = 0;
-
-  for (const segment of args.segments) {
-    const fromData = args.levelData[segment.fromLevel];
-    const toData = args.levelData[segment.toLevel];
-
-    if (endMinute < segment.startMinute) {
-      break;
-    }
-
-    if (endMinute < segment.endMinute) {
-      const duration = segment.endMinute - segment.startMinute;
-      const ratio = duration <= 0 ? 1 : (endMinute - segment.startMinute) / duration;
-      effectiveBonusPct = lerp(fromData.productionBonusPct, toData.productionBonusPct, ratio);
-      flatCash = fromData.flatCash;
-      currentFromLevel = segment.fromLevel;
-      currentToLevel = segment.toLevel;
-      progressRatio = ratio;
-      segmentStartMinute = segment.startMinute;
-      segmentEndMinute = segment.endMinute;
-      flatCashActiveLevel = segment.fromLevel;
-      return {
-        effectiveBonusPct,
-        flatCash,
-        currentFromLevel,
-        currentToLevel,
-        progressRatio,
-        segmentStartMinute,
-        segmentEndMinute,
-        flatCashActiveLevel,
-      };
-    }
-
-    effectiveBonusPct = toData.productionBonusPct;
-    currentFromLevel = segment.toLevel;
-    currentToLevel = segment.toLevel;
-    progressRatio = 1;
-    segmentStartMinute = segment.startMinute;
-    segmentEndMinute = segment.endMinute;
-
-    if (args.hour >= Math.ceil(segment.endMinute / 60)) {
-      flatCash = toData.flatCash;
-      flatCashActiveLevel = segment.toLevel;
-    }
-  }
 
   return {
-    effectiveBonusPct,
-    flatCash,
-    currentFromLevel,
-    currentToLevel,
-    progressRatio,
-    segmentStartMinute,
-    segmentEndMinute,
-    flatCashActiveLevel,
+    resource,
+    startPop: city.startPop,
+    moraleParams: {
+      ...moraleParams,
+      N: (moraleParams.N ?? 0) + moraleBonusN,
+    },
+    ecoInfraMultiplier: city.ecoInfraMultiplier,
+    hiddenMultiplierOverride: city.hiddenMultiplierOverride,
+    populationMode: city.populationMode,
+    populationOpts: city.populationOpts,
+    multiplierByPop: city.multiplierByPop,
+    buildingEffects,
   };
 }
 
@@ -375,22 +152,19 @@ export function simulateBuildOrder(args: {
   cities: CityState[];
   buildOrder: BuildAction[];
   buildings: BuildingsFile;
-  scenario: ScenarioStartLike;
+  scenario: ScenarioStartLike & { speed: GameSpeed };
   hoursToSimulate: number;
 }): SimulationResult {
   if (!Number.isFinite(args.hoursToSimulate) || args.hoursToSimulate < 0) {
     throw new Error(`hoursToSimulate must be >= 0, got ${args.hoursToSimulate}`);
   }
 
-  const armsIndustryLevels = getArmsIndustryLevels(args.buildings);
-  const undergroundBunkerLevels = getUndergroundBunkerLevels(args.buildings);
-  const segmentsByCity = scheduleBuildSegments(
-    args.cities,
-    args.buildOrder,
-    armsIndustryLevels,
-    undergroundBunkerLevels,
-    args.scenario
-  );
+  const segmentsByCity = scheduleBuildSegments({
+    cities: args.cities,
+    buildOrder: args.buildOrder,
+    buildings: args.buildings,
+    scenario: args.scenario,
+  });
   const perHourPerCity: HourlyCityResult[] = [];
   const debug: SimulationResult["debug"] = [];
   const timingDays: SimulationResult["timingDebug"]["days"] = [];
@@ -398,41 +172,68 @@ export function simulateBuildOrder(args: {
   for (let hour = 0; hour < args.hoursToSimulate; hour++) {
     for (const city of args.cities) {
       const absoluteHour = scenarioStartAbsoluteHour(args.scenario) + hour;
-      const dayIndex = Math.floor(hour / 24) + 1;
-      const dayStartAbs = dayStartAbsoluteHour(args.scenario, dayIndex);
+      const mapDay = Math.floor(absoluteHour / 24) + 1;
+      const dayStartAbs = (mapDay - 1) * 24;
       const citySegments = segmentsByCity.get(city.cityId) ?? {
         arms_industry: [],
         underground_bunkers: [],
       };
-      const state = getCityStateAtHourEnd({
-        cityId: city.cityId,
+      const state = getBuildingStateAtHourEnd({
         hour,
         segments: citySegments.arms_industry,
-        levelData: armsIndustryLevels,
         scenario: args.scenario,
       });
-      const bunkerLevelAtDayStart = getBunkerLevelAtDayStart({
-        dayIndex,
+      const bunkerLevelAtDayStart = getCompletedBuildingLevelAtDayStart({
+        mapDay,
         startingLevel: city.buildings.underground_bunkers,
         segments: citySegments.underground_bunkers,
-        scenario: args.scenario,
       });
-      const morale = homelandMoraleOnDayWithBunkers(dayIndex, bunkerLevelAtDayStart);
+      const bunkerEffects = getEconomicBuildingEffectsForLevels(args.buildings, {
+        underground_bunkers: bunkerLevelAtDayStart,
+      });
+      const buildingEffects = interpolateArmsIndustryEffects(args.buildings, {
+        fromLevel: state.currentFromLevel,
+        toLevel: state.currentToLevel,
+        progressRatio: state.progressRatio,
+        flatBonusLevel: state.flatCashActiveLevel,
+      });
+      const dynamicBuildingEffects = {
+        productionBonusPct: buildingEffects.productionBonusPct,
+        flatBonuses: { ...buildingEffects.flatBonuses },
+        moraleBonusN: bunkerEffects.moraleBonusN,
+      };
+      const debugCityInputs = buildCityResourceInputs(
+        city,
+        city.resource,
+        bunkerEffects.moraleBonusN,
+        dynamicBuildingEffects
+      );
+      const morale = moraleOnDay(mapDay, debugCityInputs.moraleParams);
       const moraleMultiplier = moraleProductionMultiplier(morale);
-      const multiplier = moraleMultiplier * (1 + state.effectiveBonusPct);
+      const multiplier = moraleMultiplier * (1 + buildingEffects.productionBonusPct);
       const production = zeroProduction();
+      const producedResources: Resource[] = [city.resource, "cash", "manpower"];
 
-      for (const resource of RESOURCE_KEYS) {
-        production[resource] = city.baseHourlyProduction[resource] * multiplier;
+      for (const resource of producedResources) {
+        const cityInputs = buildCityResourceInputs(
+          city,
+          resource,
+          bunkerEffects.moraleBonusN,
+          dynamicBuildingEffects
+        );
+        production[resource] = hourlyResourcePointAtAbsoluteHour(
+          args.scenario.speed,
+          cityInputs,
+          absoluteHour
+        ).amount;
       }
-      production.cash += state.flatCash;
 
       perHourPerCity.push({
         hour,
         cityId: city.cityId,
-        effectiveBonusPct: state.effectiveBonusPct,
+        effectiveBonusPct: buildingEffects.productionBonusPct,
         multiplier,
-        flatCash: state.flatCash,
+        flatCash: buildingEffects.flatBonuses.cash ?? 0,
         production,
       });
 
@@ -446,16 +247,16 @@ export function simulateBuildOrder(args: {
         segmentEndMinute: state.segmentEndMinute,
         flatCashActiveLevel: state.flatCashActiveLevel,
         bunkerLevelAtDayStart,
-        bunkerMoraleBonusN: bunkerMoraleBonusN(bunkerLevelAtDayStart),
+        bunkerMoraleBonusN: bunkerEffects.moraleBonusN,
         absoluteHour,
-        dayIndex,
+        dayIndex: mapDay,
         dayStartAbsoluteHour: dayStartAbs,
       });
 
-      if (!timingDays.some(entry => entry.cityId === city.cityId && entry.dayIndex === dayIndex)) {
+      if (!timingDays.some(entry => entry.cityId === city.cityId && entry.dayIndex === mapDay)) {
         timingDays.push({
           cityId: city.cityId,
-          dayIndex,
+          dayIndex: mapDay,
           dayStartAbs,
           bunkerLevelAtDayStart,
         });
@@ -493,10 +294,7 @@ export function simulateBuildOrder(args: {
           startRelHour: segment.startRelHour,
           durationHours: (segment.endMinute - segment.startMinute) / 60,
           completionAbs: segment.endMinute / 60,
-          activationDay:
-            Math.floor(
-              ((segment.endMinute / 60) - scenarioStartAbsoluteHour(args.scenario)) / 24
-            ) + 2,
+          activationDay: Math.floor((segment.endMinute / 60) / 24) + 1,
         })),
       days: timingDays,
     },

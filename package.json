@@ -6,12 +6,13 @@
   "scripts": {
     "validate:country": "node --import tsx src/validation/validateCountryFile.ts",
     "validate:countries": "node --import tsx src/validation/validateAllCountries.ts",
-    "smoke:morale": "node --import tsx src/sim/build-order/scenarios/morale.scenario.ts",
-    "smoke:resource": "node --import tsx src/sim/build-order/scenarios/resource.scenario.ts",
-    "smoke:resource:hourly": "node --import tsx src/sim/build-order/scenarios/hourly-resource.scenario.ts",
-    "smoke:argentina:hourly": "node --import tsx src/sim/build-order/scenarios/argentina-hourly.scenario.ts",
-    "smoke:build-order": "node --import tsx src/sim/build-order/scenarios/build-order.scenario.ts",
-    "smoke:multipliers": "node --import tsx src/sim/build-order/scenarios/multipliers.scenario.ts",
+    "smoke:morale": "node --import tsx src/harness/smoke/morale.ts",
+    "smoke:resource": "node --import tsx src/harness/smoke/resource.ts",
+    "smoke:resource:hourly": "node --import tsx src/harness/smoke/resource-hourly.ts",
+    "smoke:argentina:hourly": "node --import tsx src/harness/smoke/argentina-hourly.ts",
+    "smoke:build-order": "node --import tsx src/harness/smoke/build-order.ts",
+    "smoke:build-order:compare": "node --import tsx src/harness/smoke/build-order-compare.ts",
+    "smoke:multipliers": "node --import tsx src/harness/smoke/multipliers.ts",
     "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {

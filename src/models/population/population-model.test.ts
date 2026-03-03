@@ -184,6 +184,27 @@ test("hourly resource table splits each day into 24 game hours", () => {
   assert.equal(hourly.total, hourly.rows.reduce((sum, row) => sum + row.amount, 0));
 });
 
+test("hourly resource table uses calendar midnight for morale/day ticks when startAbsoluteHour is offset", () => {
+  const city = {
+    resource: "supplies" as const,
+    startPop: 5 as const,
+    ecoInfraMultiplier: 1,
+    moraleParams: { S: 70, T: 90, N: 0, D: 8 },
+  };
+
+  const hourly = buildHourlyResourceTable(2, "4x", city, {
+    startAbsoluteHour: 15,
+  });
+
+  assert.equal(hourly.rows[0]?.day, 1);
+  assert.equal(hourly.rows[0]?.hourOfDay, 16);
+  assert.equal(hourly.rows[8]?.day, 1);
+  assert.equal(hourly.rows[8]?.hourOfDay, 24);
+  assert.equal(hourly.rows[9]?.day, 2);
+  assert.equal(hourly.rows[9]?.hourOfDay, 1);
+  assert.notEqual(hourly.rows[8]?.amount, hourly.rows[9]?.amount);
+});
+
 test("hourly balance table carries starting balance and production only", () => {
   const city = {
     resource: "supplies" as const,

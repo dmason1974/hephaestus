@@ -42,13 +42,13 @@ export const MORALE_MULTIPLIER_COEFFICIENT = 0.8;
 export const MORALE_MULTIPLIER_OFFSET = 0.25;
 
 export const STARTING_MORALE_DAY1 = 70;
-export const HOMELAND_TARGET_MORALE = 90;
+export const HOMELAND_TARGET_MORALE = 93;
 
 /**
  * Discrete morale decay parameter.
  * Your guidance: around 8.
  */
-export const DEFAULT_MORALE_DECAY_D = 8;
+export const DEFAULT_MORALE_DECAY_D = 13;
 
 /**
  * Population growth support

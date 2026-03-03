@@ -31,6 +31,7 @@ export type CountryHourlyBalanceTable = {
 
 type CountryResourceBalanceOptions = {
   startingBalances?: Partial<Record<Resource, number>>;
+  startAbsoluteHour?: number;
   cityDefaults?: Pick<
     CityResourceInputs,
     "ecoInfraMultiplier" | "hiddenMultiplierOverride" | "populationMode" | "populationOpts" | "multiplierByPop"
@@ -97,6 +98,7 @@ export function buildCountryHourlyResourceBalanceTable(
   const hourlyCount = days * 24;
   const productionByHour = Array.from({ length: hourlyCount }, () => buildZeroBalances(resources));
   const balances = buildZeroBalances(resources);
+  const startAbsoluteHour = opts?.startAbsoluteHour ?? 0;
 
   for (const resource of resources) {
     const startingBalance = opts?.startingBalances?.[resource] ?? 0;
@@ -112,7 +114,9 @@ export function buildCountryHourlyResourceBalanceTable(
     );
 
     for (const resource of generatedResources) {
-      const hourly = buildHourlyResourceTable(days, gameSpeed, toCityResourceInputs(city, resource, opts));
+      const hourly = buildHourlyResourceTable(days, gameSpeed, toCityResourceInputs(city, resource, opts), {
+        startAbsoluteHour: opts?.startAbsoluteHour,
+      });
       for (const row of hourly.rows) {
         productionByHour[row.hour - 1][resource] += row.amount;
       }
@@ -129,8 +133,8 @@ export function buildCountryHourlyResourceBalanceTable(
 
     rows.push({
       hour,
-      day: Math.floor(index / 24) + 1,
-      hourOfDay: (index % 24) + 1,
+      day: Math.floor((startAbsoluteHour + index) / 24) + 1,
+      hourOfDay: ((startAbsoluteHour + index) % 24) + 1,
       balances: { ...balances },
     });
   }

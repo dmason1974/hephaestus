@@ -4,14 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "validate:country": "tsx src/validation/validateCountryFile.ts",
-    "validate:countries": "tsx src/validation/validateAllCountries.ts",
-    "smoke:morale": "tsx src/sim/build-order/scenarios/morale.scenario.ts",
-    "smoke:resource": "tsx src/sim/build-order/scenarios/resource.scenario.ts",
-    "smoke:resource:hourly": "tsx src/sim/build-order/scenarios/hourly-resource.scenario.ts",
-    "smoke:argentina:hourly": "tsx src/sim/build-order/scenarios/argentina-hourly.scenario.ts",
-    "smoke:build-order": "tsx src/sim/build-order/scenarios/build-order.scenario.ts",
-    "smoke:multipliers": "tsx src/sim/build-order/scenarios/multipliers.scenario.ts",
+    "validate:country": "node --import tsx src/validation/validateCountryFile.ts",
+    "validate:countries": "node --import tsx src/validation/validateAllCountries.ts",
+    "smoke:morale": "node --import tsx src/sim/build-order/scenarios/morale.scenario.ts",
+    "smoke:resource": "node --import tsx src/sim/build-order/scenarios/resource.scenario.ts",
+    "smoke:resource:hourly": "node --import tsx src/sim/build-order/scenarios/hourly-resource.scenario.ts",
+    "smoke:argentina:hourly": "node --import tsx src/sim/build-order/scenarios/argentina-hourly.scenario.ts",
+    "smoke:build-order": "node --import tsx src/sim/build-order/scenarios/build-order.scenario.ts",
+    "smoke:multipliers": "node --import tsx src/sim/build-order/scenarios/multipliers.scenario.ts",
     "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {

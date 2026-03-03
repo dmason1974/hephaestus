@@ -17,7 +17,7 @@ export function buildCountrySchema(enums: Enumerations) {
     air_base: NonNegativeInt,
     naval_base: NonNegativeInt,
     arms_industry: NonNegativeInt,
-    local_industry: NonNegativeInt,
+    local_industry: NonNegativeInt.optional().default(0),
     recruiting_office: NonNegativeInt,
   });
 

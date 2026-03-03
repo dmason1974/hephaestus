@@ -49,6 +49,21 @@ export function getScenarioCountryPath(scenarioId: string, countryId: string) {
 export function loadScenarioFile(scenarioId: string): ScenarioFile {
   const scenarioPath = getScenarioPath(scenarioId);
   const raw = fs.readFileSync(scenarioPath, "utf8");
-  const parsed = YAML.parse(raw);
+  const parsed = YAML.parse(raw) as Record<string, unknown>;
+
+  const startingBalance = parsed.starting_balance;
+  if (
+    startingBalance &&
+    typeof startingBalance === "object" &&
+    !("rares" in startingBalance) &&
+    "rare" in startingBalance
+  ) {
+    const { rare, ...rest } = startingBalance as Record<string, unknown>;
+    parsed.starting_balance = {
+      ...rest,
+      rares: rare,
+    };
+  }
+
   return ScenarioFileSchema.parse(parsed);
 }

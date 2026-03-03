@@ -291,24 +291,47 @@ export function buildDailyResourceTable(
 export function buildHourlyResourceTable(
   days: number,
   gameSpeed: GameSpeed,
-  city: CityResourceInputs
+  city: CityResourceInputs,
+  opts?: {
+    startAbsoluteHour?: number;
+  }
 ): HourlyResourceTable {
-  const daily = buildDailyResourceTable(days, gameSpeed, city);
   const rows: HourlyResourceRow[] = [];
   let total = 0;
+  const startAbsoluteHour = opts?.startAbsoluteHour ?? 0;
+  const ecoInfra = city.ecoInfraMultiplier ?? 1.0;
+  const populationMode = city.populationMode ?? "step";
+  const multiplierByPop = city.multiplierByPop ?? DEFAULT_MULTIPLIER_BY_POP;
 
-  for (const dailyRow of daily.rows) {
-    const hourlyAmount = Math.floor(dailyRow.amount / 24);
+  const speedMul = GAME_SPEED_MULTIPLIER[gameSpeed];
+  if (speedMul === undefined) {
+    throw new Error(`Unknown gameSpeed="${gameSpeed}"`);
+  }
+  const hidden = city.hiddenMultiplierOverride ?? speedMul;
 
-    for (let hourOfDay = 1; hourOfDay <= 24; hourOfDay++) {
-      rows.push({
-        hour: ((dailyRow.day - 1) * 24) + hourOfDay,
-        day: dailyRow.day,
-        hourOfDay,
-        amount: hourlyAmount,
-      });
-      total += hourlyAmount;
-    }
+  for (let index = 0; index < days * 24; index++) {
+    const absoluteHour = startAbsoluteHour + index;
+    const calendarDay = Math.floor(absoluteHour / 24) + 1;
+    const morale = moraleOnDay(calendarDay, city.moraleParams);
+    const moraleMul = moraleProductionMultiplier(morale);
+    const population = populationAtDay(calendarDay, city.startPop, populationMode, city.populationOpts);
+    const popDecimal = populationToEffectiveLevel(population);
+    const popMul = populationToMultiplier(popDecimal, multiplierByPop);
+    const dailyAmount =
+      city.resource === "manpower"
+        ? roundInt(populationToManpower(popDecimal))
+        : roundInt(BASE_RESOURCE_PRODUCTION[city.resource] * ecoInfra * moraleMul * popMul * hidden);
+    const hourlyAmount = Math.floor(dailyAmount / 24);
+    const hour = index + 1;
+    const hourOfDay = (absoluteHour % 24) + 1;
+
+    rows.push({
+      hour,
+      day: calendarDay,
+      hourOfDay,
+      amount: hourlyAmount,
+    });
+    total += hourlyAmount;
   }
 
   return { rows, total };
@@ -320,9 +343,12 @@ export function buildHourlyResourceBalanceTable(
   city: CityResourceInputs,
   opts?: {
     startingBalance?: number;
+    startAbsoluteHour?: number;
   }
 ): HourlyBalanceTable {
-  const hourly = buildHourlyResourceTable(days, gameSpeed, city);
+  const hourly = buildHourlyResourceTable(days, gameSpeed, city, {
+    startAbsoluteHour: opts?.startAbsoluteHour,
+  });
   const rows: HourlyBalanceRow[] = [];
   let balance = opts?.startingBalance ?? 0;
 

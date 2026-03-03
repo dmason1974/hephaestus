@@ -10,10 +10,10 @@ start:
 speed: "4x"
 
 starting_balance:
-  supplies: 36000
-  components: 27000
-  fuel: 13000
-  rares: 8900
-  electronics: 8900
-  cash: 13000
-  manpower: 134000
+  supplies: 35748
+  components: 26810
+  fuel: 13406
+  electronics: 9830
+  rares: 9830
+  manpower: 13406
+  cash: 134062

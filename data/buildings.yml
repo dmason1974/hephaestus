@@ -304,6 +304,7 @@ buildings:
         build_time:
           days: 1
           hours: 15
+        morale_bonus_pct: 0.25
         cost:
           supplies: 0
           components: 0

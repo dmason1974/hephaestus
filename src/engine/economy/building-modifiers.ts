@@ -8,7 +8,9 @@ export type EconomicBuildingEffects = {
 };
 
 export type StaticEconomicBuildingLevels = {
+  air_base?: number;
   arms_industry?: number;
+  naval_base?: number;
   underground_bunkers?: number;
 };
 
@@ -41,6 +43,31 @@ function addFlatBonuses(
     if (!Number.isFinite(amount ?? NaN)) continue;
     target[resource] = (target[resource] ?? 0) + (amount ?? 0);
   }
+}
+
+function buildingLevelEffect(
+  buildings: BuildingsFile,
+  buildingId: string,
+  level: number
+): EconomicBuildingEffects {
+  const clampedLevel = clamp(Math.floor(level), 0, 5);
+  if (clampedLevel <= 0) return zeroEconomicBuildingEffects();
+
+  const building = buildings.buildings[buildingId];
+  if (!building) {
+    return zeroEconomicBuildingEffects();
+  }
+
+  const levelData = building.levels[String(clampedLevel) as keyof typeof building.levels];
+  if (!levelData) {
+    return zeroEconomicBuildingEffects();
+  }
+
+  return {
+    productionBonusPct: levelData.production_bonus_pct ?? 0,
+    flatBonuses: { ...(levelData.flat_bonus ?? {}) },
+    moraleBonusN: Math.round((levelData.morale_bonus_pct ?? 0) * 100),
+  };
 }
 
 function armsIndustryLevelEffect(buildings: BuildingsFile, level: number): EconomicBuildingEffects {
@@ -81,9 +108,10 @@ export function undergroundBunkerMoraleBonusN(buildings: BuildingsFile, level: n
 }
 
 function undergroundBunkerLevelEffect(buildings: BuildingsFile, level: number): EconomicBuildingEffects {
+  const effect = buildingLevelEffect(buildings, "underground_bunkers", level);
   return {
-    productionBonusPct: 0,
-    flatBonuses: {},
+    productionBonusPct: effect.productionBonusPct,
+    flatBonuses: effect.flatBonuses,
     moraleBonusN: undergroundBunkerMoraleBonusN(buildings, level),
   };
 }
@@ -93,12 +121,18 @@ export function getEconomicBuildingEffectsForLevels(
   levels: StaticEconomicBuildingLevels
 ): EconomicBuildingEffects {
   const result = zeroEconomicBuildingEffects();
-  const armsIndustry = armsIndustryLevelEffect(buildings, levels.arms_industry ?? 0);
-  const undergroundBunkers = undergroundBunkerLevelEffect(buildings, levels.underground_bunkers ?? 0);
+  const effects = [
+    buildingLevelEffect(buildings, "air_base", levels.air_base ?? 0),
+    armsIndustryLevelEffect(buildings, levels.arms_industry ?? 0),
+    buildingLevelEffect(buildings, "naval_base", levels.naval_base ?? 0),
+    undergroundBunkerLevelEffect(buildings, levels.underground_bunkers ?? 0),
+  ];
 
-  result.productionBonusPct += armsIndustry.productionBonusPct;
-  addFlatBonuses(result.flatBonuses, armsIndustry.flatBonuses);
-  result.moraleBonusN += undergroundBunkers.moraleBonusN;
+  for (const effect of effects) {
+    result.productionBonusPct += effect.productionBonusPct;
+    addFlatBonuses(result.flatBonuses, effect.flatBonuses);
+    result.moraleBonusN += effect.moraleBonusN;
+  }
 
   return result;
 }

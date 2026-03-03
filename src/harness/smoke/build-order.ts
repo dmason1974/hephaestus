@@ -5,21 +5,21 @@ import {
   HOMELAND_TARGET_MORALE,
   STARTING_MORALE_DAY1,
 } from "../../core/constants.js";
-import { simulateBuildOrder, type CityState } from "../../sim/build-order/build-order-sim.js";
+import { simulateBuildOrder, type CityState } from "../../engine/simulation/build-order-sim.js";
 import { scenarioStartAbsoluteHour } from "../../core/time.js";
 import {
   baselineHomelandMoraleOnDay,
   homelandMoraleOnDayWithBunkers,
   moraleProductionMultiplier,
-} from "../../models/economy/morale.js";
-import { hourlyResourcePointAtAbsoluteHour } from "../../models/economy/city-production.js";
-import { getEconomicBuildingEffectsForLevels } from "../../models/economy/building-modifiers.js";
-import { validateBuildingsFile } from "../../validation/buildingSchema.js";
-import { loadScenarioFile } from "../../validation/scenarioPaths.js";
+} from "../../engine/economy/morale.js";
+import { hourlyResourcePointAtAbsoluteHour } from "../../engine/economy/city-production.js";
+import { getEconomicBuildingEffectsForLevels } from "../../engine/economy/building-modifiers.js";
+import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
+import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 
 const scenarioId = "elite_ava_feb_2026";
 const scenario = loadScenarioFile(scenarioId);
-const buildings = validateBuildingsFile(
+const buildings = loadBuildingsFile(
   path.join(process.cwd(), "data", "buildings.yml")
 );
 

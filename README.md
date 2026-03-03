@@ -1,9 +1,17 @@
 # ww3-builld-plan
 
+## Structure
+
+- `src/engine/` contains pure simulation, economy, orchestration, and reporting logic.
+- `src/schemas/` contains Zod schemas and object-level parsing/validation.
+- `src/scenarios/io/` contains filesystem and YAML loaders for buildings, scenarios, enumerations, and countries.
+- `src/harness/smoke/` contains scenario-driven smoke scripts.
+- `src/cli/` contains validation entrypoints.
+
 ## Smoke Tests
 
 The repo includes a set of smoke scripts for checking the economy, morale, and build-order models from the command line.
-The smoke entrypoints now live under `src/harness/smoke/`, separate from the core model and simulation code.
+The smoke entrypoints now live under `src/harness/smoke/`, separate from the engine code in `src/engine/`.
 
 Run them with:
 
@@ -54,11 +62,13 @@ Hourly and daily reporting now use map time, not "24 hours since scenario start"
 
 `smoke:resource`
 
-- Prints daily production for a single example city resource plus `manpower` and `cash`.
+- Loads Argentina's Buenos Aires city from scenario country YAML.
+- Prints daily production for that city's resource plus `manpower` and `cash`.
 - Uses scenario `speed`.
 - Uses hourly-to-daily rollup over fixed map-day windows.
 - Prints a partial first day when the scenario starts mid-day.
 - Prints `hoursCounted` for each map day.
+- Uses the city's `resource` value as the dynamic resource column label.
 - Prints scenario start time and starting balances for context.
 
 `smoke:resource:hourly`

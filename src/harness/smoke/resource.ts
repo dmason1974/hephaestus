@@ -1,21 +1,30 @@
 import { scenarioStartAbsoluteHour } from "../../core/time.js";
-import { buildHourlyResourceTable } from "../../models/economy/city-production.js";
+import { buildHourlyResourceTable } from "../../engine/economy/city-production.js";
 import {
   DEFAULT_MORALE_DECAY_D,
   HOMELAND_TARGET_MORALE,
   STARTING_MORALE_DAY1,
   type Resource,
 } from "../../core/constants.js";
-import { loadScenarioFile } from "../../validation/scenarioPaths.js";
-import { aggregateHourlyAmountsByMapDay, scenarioReportWindow } from "../../aggregates/scenario-reporting.js";
+import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
+import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
+import { aggregateHourlyAmountsByMapDay, scenarioReportWindow } from "../../engine/reporting/scenario-reporting.js";
 
 const scenarioId = "elite_ava_feb_2026";
+const countryId = "argentina";
+const cityId = "buenos_aires";
 const scenario = loadScenarioFile(scenarioId);
-const cityResource: Resource = "supplies";
+const country = loadScenarioCountry(scenarioId, countryId);
+const city = country.cities.find(candidate => candidate.id === cityId);
+if (!city) {
+  throw new Error(`city "${cityId}" was not found in ${countryId}`);
+}
+
+const cityResource = city.resource as Resource;
 const mapDaysToReport = 28;
 
 const cityInputs = {
-  startPop: 5 as const,
+  startPop: city.population as 4 | 5 | 6,
   ecoInfraMultiplier: 1.0,
   moraleParams: {
     S: STARTING_MORALE_DAY1,
@@ -71,6 +80,8 @@ console.log(
   )}`
 );
 console.log("Scenario starting balances:", scenario.starting_balance);
+console.log(`Country: ${country.country.name}`);
+console.log(`City: ${city.name} (${city.id})`);
 console.log(`City resource: ${cityResource}`);
 console.table(aggregatedResource.map((row, index) => ({
   day: row.mapDay,

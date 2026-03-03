@@ -1,14 +1,14 @@
 import { scenarioStartAbsoluteHour } from "../../core/time.js";
-import { buildHourlyResourceBalanceTable } from "../../models/economy/city-production.js";
+import { buildHourlyResourceBalanceTable } from "../../engine/economy/city-production.js";
 import {
   DEFAULT_MORALE_DECAY_D,
   HOMELAND_TARGET_MORALE,
   STARTING_MORALE_DAY1,
   type Resource,
 } from "../../core/constants.js";
-import { moraleOnDay } from "../../models/economy/morale.js";
-import { loadScenarioFile } from "../../validation/scenarioPaths.js";
-import { hourOfMapDay, mapDayForAbsoluteHour, scenarioReportWindow } from "../../aggregates/scenario-reporting.js";
+import { moraleOnDay } from "../../engine/economy/morale.js";
+import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
+import { hourOfMapDay, mapDayForAbsoluteHour, scenarioReportWindow } from "../../engine/reporting/scenario-reporting.js";
 
 const scenarioId = "elite_ava_feb_2026";
 const scenario = loadScenarioFile(scenarioId);

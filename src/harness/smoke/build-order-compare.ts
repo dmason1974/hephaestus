@@ -2,14 +2,14 @@ import path from "node:path";
 
 import { type Resource } from "../../core/constants.js";
 import { toAbsoluteHour } from "../../core/time.js";
-import { loadScenarioCountry } from "../../aggregates/country-resource-balance.js";
+import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import {
   simulateBuildOrder,
   type BuildAction,
   type CityState,
-} from "../../sim/build-order/build-order-sim.js";
-import { validateBuildingsFile } from "../../validation/buildingSchema.js";
-import { loadScenarioFile } from "../../validation/scenarioPaths.js";
+} from "../../engine/simulation/build-order-sim.js";
+import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
+import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 
 const scenarioId = "elite_ava_feb_2026";
 const countryId = "argentina";
@@ -18,7 +18,7 @@ const mapDaysToCompare = 28;
 
 const scenario = loadScenarioFile(scenarioId);
 const country = loadScenarioCountry(scenarioId, countryId);
-const buildings = validateBuildingsFile(path.join(process.cwd(), "data", "buildings.yml"));
+const buildings = loadBuildingsFile(path.join(process.cwd(), "data", "buildings.yml"));
 const sourceCity = country.cities.find(city => city.id === cityId);
 
 if (!sourceCity) {

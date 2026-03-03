@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "validate:country": "node --import tsx src/validation/validateCountryFile.ts",
-    "validate:countries": "node --import tsx src/validation/validateAllCountries.ts",
+    "validate:country": "node --import tsx src/cli/validate-country.ts",
+    "validate:countries": "node --import tsx src/cli/validate-all-countries.ts",
     "smoke:morale": "node --import tsx src/harness/smoke/morale.ts",
     "smoke:resource": "node --import tsx src/harness/smoke/resource.ts",
     "smoke:resource:hourly": "node --import tsx src/harness/smoke/resource-hourly.ts",

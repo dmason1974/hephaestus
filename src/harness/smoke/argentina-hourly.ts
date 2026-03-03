@@ -1,20 +1,21 @@
 import {
   buildCountryHourlyResourceBalanceTable,
-  loadScenarioCountry,
-} from "../../aggregates/country-resource-balance.js";
-import {
-  loadScenarioFile,
-} from "../../validation/scenarioPaths.js";
+} from "../../engine/reporting/country-resource-balance.js";
+import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
+import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
+import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { scenarioStartAbsoluteHour } from "../../core/time.js";
-import { hourOfMapDay, mapDayForAbsoluteHour, scenarioReportWindow } from "../../aggregates/scenario-reporting.js";
+import { hourOfMapDay, mapDayForAbsoluteHour, scenarioReportWindow } from "../../engine/reporting/scenario-reporting.js";
 
 const scenarioId = "elite_ava_feb_2026";
 const scenario = loadScenarioFile(scenarioId);
 const country = loadScenarioCountry(scenarioId, "argentina");
+const buildings = loadBuildingsFile();
 const mapDaysToReport = 2;
 const reportWindow = scenarioReportWindow(scenario, mapDaysToReport);
 
 const table = buildCountryHourlyResourceBalanceTable(country, reportWindow.relativeDaysToSimulate, scenario.speed, {
+  buildingsFile: buildings,
   startingBalances: scenario.starting_balance,
   startAbsoluteHour: reportWindow.startAbs,
 });

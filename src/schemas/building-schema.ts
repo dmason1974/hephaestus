@@ -62,6 +62,7 @@ export const buildingLevelSchema = z
     production_bonus_pct: percentSchema.optional(),
     garrison_damage_reduction_pct: percentSchema.optional(),
     morale_bonus_pct: percentSchema.optional(),
+    population_bonus_pct: percentSchema.optional(),
     population_protection_level: nonNegativeIntSchema.optional(),
     shields: z.array(z.string()).optional(),
   })

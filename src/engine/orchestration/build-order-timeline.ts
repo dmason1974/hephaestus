@@ -1,5 +1,13 @@
 import { scenarioStartAbsoluteHour, type ScenarioStartLike } from "../../core/time.js";
 import type { BuildingsFile } from "../../schemas/building-schema.js";
+import {
+  DEFAULT_MORALE_DECAY_D,
+  HOMELAND_TARGET_MORALE,
+  STARTING_MORALE_DAY1,
+} from "../../core/constants.js";
+import { moraleOnDay, type MoraleParams } from "../economy/morale.js";
+import { undergroundBunkerMoraleBonusN } from "../economy/building-modifiers.js";
+import { effectiveDurationFromMorale } from "../timing/activity-duration.js";
 
 export type BuildingId = "arms_industry" | "underground_bunkers";
 
@@ -11,6 +19,7 @@ export type BuildingLevels = {
 export type TimelineCityState = {
   cityId: string;
   buildings: BuildingLevels;
+  moraleParams?: MoraleParams;
 };
 
 export type BuildAction = {
@@ -135,13 +144,29 @@ export function scheduleBuildSegments(args: {
         throw new Error(`missing ${action.buildingId} level ${level} in buildings data`);
       }
 
+      const mapDayAtStart = Math.floor((nextStartMinute / 60) / 24) + 1;
+      const bunkerLevelAtDayStart = getCompletedBuildingLevelAtDayStart({
+        mapDay: mapDayAtStart,
+        startingLevel: currentLevels.underground_bunkers,
+        segments: segmentsByCity.get(action.cityId)?.underground_bunkers ?? [],
+      });
+      const moraleParams = cityMoraleParams(args.cities, action.cityId);
+      const moraleAtStart = moraleOnDay(mapDayAtStart, {
+        ...moraleParams,
+        N: (moraleParams.N ?? 0) + undergroundBunkerMoraleBonusN(args.buildings, bunkerLevelAtDayStart),
+      });
+      const effectiveDurationMinutes = effectiveDurationFromMorale(
+        levelInfo.buildTimeMinutes,
+        moraleAtStart
+      );
+
       const segment: BuildSegment = {
         cityId: action.cityId,
         buildingId: action.buildingId,
         fromLevel: level - 1,
         toLevel: level,
         startMinute: nextStartMinute,
-        endMinute: nextStartMinute + levelInfo.buildTimeMinutes,
+        endMinute: nextStartMinute + effectiveDurationMinutes,
         startRelHour: (nextStartMinute - scenarioStartMinute) / 60,
       };
 
@@ -157,6 +182,20 @@ export function scheduleBuildSegments(args: {
   }
 
   return segmentsByCity;
+}
+
+function cityMoraleParams(cities: TimelineCityState[], cityId: string): MoraleParams {
+  const city = cities.find(entry => entry.cityId === cityId);
+  if (!city) {
+    throw new Error(`unknown cityId "${cityId}" in build order`);
+  }
+
+  return city.moraleParams ?? {
+    S: STARTING_MORALE_DAY1,
+    T: HOMELAND_TARGET_MORALE,
+    N: 0,
+    D: DEFAULT_MORALE_DECAY_D,
+  };
 }
 
 export function getCompletedBuildingLevelAtDayStart(args: {

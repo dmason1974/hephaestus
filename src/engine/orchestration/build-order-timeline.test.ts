@@ -1,4 +1,3 @@
-import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -9,7 +8,8 @@ import {
   scheduleBuildSegments,
   type TimelineCityState,
 } from "./build-order-timeline.js";
-import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
+import { effectiveDurationFromMorale } from "../timing/activity-duration.js";
+import { buildTestBuildings } from "../../test-support/buildings-fixture.js";
 
 const TEST_SCENARIO = {
   start: {
@@ -19,7 +19,7 @@ const TEST_SCENARIO = {
 } as const;
 
 function loadBuildings() {
-  return loadBuildingsFile(path.resolve("data/buildings.yml"));
+  return buildTestBuildings();
 }
 
 test("buildTimeToMinutes converts mixed units to total minutes", () => {
@@ -60,15 +60,15 @@ test("scheduleBuildSegments expands target levels into sequential timed segments
         fromLevel: 0,
         toLevel: 1,
         startMinute: 0,
-        endMinute: 585,
+        endMinute: effectiveDurationFromMorale(585, 70),
         startRelHour: 0,
       },
       {
         fromLevel: 1,
         toLevel: 2,
-        startMinute: 585,
-        endMinute: 2145,
-        startRelHour: 9.75,
+        startMinute: effectiveDurationFromMorale(585, 70),
+        endMinute: effectiveDurationFromMorale(585, 70) + effectiveDurationFromMorale(1560, 70),
+        startRelHour: effectiveDurationFromMorale(585, 70) / 60,
       },
     ]
   );
@@ -95,8 +95,8 @@ test("scheduleBuildSegments respects city availability when later actions overla
 
   const bunkerSegment = segmentsByCity.get("alpha")?.underground_bunkers[0];
   assert.ok(bunkerSegment);
-  assert.equal(bunkerSegment.startMinute, 585);
-  assert.equal(bunkerSegment.startRelHour, 9.75);
+  assert.equal(bunkerSegment.startMinute, effectiveDurationFromMorale(585, 70));
+  assert.equal(bunkerSegment.startRelHour, effectiveDurationFromMorale(585, 70) / 60);
 });
 
 test("getBuildingStateAtHourEnd reports interpolated progress and delayed flat-bonus activation", () => {
@@ -122,21 +122,21 @@ test("getBuildingStateAtHourEnd reports interpolated progress and delayed flat-b
     {
       currentFromLevel: 0,
       currentToLevel: 1,
-      progressRatio: 60 / 585,
+      progressRatio: 60 / effectiveDurationFromMorale(585, 70),
       segmentStartMinute: 0,
-      segmentEndMinute: 585,
+      segmentEndMinute: effectiveDurationFromMorale(585, 70),
       flatCashActiveLevel: 0,
     }
   );
 
   assert.deepEqual(
-    getBuildingStateAtHourEnd({ hour: 10, segments, scenario: TEST_SCENARIO }),
+    getBuildingStateAtHourEnd({ hour: 13, segments, scenario: TEST_SCENARIO }),
     {
       currentFromLevel: 1,
       currentToLevel: 1,
       progressRatio: 1,
       segmentStartMinute: 0,
-      segmentEndMinute: 585,
+      segmentEndMinute: effectiveDurationFromMorale(585, 70),
       flatCashActiveLevel: 1,
     }
   );
@@ -172,6 +172,14 @@ test("getCompletedBuildingLevelAtDayStart activates bunker levels from the next 
   assert.equal(
     getCompletedBuildingLevelAtDayStart({
       mapDay: 2,
+      startingLevel: 0,
+      segments,
+    }),
+    0
+  );
+  assert.equal(
+    getCompletedBuildingLevelAtDayStart({
+      mapDay: 3,
       startingLevel: 0,
       segments,
     }),

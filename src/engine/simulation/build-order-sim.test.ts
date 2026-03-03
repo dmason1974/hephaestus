@@ -1,9 +1,8 @@
-import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
 import { simulateBuildOrder, type CityState } from "./build-order-sim.js";
-import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
+import { buildTestBuildings } from "../../test-support/buildings-fixture.js";
 
 const TEST_SCENARIO = {
   start: {
@@ -14,7 +13,7 @@ const TEST_SCENARIO = {
 } as const;
 
 test("simulateBuildOrder returns the expected result structure for a proposed build order", () => {
-  const buildings = loadBuildingsFile(path.resolve("data/buildings.yml"));
+  const buildings = buildTestBuildings();
   const city: CityState = {
     cityId: "alpha",
     resource: "electronics",
@@ -50,7 +49,7 @@ test("simulateBuildOrder returns the expected result structure for a proposed bu
 });
 
 test("simulateBuildOrder aggregates per-city hourly production into per-hour totals", () => {
-  const buildings = loadBuildingsFile(path.resolve("data/buildings.yml"));
+  const buildings = buildTestBuildings();
   const cities: CityState[] = [
     {
       cityId: "alpha",
@@ -82,7 +81,7 @@ test("simulateBuildOrder aggregates per-city hourly production into per-hour tot
 });
 
 test("different build orders produce different cumulative cash totals", () => {
-  const buildings = loadBuildingsFile(path.resolve("data/buildings.yml"));
+  const buildings = buildTestBuildings();
   const city: CityState = {
     cityId: "alpha",
     resource: "electronics",

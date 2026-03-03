@@ -1,14 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
-
-import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import {
   baselineHomelandMoraleOnDay,
   homelandMoraleOnDayWithBunkers,
   moraleOnDay,
   moraleProductionMultiplier,
 } from "./morale.js";
+import { buildTestBuildings } from "../../test-support/buildings-fixture.js";
 
 function approxEqual(actual: number, expected: number, epsilon = 1e-6) {
   assert.ok(
@@ -25,7 +23,7 @@ test("moraleOnDay uses bunker bonus through N", () => {
 
 test("homeland morale with bunkers keeps T fixed and applies bunker through N", () => {
   assert.equal(homelandMoraleOnDayWithBunkers(1, 0), baselineHomelandMoraleOnDay(1));
-  const buildings = loadBuildingsFile(path.resolve("data/buildings.yml"));
+  const buildings = buildTestBuildings();
   assert.equal(homelandMoraleOnDayWithBunkers(2, 1, buildings), 72);
 });
 

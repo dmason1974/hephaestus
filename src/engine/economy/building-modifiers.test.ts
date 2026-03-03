@@ -1,15 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
 
-import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import {
   getEconomicBuildingEffectsForLevels,
   undergroundBunkerMoraleBonusN,
 } from "./building-modifiers.js";
+import { buildTestBuildings } from "../../test-support/buildings-fixture.js";
 
 test("shared building modifiers expose underground bunker morale bonus", () => {
-  const buildings = loadBuildingsFile(path.resolve("data/buildings.yml"));
+  const buildings = buildTestBuildings();
 
   assert.equal(undergroundBunkerMoraleBonusN(buildings, 0), 0);
   assert.equal(undergroundBunkerMoraleBonusN(buildings, 1), 5);

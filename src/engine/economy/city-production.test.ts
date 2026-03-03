@@ -1,7 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
-
 import { BASE_RESOURCE_PRODUCTION } from "../../core/constants.js";
 import {
   buildDailyMultipliersTable,
@@ -10,7 +8,7 @@ import {
   buildHourlyResourceTable,
 } from "./city-production.js";
 import { getEconomicBuildingEffectsForLevels } from "./building-modifiers.js";
-import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
+import { buildTestBuildings } from "../../test-support/buildings-fixture.js";
 
 test("cash is available as a resource class with base production", () => {
   assert.equal(BASE_RESOURCE_PRODUCTION.cash, 1500);
@@ -99,7 +97,7 @@ test("hourly balance table carries starting balance and production only", () => 
 });
 
 test("resource table applies reusable building effects for static Arms Industry levels", () => {
-  const buildings = loadBuildingsFile(path.resolve("data/buildings.yml"));
+  const buildings = buildTestBuildings();
   const effects = getEconomicBuildingEffectsForLevels(buildings, { arms_industry: 1 });
   const baseCashCity = {
     resource: "cash" as const,
@@ -123,6 +121,6 @@ test("resource table applies reusable building effects for static Arms Industry 
     buildingEffects: effects,
   });
 
-  assert.equal(improvedHourly.rows[0]?.amount - baseHourly.rows[0]?.amount, 104);
-  assert.equal(improvedSuppliesHourly.rows[0]?.amount - baseSuppliesHourly.rows[0]?.amount, 5);
+  assert.equal(improvedHourly.rows[0]?.amount - baseHourly.rows[0]?.amount, 107);
+  assert.equal(improvedSuppliesHourly.rows[0]?.amount - baseSuppliesHourly.rows[0]?.amount, 8);
 });

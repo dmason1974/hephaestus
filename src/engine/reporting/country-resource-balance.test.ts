@@ -1,14 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
-
-import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { buildCountryHourlyResourceBalanceTable } from "./country-resource-balance.js";
 import { getEconomicBuildingEffectsForLevels } from "../economy/building-modifiers.js";
 import { buildHourlyResourceTable } from "../economy/city-production.js";
+import { buildTestBuildings } from "../../test-support/buildings-fixture.js";
 
 test("country hourly balance table accumulates balances per resource", () => {
-  const buildings = loadBuildingsFile(path.resolve("data/buildings.yml"));
+  const buildings = buildTestBuildings();
   const country = {
     version: 1,
     country: {
@@ -72,7 +70,7 @@ test("country hourly balance table accumulates balances per resource", () => {
 });
 
 test("country hourly balance table applies city Arms Industry levels through shared building modifiers", () => {
-  const buildings = loadBuildingsFile(path.resolve("data/buildings.yml"));
+  const buildings = buildTestBuildings();
   const baseCity = {
     id: "alpha",
     name: "Alpha",

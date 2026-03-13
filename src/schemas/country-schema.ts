@@ -4,7 +4,7 @@ import type { Enumerations } from "./enums-schema.js";
 const SnakeCaseId = z
   .string()
   .min(1)
-  .regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$/, "Expected snake_case id");
+  .regex(/^[a-z0-9']+(?:_[a-z0-9']+)*$/, "Expected lowercase id with underscores/apostrophes only");
 
 const NonNegativeInt = z.number().int().min(0);
 
@@ -13,12 +13,9 @@ export function buildCountrySchema(enums: Enumerations) {
   const DoctrineEnum = z.enum(enums.doctrines as [string, ...string[]]);
 
   const StartingSchema = z.object({
-    army_base: NonNegativeInt,
     air_base: NonNegativeInt,
     naval_base: NonNegativeInt,
-    arms_industry: NonNegativeInt,
-    local_industry: NonNegativeInt.optional().default(0),
-    recruiting_office: NonNegativeInt,
+    underground_bunkers: NonNegativeInt,
   });
 
   const CitySchema = z.object({

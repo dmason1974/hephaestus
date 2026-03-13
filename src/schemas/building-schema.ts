@@ -56,9 +56,12 @@ export const buildingLevelSchema = z
   .object({
     build_time: buildTimeSchema,
     cost: completeResourceRecordSchema,
+    city_status_pct: percentSchema.optional(),
     daily_upkeep: partialResourceRecordSchema.optional(),
     flat_bonus: partialResourceRecordSchema.optional(),
     hit_points: nonNegativeNumberSchema.optional(),
+    manpower_bonus_pct: nonNegativeNumberSchema.optional(),
+    mobilisation_speed_bonus_pct: percentSchema.optional(),
     production_bonus_pct: percentSchema.optional(),
     garrison_damage_reduction_pct: percentSchema.optional(),
     morale_bonus_pct: percentSchema.optional(),

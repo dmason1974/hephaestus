@@ -1,6 +1,7 @@
 import { scenarioStartAbsoluteHour, type ScenarioStartLike } from "../../core/time.js";
 import type { BuildingsFile } from "../../schemas/building-schema.js";
 import {
+  type CityStatus,
   DEFAULT_MORALE_DECAY_D,
   HOMELAND_TARGET_MORALE,
   STARTING_MORALE_DAY1,
@@ -9,16 +10,31 @@ import { moraleOnDay, type MoraleParams } from "../economy/morale.js";
 import { undergroundBunkerMoraleBonusN } from "../economy/building-modifiers.js";
 import { effectiveDurationFromMorale } from "../timing/activity-duration.js";
 
-export type BuildingId = "arms_industry" | "underground_bunkers";
+export type BuildingId =
+  | "air_base"
+  | "annex_city"
+  | "arms_industry"
+  | "naval_base"
+  | "recruiting_office"
+  | "relocate_headquarters"
+  | "underground_bunkers";
 
 export type BuildingLevels = {
+  air_base: number;
+  annex_city: number;
   arms_industry: number;
+  naval_base: number;
+  recruiting_office: number;
+  relocate_headquarters: number;
   underground_bunkers: number;
 };
 
 export type TimelineCityState = {
   cityId: string;
   buildings: BuildingLevels;
+  capital?: boolean;
+  cityStatus?: CityStatus;
+  countryId?: string;
   moraleParams?: MoraleParams;
 };
 
@@ -42,7 +58,7 @@ export type BuildSegment = {
 
 export type BuildSegmentsByCity = Map<
   string,
-  { arms_industry: BuildSegment[]; underground_bunkers: BuildSegment[] }
+  Record<BuildingId, BuildSegment[]>
 >;
 
 export type BuildingLevelTimingData = {
@@ -107,7 +123,12 @@ export function scheduleBuildSegments(args: {
   scenario: ScenarioStartLike;
 }): BuildSegmentsByCity {
   const levelTimings = {
+    air_base: getBuildingLevelTimings(args.buildings, "air_base"),
+    annex_city: getBuildingLevelTimings(args.buildings, "annex_city"),
     arms_industry: getBuildingLevelTimings(args.buildings, "arms_industry"),
+    naval_base: getBuildingLevelTimings(args.buildings, "naval_base"),
+    recruiting_office: getBuildingLevelTimings(args.buildings, "recruiting_office"),
+    relocate_headquarters: getBuildingLevelTimings(args.buildings, "relocate_headquarters"),
     underground_bunkers: getBuildingLevelTimings(args.buildings, "underground_bunkers"),
   };
   const scenarioStartMinute = scenarioStartAbsoluteHour(args.scenario) * 60;
@@ -118,7 +139,15 @@ export function scheduleBuildSegments(args: {
   for (const city of args.cities) {
     cityLevels.set(city.cityId, { ...city.buildings });
     cityAvailableMinute.set(city.cityId, scenarioStartMinute);
-    segmentsByCity.set(city.cityId, { arms_industry: [], underground_bunkers: [] });
+    segmentsByCity.set(city.cityId, {
+      air_base: [],
+      annex_city: [],
+      arms_industry: [],
+      naval_base: [],
+      recruiting_office: [],
+      relocate_headquarters: [],
+      underground_bunkers: [],
+    });
   }
 
   for (const action of args.buildOrder) {
@@ -126,6 +155,8 @@ export function scheduleBuildSegments(args: {
     if (currentLevels === undefined) {
       throw new Error(`unknown cityId "${action.cityId}" in build order`);
     }
+
+    validateBuildActionForCity(action, currentLevels, cityState(args.cities, action.cityId));
 
     const currentLevel = currentLevels[action.buildingId];
     if (action.targetLevel <= currentLevel) continue;
@@ -184,11 +215,33 @@ export function scheduleBuildSegments(args: {
   return segmentsByCity;
 }
 
-function cityMoraleParams(cities: TimelineCityState[], cityId: string): MoraleParams {
+function validateBuildActionForCity(
+  action: BuildAction,
+  currentLevels: BuildingLevels,
+  city: TimelineCityState
+) {
+  if (action.buildingId === "naval_base" && currentLevels.naval_base < 1) {
+    throw new Error(
+      `city "${action.cityId}" cannot build naval_base because it does not start with naval_base level 1`
+    );
+  }
+
+  if (action.buildingId === "annex_city" && city.cityStatus !== "occupied") {
+    throw new Error(`city "${action.cityId}" cannot build annex_city unless its status is occupied`);
+  }
+}
+
+function cityState(cities: TimelineCityState[], cityId: string): TimelineCityState {
   const city = cities.find(entry => entry.cityId === cityId);
   if (!city) {
     throw new Error(`unknown cityId "${cityId}" in build order`);
   }
+
+  return city;
+}
+
+function cityMoraleParams(cities: TimelineCityState[], cityId: string): MoraleParams {
+  const city = cityState(cities, cityId);
 
   return city.moraleParams ?? {
     S: STARTING_MORALE_DAY1,
@@ -218,18 +271,59 @@ export function getCompletedBuildingLevelAtDayStart(args: {
   return completedLevel;
 }
 
+export function getCompletedBuildingLevelAtHourEnd(args: {
+  hour: number;
+  startingLevel: number;
+  segments: BuildSegment[];
+  scenario: ScenarioStartLike;
+}) {
+  const hourEndMinute = (scenarioStartAbsoluteHour(args.scenario) + args.hour + 1) * 60;
+  let completedLevel = args.startingLevel;
+
+  for (const segment of args.segments) {
+    if (segment.endMinute <= hourEndMinute) {
+      completedLevel = segment.toLevel;
+      continue;
+    }
+    break;
+  }
+
+  return completedLevel;
+}
+
+export function getCompletedBuildingLevelAtHourStart(args: {
+  hour: number;
+  startingLevel: number;
+  segments: BuildSegment[];
+  scenario: ScenarioStartLike;
+}) {
+  const hourStartMinute = (scenarioStartAbsoluteHour(args.scenario) + args.hour) * 60;
+  let completedLevel = args.startingLevel;
+
+  for (const segment of args.segments) {
+    if (segment.endMinute <= hourStartMinute) {
+      completedLevel = segment.toLevel;
+      continue;
+    }
+    break;
+  }
+
+  return completedLevel;
+}
+
 export function getBuildingStateAtHourEnd(args: {
   hour: number;
   segments: BuildSegment[];
   scenario: ScenarioStartLike;
+  startingLevel?: number;
 }): BuildingStateAtHourEnd {
   const endMinute = (scenarioStartAbsoluteHour(args.scenario) + args.hour + 1) * 60;
-  let currentFromLevel = 0;
-  let currentToLevel = 0;
+  let currentFromLevel = args.startingLevel ?? 0;
+  let currentToLevel = args.startingLevel ?? 0;
   let progressRatio = 1;
   let segmentStartMinute: number | null = null;
   let segmentEndMinute: number | null = null;
-  let flatCashActiveLevel = 0;
+  let flatCashActiveLevel = args.startingLevel ?? 0;
 
   for (const segment of args.segments) {
     if (endMinute < segment.startMinute) break;

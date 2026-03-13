@@ -1,0 +1,67 @@
+version: 1
+
+country:
+  id: turkey
+  name: Turkey
+  doctrine: western
+
+cities:
+  - id: ankara
+    name: Ankara
+    capital: true
+    resource: rares
+    population: 5
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 1
+
+  - id: antalya
+    name: Antalya
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: diyarbakir
+    name: Diyarbakir
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: istanbul
+    name: Istanbul
+    capital: false
+    resource: electronics
+    population: 6
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: izmir
+    name: Izmir
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: samsun
+    name: Samsun
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0

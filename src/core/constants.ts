@@ -107,10 +107,19 @@ export const POP_GROWTH_B_PER_DAY = 0.022314355;
  * 
  */
 
-export type GameSpeed = "1x" | "4x" | "10x";
+export type GameSpeed = "1x" | "4x" | "4x1.4" | "10x";
 
 export const GAME_SPEED_MULTIPLIER: Record<GameSpeed, number> = {
   "1x": 1.0,
   "4x": 0.75, // 3/4
+  "4x1.4": 1.4, // ww3 elite
   "10x": 0.5,
+};
+
+export type CityStatus = "homeland" | "occupied" | "annexed";
+
+export const CITY_STATUS_MULTIPLIER: Record<CityStatus, number> = {
+  homeland: 1.0,
+  occupied: 0.25,
+  annexed: 0.5,
 };

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const cityStatusSchema = z.enum(["homeland", "occupied", "annexed"]);
+
 const resourceAmountsSchema = z
   .object({
     supplies: z.number().min(0),
@@ -24,6 +26,8 @@ export const scenarioFileSchema = z
     }).strict(),
     speed: z.enum(["1x", "4x", "10x"]),
     starting_balance: resourceAmountsSchema,
+    city_statuses: z.record(z.string().min(1), z.record(z.string().min(1), cityStatusSchema)).optional(),
+    headquarters_city_by_country: z.record(z.string().min(1), z.string().min(1)).optional(),
   })
   .strict();
 
@@ -61,4 +65,19 @@ export function parseScenarioFile(input: unknown, source = "scenario input"): Sc
   }
 
   return result.data;
+}
+
+export function resolveScenarioCityStatus(
+  scenario: ScenarioFile,
+  countryId: string,
+  cityId: string
+): z.infer<typeof cityStatusSchema> {
+  return scenario.city_statuses?.[countryId]?.[cityId] ?? "homeland";
+}
+
+export function resolveScenarioHeadquartersCity(
+  scenario: ScenarioFile,
+  countryId: string
+): string | undefined {
+  return scenario.headquarters_city_by_country?.[countryId];
 }

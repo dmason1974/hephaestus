@@ -44,6 +44,39 @@ export function moraleOnDay(z: number, p: MoraleParams): number {
   return x;
 }
 
+export function moraleOnDayWithDynamicBonus(
+  day: number,
+  args: Omit<MoraleParams, "N"> & {
+    bonusForDay: (day: number) => number;
+  }
+): number {
+  if (!Number.isFinite(day) || day < 1) {
+    throw new Error(`moraleOnDayWithDynamicBonus: day must be >= 1, got ${day}`);
+  }
+  if (!Number.isFinite(args.D) || args.D <= 1) {
+    throw new Error(`moraleOnDayWithDynamicBonus: D must be > 1, got ${args.D}`);
+  }
+
+  const min = args.min ?? 0;
+  const hardMax = args.max ?? 100;
+  const r = (args.D - 1) / args.D;
+  let morale = Math.round(args.S);
+
+  for (let currentDay = 2; currentDay <= day; currentDay++) {
+    const target = Math.min(hardMax, args.T + args.bonusForDay(currentDay));
+    const nextMorale =
+      currentDay <= 6
+        ? Math.round(target - ((target - morale) * r))
+        : morale < target
+          ? Math.min(target, morale + 1)
+          : morale;
+
+    morale = Math.max(min, Math.min(hardMax, nextMorale));
+  }
+
+  return Math.max(min, Math.min(hardMax, morale));
+}
+
 export function baselineHomelandMoraleOnDay(day: number): number {
   return homelandMoraleOnDayWithBunkers(day, 0);
 }
@@ -74,5 +107,6 @@ export function homelandMoraleOnDayWithBunkers(
  * (morale * 0.8)/100 + 0.25
  */
 export function moraleProductionMultiplier(morale: number): number {
-  return (morale * MORALE_MULTIPLIER_COEFFICIENT) / 100 + MORALE_MULTIPLIER_OFFSET;
+  const raw = (morale * MORALE_MULTIPLIER_COEFFICIENT) / 100 + MORALE_MULTIPLIER_OFFSET;
+  return Math.round(raw * 100) / 100;
 }

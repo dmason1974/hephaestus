@@ -7,11 +7,13 @@ import {
 } from "../../core/constants.js";
 import type { BuildingsFile } from "../../schemas/building-schema.js";
 import type { Country } from "../../schemas/country-schema.js";
+import type { ScenarioFile } from "../../schemas/scenario-schema.js";
+import { resolveScenarioCityStatus, resolveScenarioHeadquartersCity } from "../../schemas/scenario-schema.js";
 import {
   buildHourlyResourceTable,
   type CityResourceInputs,
 } from "../economy/city-production.js";
-import { getEconomicBuildingEffectsForLevels } from "../economy/building-modifiers.js";
+import { buildingMoraleBonusN, getEconomicBuildingEffectsForLevels } from "../economy/building-modifiers.js";
 
 export type CountryHourlyBalanceRow = {
   hour: number;
@@ -29,9 +31,15 @@ type CountryResourceBalanceOptions = {
   startingBalances?: Partial<Record<Resource, number>>;
   startAbsoluteHour?: number;
   buildingsFile: BuildingsFile;
+  scenario?: ScenarioFile;
   cityDefaults?: Pick<
     CityResourceInputs,
-    "ecoInfraMultiplier" | "hiddenMultiplierOverride" | "populationMode" | "populationOpts" | "multiplierByPop"
+    | "cityStatus"
+    | "ecoInfraMultiplier"
+    | "hiddenMultiplierOverride"
+    | "populationMode"
+    | "populationOpts"
+    | "multiplierByPop"
   >;
 };
 
@@ -39,7 +47,19 @@ function buildZeroBalances(resources: readonly Resource[]) {
   return Object.fromEntries(resources.map(resource => [resource, 0])) as Record<Resource, number>;
 }
 
+function headquartersCityId(
+  country: Country,
+  scenario?: ScenarioFile
+) {
+  return (
+    (scenario ? resolveScenarioHeadquartersCity(scenario, country.country.id) : undefined) ??
+    country.cities.find(city => city.capital)?.id
+  );
+}
+
 function toCityResourceInputs(
+  country: Country,
+  countryId: string,
   city: Country["cities"][number],
   resource: Resource,
   buildingsFile: BuildingsFile,
@@ -51,7 +71,10 @@ function toCityResourceInputs(
     moraleParams: {
       S: STARTING_MORALE_DAY1,
       T: HOMELAND_TARGET_MORALE,
-      N: 0,
+      N:
+        headquartersCityId(country, opts?.scenario) === city.id
+          ? buildingMoraleBonusN(buildingsFile, "relocate_headquarters", 1)
+          : 0,
       D: DEFAULT_MORALE_DECAY_D,
     },
     ecoInfraMultiplier: opts?.cityDefaults?.ecoInfraMultiplier,
@@ -59,8 +82,14 @@ function toCityResourceInputs(
     populationMode: opts?.cityDefaults?.populationMode,
     populationOpts: opts?.cityDefaults?.populationOpts,
     multiplierByPop: opts?.cityDefaults?.multiplierByPop,
+    cityStatus:
+      opts?.scenario
+        ? resolveScenarioCityStatus(opts.scenario, countryId, city.id)
+        : opts?.cityDefaults?.cityStatus,
     buildingEffects: getEconomicBuildingEffectsForLevels(buildingsFile, {
+      air_base: city.starting.air_base,
       arms_industry: city.starting.arms_industry,
+      naval_base: city.starting.naval_base,
     }),
   };
 }
@@ -105,7 +134,7 @@ export function buildCountryHourlyResourceBalanceTable(
       const hourly = buildHourlyResourceTable(
         days,
         gameSpeed,
-        toCityResourceInputs(city, resource, opts.buildingsFile, opts),
+        toCityResourceInputs(country, country.country.id, city, resource, opts.buildingsFile, opts),
         {
           startAbsoluteHour: opts.startAbsoluteHour,
         }

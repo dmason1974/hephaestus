@@ -12,11 +12,9 @@ cities:
     resource: electronics
     population: 6
     starting:
-      army_base: 1
       air_base: 1
       naval_base: 1
-      arms_industry: 0
-      recruiting_office: 0
+      underground_bunkers: 0
 
   - id: cordoba
     name: Cordoba
@@ -24,11 +22,9 @@ cities:
     resource: rares
     population: 4
     starting:
-      army_base: 1
       air_base: 0
       naval_base: 0
-      arms_industry: 0
-      recruiting_office: 0
+      underground_bunkers: 0
 
   - id: rosario
     name: Rosario
@@ -36,11 +32,9 @@ cities:
     resource: supplies
     population: 4
     starting:
-      army_base: 1
       air_base: 0
       naval_base: 0
-      arms_industry: 0
-      recruiting_office: 0
+      underground_bunkers: 0
 
   - id: mendoza
     name: Mendoza
@@ -48,11 +42,9 @@ cities:
     resource: fuel
     population: 5
     starting:
-      army_base: 1
       air_base: 0
       naval_base: 1
-      arms_industry: 0
-      recruiting_office: 0
+      underground_bunkers: 0
 
   - id: san_miguel
     name: San Miguel
@@ -60,11 +52,9 @@ cities:
     resource: supplies
     population: 5
     starting:
-      army_base: 1
       air_base: 0
       naval_base: 1
-      arms_industry: 0
-      recruiting_office: 0
+      underground_bunkers: 0
 
   - id: la_plata
     name: La Plata
@@ -72,11 +62,9 @@ cities:
     resource: electronics
     population: 5
     starting:
-      army_base: 1
       air_base: 0
       naval_base: 1
-      arms_industry: 0
-      recruiting_office: 0
+      underground_bunkers: 0
 
   - id: mar_del_plata
     name: Mar del Plata
@@ -84,8 +72,6 @@ cities:
     resource: components
     population: 5
     starting:
-      army_base: 1
       air_base: 0
       naval_base: 1
-      arms_industry: 0
-      recruiting_office: 0
+      underground_bunkers: 0

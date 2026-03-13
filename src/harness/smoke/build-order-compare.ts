@@ -34,7 +34,11 @@ function buildBaselineCityState(): CityState {
     resource: producedResource,
     startPop: sourceCity.population as CityState["startPop"],
     buildings: {
+      air_base: sourceCity.starting.air_base,
+      annex_city: 0,
       arms_industry: sourceCity.starting.arms_industry,
+      naval_base: sourceCity.starting.naval_base,
+      relocate_headquarters: 0,
       underground_bunkers: 0,
     },
   };

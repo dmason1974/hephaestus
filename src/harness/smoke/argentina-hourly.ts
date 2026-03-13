@@ -16,6 +16,7 @@ const reportWindow = scenarioReportWindow(scenario, mapDaysToReport);
 
 const table = buildCountryHourlyResourceBalanceTable(country, reportWindow.relativeDaysToSimulate, scenario.speed, {
   buildingsFile: buildings,
+  scenario,
   startingBalances: scenario.starting_balance,
   startAbsoluteHour: reportWindow.startAbs,
 });

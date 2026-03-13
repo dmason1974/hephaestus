@@ -1,0 +1,57 @@
+version: 1
+
+country:
+  id: greece
+  name: Greece
+  doctrine: european
+
+cities:
+  - id: athens
+    name: Athens
+    capital: true
+    resource: rares
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 1
+
+  - id: alexandroupoli
+    name: Alexadroupoli
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: heraklion
+    name: Heraklion
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: limassol
+    name: Limassol
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: thessaloniki
+    name: Thessaloniki
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0

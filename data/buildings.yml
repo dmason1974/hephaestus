@@ -199,6 +199,23 @@ buildings:
           cash: 5000
           manpower: 0
 
+  annex_city:
+    name: "Annex City"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          hours: 18
+        city_status_pct: 0.25
+        cost:
+          supplies: 4250
+          components: 3750
+          fuel: 2500
+          rares: 1500
+          electronics: 1750
+          cash: 10000
+          manpower: 0
+
   military_hospital:
     name: "Military Hospital"
     category: Buildings
@@ -300,6 +317,11 @@ buildings:
     category: Buildings
     levels:
       1:
+        hit_points: 10
+        mobilisation_speed_bonus_pct: 0.10
+        manpower_bonus_pct: 0.50
+        flat_bonus:
+          manpower: 50
         daily_upkeep:
           cash: 100
         build_time:
@@ -311,6 +333,86 @@ buildings:
           rares: 0
           electronics: 250
           cash: 1350
+          manpower: 0
+
+      2:
+        hit_points: 15
+        mobilisation_speed_bonus_pct: 0.25
+        manpower_bonus_pct: 0.75
+        flat_bonus:
+          manpower: 75
+        daily_upkeep:
+          cash: 110
+        build_time:
+          days: 1
+          hours: 2
+        cost:
+          supplies: 750
+          components: 500
+          fuel: 500
+          rares: 0
+          electronics: 500
+          cash: 2000
+          manpower: 0
+
+      3:
+        hit_points: 20
+        mobilisation_speed_bonus_pct: 0.45
+        manpower_bonus_pct: 1.00
+        flat_bonus:
+          manpower: 100
+        daily_upkeep:
+          cash: 120
+        build_time:
+          days: 1
+          hours: 4
+        cost:
+          supplies: 1500
+          components: 750
+          fuel: 750
+          rares: 0
+          electronics: 750
+          cash: 3375
+          manpower: 0
+
+      4:
+        hit_points: 25
+        mobilisation_speed_bonus_pct: 0.70
+        manpower_bonus_pct: 1.50
+        flat_bonus:
+          manpower: 150
+        daily_upkeep:
+          cash: 130
+        build_time:
+          days: 1
+          hours: 6
+        cost:
+          supplies: 2000
+          components: 1000
+          fuel: 1000
+          rares: 0
+          electronics: 1000
+          cash: 5000
+          manpower: 0
+
+      5:
+        hit_points: 30
+        mobilisation_speed_bonus_pct: 1.00
+        manpower_bonus_pct: 2.50
+        flat_bonus:
+          manpower: 200
+        daily_upkeep:
+          cash: 140
+        build_time:
+          days: 1
+          hours: 8 
+        cost:
+          supplies: 2500
+          components: 1500
+          fuel: 1250
+          rares: 0
+          electronics: 1250
+          cash: 6570
           manpower: 0
 
   relocate_headquarters:

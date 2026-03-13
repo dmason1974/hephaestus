@@ -28,5 +28,6 @@ test("homeland morale with bunkers keeps T fixed and applies bunker through N", 
 });
 
 test("moraleProductionMultiplier remains the baseline coefficient mapping", () => {
-  approxEqual(moraleProductionMultiplier(70), ((70 * 0.8) / 100) + 0.25);
+  assert.equal(moraleProductionMultiplier(70), 0.81);
+  assert.equal(moraleProductionMultiplier(82), 0.91);
 });

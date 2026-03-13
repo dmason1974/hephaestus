@@ -1,0 +1,19 @@
+schema_version: 1
+domain: scenario
+
+id: elite_ww3_map_feb_2026
+name: "Elite WW3 map Feb 2026"
+start:
+  day: 1
+  hour: 15
+
+speed: "4x1.4"
+
+starting_balance:
+  supplies: 40000
+  components: 30000
+  fuel: 15000
+  electronics: 10000
+  rares: 10000
+  manpower: 15000
+  cash: 150000

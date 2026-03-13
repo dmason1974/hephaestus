@@ -1,0 +1,67 @@
+version: 1
+
+country:
+  id: iraq
+  name: Iraq
+  doctrine: western
+
+cities:
+  - id: baghdad
+    name: Baghdad
+    capital: true
+    resource: rares
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 1
+
+  - id: basrah
+    name: Basrah
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: karbala
+    name: Karbala
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: mosul
+    name: Mosul
+    capital: false
+    resource: electronics
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: qa'im
+    name: Qa'im
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: rutba
+    name: Rutba
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

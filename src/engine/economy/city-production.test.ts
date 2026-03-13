@@ -121,6 +121,54 @@ test("resource table applies reusable building effects for static Arms Industry 
     buildingEffects: effects,
   });
 
-  assert.equal(improvedHourly.rows[0]?.amount - baseHourly.rows[0]?.amount, 107);
-  assert.equal(improvedSuppliesHourly.rows[0]?.amount - baseSuppliesHourly.rows[0]?.amount, 8);
+  assert.equal(improvedHourly.rows[0]?.amount - baseHourly.rows[0]?.amount, 7);
+  assert.equal(improvedSuppliesHourly.rows[0]?.amount - baseSuppliesHourly.rows[0]?.amount, 3);
+});
+
+test("city status multiplier reduces production for occupied and annexed cities", () => {
+  const homeland = buildHourlyResourceTable(1, "4x", {
+    resource: "supplies",
+    startPop: 5,
+    ecoInfraMultiplier: 1,
+    moraleParams: { S: 70, T: 90, N: 0, D: 8 },
+    cityStatus: "homeland",
+  });
+  const occupied = buildHourlyResourceTable(1, "4x", {
+    resource: "supplies",
+    startPop: 5,
+    ecoInfraMultiplier: 1,
+    moraleParams: { S: 70, T: 90, N: 0, D: 8 },
+    cityStatus: "occupied",
+  });
+  const annexed = buildHourlyResourceTable(1, "4x", {
+    resource: "supplies",
+    startPop: 5,
+    ecoInfraMultiplier: 1,
+    moraleParams: { S: 70, T: 90, N: 0, D: 8 },
+    cityStatus: "annexed",
+  });
+
+  assert.ok(homeland.rows[0].amount > occupied.rows[0].amount);
+  assert.ok(annexed.rows[0].amount > occupied.rows[0].amount);
+  assert.ok(homeland.rows[0].amount > annexed.rows[0].amount);
+});
+
+test("manpower applies recruiting office multiplier and flat bonus", () => {
+  const buildings = buildTestBuildings();
+  const baseline = buildDailyResourceTable(1, "1x", {
+    resource: "manpower",
+    startPop: 5,
+    moraleParams: { S: 70, T: 90, N: 0, D: 8 },
+  });
+  const improved = buildDailyResourceTable(1, "1x", {
+    resource: "manpower",
+    startPop: 5,
+    moraleParams: { S: 70, T: 90, N: 0, D: 8 },
+    buildingEffects: getEconomicBuildingEffectsForLevels(buildings, {
+      recruiting_office: 1,
+    }),
+  });
+
+  assert.equal(baseline.rows[0]?.amount, 140);
+  assert.equal(improved.rows[0]?.amount, 260);
 });

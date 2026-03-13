@@ -1,10 +1,12 @@
 import {
   BASE_RESOURCE_PRODUCTION,
+  CITY_STATUS_MULTIPLIER,
   GAME_SPEED_MULTIPLIER,
   MANPOWER_BY_POPULATION_TABLE,
   MIN_POPULATION,
   POPULATION_CAP,
   POPULATION_MODIFIER_TABLE,
+  type CityStatus,
   type GameSpeed,
   type Resource,
   type StartingPopulation,
@@ -30,12 +32,14 @@ export type CityResourceInputs = {
 
   // ✅ required to compute morale multiplier
   moraleParams: MoraleParams;
+  moraleOverride?: number;
 
   ecoInfraMultiplier?: number; // default 1.0
   hiddenMultiplierOverride?: number; // optional; otherwise derived from game speed
   populationMode?: PopulationMode;
   populationOpts?: PopulationModelOptions;
   multiplierByPop?: Record<number, number>;
+  cityStatus?: CityStatus;
   buildingEffects?: EconomicBuildingEffects;
 };
 
@@ -90,6 +94,10 @@ function clamp(n: number, min: number, max: number) {
 function roundInt(x: number) {
   // matches your sheet style rounding
   return Math.round(x);
+}
+
+function floorInt(x: number) {
+  return Math.floor(x);
 }
 
 function flatBonusForResource(
@@ -264,7 +272,7 @@ export function marginalReturnsSchedule(
  * Builds a day-by-day produced amount for a single city/resource.
  *
  * Formula (while ignoring build improvements beyond ecoInfraMultiplier):
- * amount = round(base * ecoInfra * moraleMul * popMul * hidden)
+ * amount = floor(base * ecoInfra * moraleMul * popMul * hidden)
  */
 export function buildDailyResourceTable(
   days: number,
@@ -277,6 +285,7 @@ export function buildDailyResourceTable(
   const populationMode = city.populationMode ?? "step";
   const multiplierByPop = city.multiplierByPop ?? DEFAULT_MULTIPLIER_BY_POP;
   const buildingEffects = city.buildingEffects;
+  const cityStatusMultiplier = CITY_STATUS_MULTIPLIER[city.cityStatus ?? "homeland"];
 
   const speedMul = GAME_SPEED_MULTIPLIER[gameSpeed];
   if (speedMul === undefined) {
@@ -289,20 +298,27 @@ export function buildDailyResourceTable(
 
   for (let day = 1; day <= days; day++) {
     // ✅ morale (1-based)
-    const morale = moraleOnDay(day, city.moraleParams);
+    const morale = city.moraleOverride ?? moraleOnDay(day, city.moraleParams);
     const moraleMul = moraleProductionMultiplier(morale);
 
     const population = populationAtDay(day, city.startPop, populationMode, city.populationOpts);
     const popDecimal = populationToEffectiveLevel(population);
     const popMul = populationToMultiplier(popDecimal, multiplierByPop);
     const productionMultiplier = 1 + (buildingEffects?.productionBonusPct ?? 0);
+    const manpowerMultiplier = 1 + (buildingEffects?.manpowerBonusPct ?? 0);
     const flatBonus = flatBonusForResource(buildingEffects, city.resource);
 
     const amount = city.resource === "manpower"
-      ? roundInt(populationToManpower(popDecimal))
-      : roundInt(
-          (BASE_RESOURCE_PRODUCTION[city.resource] * ecoInfra * moraleMul * popMul * hidden * productionMultiplier) +
-          (flatBonus * 24)
+      ? roundInt((populationToManpower(popDecimal) * manpowerMultiplier) + flatBonus)
+      : floorInt(
+          (BASE_RESOURCE_PRODUCTION[city.resource] *
+            ecoInfra *
+            moraleMul *
+            popMul *
+            hidden *
+            productionMultiplier *
+            cityStatusMultiplier) +
+          flatBonus
         );
 
     rows.push({ day, amount });
@@ -350,6 +366,7 @@ export function hourlyResourcePointAtAbsoluteHour(
   const populationMode = city.populationMode ?? "step";
   const multiplierByPop = city.multiplierByPop ?? DEFAULT_MULTIPLIER_BY_POP;
   const buildingEffects = city.buildingEffects;
+  const cityStatusMultiplier = CITY_STATUS_MULTIPLIER[city.cityStatus ?? "homeland"];
 
   const speedMul = GAME_SPEED_MULTIPLIER[gameSpeed];
   if (speedMul === undefined) {
@@ -357,19 +374,20 @@ export function hourlyResourcePointAtAbsoluteHour(
   }
   const hidden = city.hiddenMultiplierOverride ?? speedMul;
   const calendarDay = Math.floor(absoluteHour / 24) + 1;
-  const morale = moraleOnDay(calendarDay, city.moraleParams);
+  const morale = city.moraleOverride ?? moraleOnDay(calendarDay, city.moraleParams);
   const moraleMul = moraleProductionMultiplier(morale);
   const population = populationAtDay(calendarDay, city.startPop, populationMode, city.populationOpts);
   const popDecimal = populationToEffectiveLevel(population);
   const popMul = populationToMultiplier(popDecimal, multiplierByPop);
   const productionMultiplier = 1 + (buildingEffects?.productionBonusPct ?? 0);
+  const manpowerMultiplier = 1 + (buildingEffects?.manpowerBonusPct ?? 0);
   const flatBonus = flatBonusForResource(buildingEffects, city.resource);
   const dailyAmount =
     city.resource === "manpower"
-      ? roundInt(populationToManpower(popDecimal))
-      : roundInt(
-          (BASE_RESOURCE_PRODUCTION[city.resource] * ecoInfra * moraleMul * popMul * hidden * productionMultiplier) +
-          (flatBonus * 24)
+      ? roundInt((populationToManpower(popDecimal) * manpowerMultiplier) + flatBonus)
+      : floorInt(
+          (BASE_RESOURCE_PRODUCTION[city.resource] * ecoInfra * moraleMul * popMul * hidden * productionMultiplier * cityStatusMultiplier) +
+          flatBonus
         );
   const hourlyAmount = Math.floor(dailyAmount / 24);
   const hourOfDay = (absoluteHour % 24) + 1;

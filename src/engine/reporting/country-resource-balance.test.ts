@@ -146,3 +146,209 @@ test("country hourly balance table applies city Arms Industry levels through sha
     cashImprovedHourly.rows[0]?.amount - cashBaseHourly.rows[0]?.amount
   );
 });
+
+test("country hourly balance table includes air and naval base production bonuses", () => {
+  const buildings = buildTestBuildings();
+  const baseCity = {
+    id: "alpha",
+    name: "Alpha",
+    capital: true,
+    resource: "supplies",
+    population: 5,
+    starting: {
+      army_base: 1,
+      air_base: 0,
+      naval_base: 0,
+      arms_industry: 0,
+      local_industry: 0,
+      recruiting_office: 0,
+    },
+  };
+  const improvedCountry = {
+    version: 1,
+    country: {
+      id: "testland",
+      name: "Testland",
+      doctrine: "western",
+    },
+    cities: [
+      {
+        ...baseCity,
+        starting: { ...baseCity.starting, air_base: 1, naval_base: 2 },
+      },
+    ],
+  };
+
+  const baseTable = buildCountryHourlyResourceBalanceTable(
+    {
+      version: 1,
+      country: {
+        id: "testland",
+        name: "Testland",
+        doctrine: "western",
+      },
+      cities: [baseCity],
+    },
+    1,
+    "4x",
+    { buildingsFile: buildings }
+  );
+  const improvedTable = buildCountryHourlyResourceBalanceTable(improvedCountry, 1, "4x", {
+    buildingsFile: buildings,
+  });
+  const effects = getEconomicBuildingEffectsForLevels(buildings, {
+    air_base: 1,
+    naval_base: 2,
+  });
+  const suppliesBaseHourly = buildHourlyResourceTable(1, "4x", {
+    resource: "supplies",
+    startPop: 5,
+    moraleParams: { S: 70, T: 90, N: 0, D: 8 },
+  });
+  const suppliesImprovedHourly = buildHourlyResourceTable(1, "4x", {
+    resource: "supplies",
+    startPop: 5,
+    moraleParams: { S: 70, T: 90, N: 0, D: 8 },
+    buildingEffects: effects,
+  });
+
+  assert.equal(
+    improvedTable.rows[0]?.balances.supplies - baseTable.rows[0]?.balances.supplies,
+    suppliesImprovedHourly.rows[0]?.amount - suppliesBaseHourly.rows[0]?.amount
+  );
+});
+
+test("country hourly balance table applies scenario city-status multipliers", () => {
+  const buildings = buildTestBuildings();
+  const country = {
+    version: 1,
+    country: {
+      id: "testland",
+      name: "Testland",
+      doctrine: "western",
+    },
+    cities: [
+      {
+        id: "alpha",
+        name: "Alpha",
+        capital: true,
+        resource: "supplies",
+        population: 5,
+        starting: {
+          army_base: 1,
+          air_base: 0,
+          naval_base: 0,
+          arms_industry: 0,
+          local_industry: 0,
+          recruiting_office: 0,
+        },
+      },
+    ],
+  };
+  const homeland = buildCountryHourlyResourceBalanceTable(country, 1, "4x", {
+    buildingsFile: buildings,
+  });
+  const occupied = buildCountryHourlyResourceBalanceTable(country, 1, "4x", {
+    buildingsFile: buildings,
+    scenario: {
+      schema_version: 1,
+      domain: "scenario",
+      id: "test_scenario",
+      name: "Test Scenario",
+      start: { day: 1, hour: 0 },
+      speed: "4x",
+      starting_balance: {
+        supplies: 0,
+        components: 0,
+        fuel: 0,
+        rares: 0,
+        electronics: 0,
+        cash: 0,
+        manpower: 0,
+      },
+      city_statuses: {
+        testland: {
+          alpha: "occupied",
+        },
+      },
+    },
+  });
+
+  assert.ok(homeland.rows[0].balances.supplies > occupied.rows[0].balances.supplies);
+});
+
+test("country hourly balance table can move headquarters morale bonus via scenario override", () => {
+  const buildings = buildTestBuildings();
+  const country = {
+    version: 1,
+    country: {
+      id: "testland",
+      name: "Testland",
+      doctrine: "western",
+    },
+    cities: [
+      {
+        id: "capital",
+        name: "Capital",
+        capital: true,
+        resource: "supplies",
+        population: 5,
+        starting: {
+          army_base: 1,
+          air_base: 0,
+          naval_base: 0,
+          arms_industry: 0,
+          local_industry: 0,
+          recruiting_office: 0,
+        },
+      },
+      {
+        id: "other",
+        name: "Other",
+        capital: false,
+        resource: "fuel",
+        population: 4,
+        starting: {
+          army_base: 1,
+          air_base: 0,
+          naval_base: 0,
+          arms_industry: 0,
+          local_industry: 0,
+          recruiting_office: 0,
+        },
+      },
+    ],
+  };
+
+  const baseline = buildCountryHourlyResourceBalanceTable(country, 2, "4x", {
+    buildingsFile: buildings,
+  });
+  const relocated = buildCountryHourlyResourceBalanceTable(country, 2, "4x", {
+    buildingsFile: buildings,
+    scenario: {
+      schema_version: 1,
+      domain: "scenario",
+      id: "test_scenario",
+      name: "Test Scenario",
+      start: { day: 1, hour: 0 },
+      speed: "4x",
+      starting_balance: {
+        supplies: 0,
+        components: 0,
+        fuel: 0,
+        rares: 0,
+        electronics: 0,
+        cash: 0,
+        manpower: 0,
+      },
+      headquarters_city_by_country: {
+        testland: "other",
+      },
+    },
+  });
+
+  assert.ok(
+    baseline.rows[baseline.rows.length - 1].balances.supplies >
+      relocated.rows[relocated.rows.length - 1].balances.supplies
+  );
+});

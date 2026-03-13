@@ -27,7 +27,14 @@ const city: CityState = {
   cityId: "supplies_city",
   resource: "supplies",
   startPop: 6,
-  buildings: { arms_industry: 0, underground_bunkers: 0 },
+  buildings: {
+    air_base: 0,
+    annex_city: 0,
+    arms_industry: 0,
+    naval_base: 0,
+    relocate_headquarters: 0,
+    underground_bunkers: 0,
+  },
 };
 
 const result = simulateBuildOrder({

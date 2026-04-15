@@ -234,6 +234,7 @@ test("simulateBuildOrder applies city-status multipliers", () => {
   assert.ok(homeland.perHourPerCity[0].production.electronics > occupied.perHourPerCity[0].production.electronics);
 });
 
+
 test("simulateBuildOrder annexes a city only after annex_city completes", () => {
   const buildings = buildTestBuildings();
   const city: CityState = {
@@ -382,4 +383,51 @@ test("simulateBuildOrder transfers headquarters morale bonus on relocate complet
   assert.ok(relocatedDestination);
   assert.ok(relocatedDestination.multiplier > baselineDestination.multiplier);
   assert.ok(relocatedCapital.multiplier < baselineCapital.multiplier);
+});
+
+test("simulateBuildOrder does not grant headquarters morale to an isolated non-capital city before relocate completes", () => {
+  const buildings = buildTestBuildings();
+  const city: CityState = {
+    cityId: "alpha",
+    countryId: "solo",
+    capital: false,
+    resource: "electronics",
+    startPop: 5,
+    cityStatus: "homeland",
+    buildings: {
+      air_base: 0,
+      annex_city: 0,
+      arms_industry: 0,
+      naval_base: 0,
+      relocate_headquarters: 0,
+      underground_bunkers: 0,
+    },
+  };
+
+  const baseline = simulateBuildOrder({
+    cities: [city],
+    buildOrder: [],
+    buildings,
+    scenario: TEST_SCENARIO,
+    hoursToSimulate: 80,
+  });
+  const relocated = simulateBuildOrder({
+    cities: [city],
+    buildOrder: [
+      { cityId: "alpha", buildingId: "relocate_headquarters", targetLevel: 1, startHour: 0 },
+    ],
+    buildings,
+    scenario: TEST_SCENARIO,
+    hoursToSimulate: 80,
+  });
+
+  const baselineFinal = baseline.perHourPerCity.at(-1);
+  const relocatedFinal = relocated.perHourPerCity.at(-1);
+
+  assert.ok(baselineFinal);
+  assert.ok(relocatedFinal);
+  assert.ok(relocatedFinal.multiplier > baselineFinal.multiplier);
+  assert.ok(
+    relocated.timingDebug?.builds.some(build => build.buildingId === "relocate_headquarters")
+  );
 });

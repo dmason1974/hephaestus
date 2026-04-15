@@ -1,0 +1,75 @@
+version: 1
+
+country:
+  id: indonesia
+  name: Indonesia
+  doctrine: european
+
+cities:
+  - id: banjarmasin
+    name: Banjarmasin
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: jakarta
+    name: Jakarta
+    capital: true
+    resource: supplies
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 1
+
+  - id: makassar
+    name: Makassar
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: medan
+    name: Medan
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: padang
+    name: Padang
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: surabaya
+    name: Surabaya
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+provinces:
+  total: 47
+  supplies: 0
+  components: 2
+  fuel: 0
+  rares: 0
+  electronics: 1

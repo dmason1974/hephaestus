@@ -23,6 +23,15 @@ npm run smoke:resource:hourly
 npm run smoke:argentina:hourly
 npm run smoke:build-order
 npm run smoke:build-order:compare
+npm run smoke:beam:city
+npm run smoke:beam:country
+```
+
+The Beam scripts are scenario-driven and take their main inputs from environment variables:
+
+```bash
+BS_SCENARIO=elite_ava_feb_2026 BS_COUNTRY=argentina npm run smoke:beam:city
+BSC_SCENARIO=elite_ava_feb_2026 BSC_COUNTRY=argentina npm run smoke:beam:country
 ```
 
 ### Scenario Ground Truth

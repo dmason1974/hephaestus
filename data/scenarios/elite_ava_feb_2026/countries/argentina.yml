@@ -9,7 +9,7 @@ cities:
   - id: buenos_aires
     name: Buenos Aires
     capital: true
-    resource: electronics
+    resource: components
     population: 6
     starting:
       air_base: 1
@@ -59,7 +59,7 @@ cities:
   - id: la_plata
     name: La Plata
     capital: false
-    resource: electronics
+    resource: components
     population: 5
     starting:
       air_base: 0
@@ -69,8 +69,8 @@ cities:
   - id: mar_del_plata
     name: Mar del Plata
     capital: false
-    resource: components
-    population: 5
+    resource: electronics
+    population: 4
     starting:
       air_base: 0
       naval_base: 1

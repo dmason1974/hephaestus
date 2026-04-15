@@ -1,4 +1,6 @@
 import {
+  defaultStartingMoraleForCityStatus,
+  defaultStartingPopulationForCityStatus,
   DEFAULT_MORALE_DECAY_D,
   HOMELAND_TARGET_MORALE,
   STARTING_MORALE_DAY1,
@@ -13,7 +15,12 @@ import {
   buildHourlyResourceTable,
   type CityResourceInputs,
 } from "../economy/city-production.js";
+import {
+  buildHourlyProvinceResourceTable,
+  type ProvinceResourceInputs,
+} from "../economy/province-production.js";
 import { buildingMoraleBonusN, getEconomicBuildingEffectsForLevels } from "../economy/building-modifiers.js";
+import { buildProvinceCohortsFromCountry } from "../provinces/province-cohorts.js";
 
 export type CountryHourlyBalanceRow = {
   hour: number;
@@ -41,6 +48,13 @@ type CountryResourceBalanceOptions = {
     | "populationOpts"
     | "multiplierByPop"
   >;
+  provinceDefaults?: Pick<
+    ProvinceResourceInputs,
+    | "cityStatus"
+    | "combatOutpostLevel"
+    | "hiddenMultiplierOverride"
+    | "localIndustryLevel"
+  >;
 };
 
 function buildZeroBalances(resources: readonly Resource[]) {
@@ -65,11 +79,15 @@ function toCityResourceInputs(
   buildingsFile: BuildingsFile,
   opts?: CountryResourceBalanceOptions
 ): CityResourceInputs {
+  const cityStatus =
+    opts?.scenario
+      ? resolveScenarioCityStatus(opts.scenario, countryId, city.id)
+      : opts?.cityDefaults?.cityStatus;
   return {
     resource,
-    startPop: city.population as StartingPopulation,
+    startPop: defaultStartingPopulationForCityStatus(city.population as StartingPopulation, cityStatus),
     moraleParams: {
-      S: STARTING_MORALE_DAY1,
+      S: defaultStartingMoraleForCityStatus(cityStatus),
       T: HOMELAND_TARGET_MORALE,
       N:
         headquartersCityId(country, opts?.scenario) === city.id
@@ -82,10 +100,7 @@ function toCityResourceInputs(
     populationMode: opts?.cityDefaults?.populationMode,
     populationOpts: opts?.cityDefaults?.populationOpts,
     multiplierByPop: opts?.cityDefaults?.multiplierByPop,
-    cityStatus:
-      opts?.scenario
-        ? resolveScenarioCityStatus(opts.scenario, countryId, city.id)
-        : opts?.cityDefaults?.cityStatus,
+    cityStatus,
     buildingEffects: getEconomicBuildingEffectsForLevels(buildingsFile, {
       air_base: city.starting.air_base,
       arms_industry: city.starting.arms_industry,
@@ -109,6 +124,8 @@ export function buildCountryHourlyResourceBalanceTable(
       "cash" as Resource,
       "manpower" as Resource,
       ...country.cities.map(city => city.resource as Resource),
+      ...buildProvinceCohortsFromCountry(country)
+        .flatMap(cohort => cohort.resource ? [cohort.resource] : []),
       ...Object.keys(opts.startingBalances ?? {}).map(resource => resource as Resource),
     ])
   ).sort() as Resource[];
@@ -139,6 +156,46 @@ export function buildCountryHourlyResourceBalanceTable(
           startAbsoluteHour: opts.startAbsoluteHour,
         }
       );
+      for (const row of hourly.rows) {
+        productionByHour[row.hour - 1][resource] += row.amount;
+      }
+    }
+  }
+
+  for (const cohort of buildProvinceCohortsFromCountry(country)) {
+    for (const resource of [cohort.resource, "cash", "manpower"] as const) {
+      if (!resource) continue;
+
+      const provinceCount =
+        resource === "cash" || resource === "manpower"
+          ? cohort.totalProvinceCount
+          : cohort.resourceProvinceCount;
+      if (provinceCount <= 0) continue;
+
+      const hourly = buildHourlyProvinceResourceTable(
+        days,
+        gameSpeed,
+        {
+          resource,
+          provinceCount,
+          moraleParams: {
+            S: defaultStartingMoraleForCityStatus(opts?.provinceDefaults?.cityStatus ?? opts?.cityDefaults?.cityStatus),
+            T: HOMELAND_TARGET_MORALE,
+            N: 0,
+            D: DEFAULT_MORALE_DECAY_D,
+          },
+          buildingsFile: opts.buildingsFile,
+          combatOutpostLevel: opts.provinceDefaults?.combatOutpostLevel,
+          hiddenMultiplierOverride:
+            opts.provinceDefaults?.hiddenMultiplierOverride ?? opts.cityDefaults?.hiddenMultiplierOverride,
+          localIndustryLevel: opts.provinceDefaults?.localIndustryLevel,
+          cityStatus: opts?.provinceDefaults?.cityStatus ?? opts?.cityDefaults?.cityStatus,
+        },
+        {
+          startAbsoluteHour: opts.startAbsoluteHour,
+        }
+      );
+
       for (const row of hourly.rows) {
         productionByHour[row.hour - 1][resource] += row.amount;
       }

@@ -112,6 +112,51 @@ buildings:
           cash: 2000
           manpower: 0
 
+      2:
+        daily_upkeep:
+          cash: 110
+        build_time:
+          days: 1
+          hours: 4
+        cost:
+          supplies: 750
+          components: 500
+          fuel: 1000
+          rares: 0
+          electronics: 375
+          cash: 3500
+          manpower: 0
+
+      3:
+        daily_upkeep:
+          cash: 120
+        build_time:
+          days: 1
+          hours: 8
+        cost:
+          supplies: 1250
+          components: 750
+          fuel: 1500
+          rares: 0
+          electronics: 500
+          cash: 5500
+          manpower: 0
+
+      4:
+        daily_upkeep:
+          cash: 130
+        build_time:
+          days: 1
+          hours: 10
+        cost:
+          supplies: 2000
+          components: 1000
+          fuel: 2000
+          rares: 0
+          electronics: 750
+          cash: 7500
+          manpower: 0
+
   arms_industry:
     name: "Arms Industry"
     category: Buildings
@@ -214,6 +259,76 @@ buildings:
           rares: 1500
           electronics: 1750
           cash: 10000
+          manpower: 0
+
+  combat_outpost:
+    name: "Combat Outpost"
+    category: Buildings
+    is_secret: true
+    levels:
+      1:
+        hit_points: 15
+        mobilisation_speed_bonus_pct: 1.00
+        garrison_damage_reduction_pct: 0.33
+        morale_bonus_pct: 0.10
+        daily_upkeep:
+          cash: 33
+        build_time:
+          hours: 1
+        cost:
+          supplies: 500
+          components: 750
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 2000
+          manpower: 0
+
+  local_industry:
+    name: "Local Industry"
+    category: Buildings
+    levels:
+      1:
+        hit_points: 10
+        production_bonus_pct: 0.50
+        build_time:
+          hours: 9
+        cost:
+          supplies: 750
+          components: 750
+          rares: 0
+          fuel: 0
+          electronics: 0
+          cash: 1500
+          manpower: 0
+            
+      2:
+        hit_points: 15
+        production_bonus_pct: 0.75
+        build_time:
+          hours: 18
+        cost:
+          supplies: 900
+          components: 900
+          rares: 0
+          fuel: 0
+          electronics: 0
+          cash: 2000
+          manpower: 0
+
+      3:
+        hit_points: 20
+        production_bonus_pct: 1.00
+        build_time:
+          days: 1
+          hours: 3
+        cost:
+          supplies: 1000
+          components: 1000
+          rares: 0
+          fuel: 0
+          electronics: 0
+          cash: 2500
           manpower: 0
 
   military_hospital:

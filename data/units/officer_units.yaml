@@ -1,0 +1,604 @@
+schema_version: 1
+domain: units
+
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+
+units:
+  
+  epic_airstrike_officer:
+    name: Epic Airstrike Officer
+    category: Air
+    doctrine: Western
+    levels: 
+      1:
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+        research:
+          unlock_day: 3
+          time:
+            days: 0
+            hours: 1
+            minutes: 30
+          cost:
+            supplies: 300
+            components: 0
+            fuel: 0
+            rares: 300
+            electronics: 0
+            cash: 500
+            manpower: 0
+        mobilisation:
+          unit_limit: 1
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 0
+            components: 700
+            fuel: 0
+            rares: 0
+            electronics: 400
+            cash: 1500
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 70
+            rares: 0
+            electronics: 60
+            cash: 180
+            manpower: 70
+
+      2:
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - epic_airstrike_officer level 1
+        research:
+          unlock_day: 5         
+          time:
+            days: 0
+            hours: 2
+            minutes: 15
+          cost:
+            supplies: 400
+            components: 0
+            fuel: 0
+            rares: 350
+            electronics: 0
+            cash: 600
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 2
+          cost:
+            supplies: 0
+            components: 800
+            fuel: 0
+            rares: 0
+            electronics: 600
+            cash: 1750
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 80
+            rares: 0
+            electronics: 70
+            cash: 200
+            manpower: 80
+
+      3:
+        requirements:
+          - air_base level 1
+          - recruiting_office level 1
+          - epic_aistrike_officer level 2
+        research:
+          unlock_day: 7
+          time:
+            days: 0
+            hours: 3
+            minutes: 00
+          cost:
+            supplies: 500
+            components: 0
+            fuel: 0
+            rares: 400
+            electronics: 0
+            cash: 700
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 6
+          cost:
+            supplies: 0
+            components: 800
+            fuel: 0
+            rares: 0
+            electronics: 600
+            cash: 1750
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 89
+            rares: 0
+            electronics: 80
+            cash: 200
+            manpower: 70
+
+      4:
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - epic_airstrike_officer level 3
+        research:
+          unlock_day: 9
+          time:
+            days: 0
+            hours: 9
+            minutes: 0
+          cost:
+            supplies: 650
+            components: 0
+            fuel: 0
+            rares: 500
+            electronics: 0
+            cash: 900
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 8
+          cost:
+            supplies: 0
+            components: 1100
+            fuel: 0
+            rares: 0
+            electronics: 900
+            cash: 2500
+            manpower: 750
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 95
+            rares: 0
+            electronics: 90
+            cash: 240
+            manpower: 110
+
+      5:
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - epic_airstrike_officer level 4
+        research:
+          unlock_day: 13
+          time:
+            days: 0
+            hours: 5
+            minutes: 15
+          cost:
+            supplies: 750
+            components: 0
+            fuel: 0
+            rares: 600
+            electronics: 0
+            cash: 1000
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 10
+          cost:
+            supplies: 0
+            components: 1250
+            fuel: 0
+            rares: 0
+            electronics: 1050
+            cash: 3000
+            manpower: 900
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 105
+            rares: 0
+            electronics: 100
+            cash: 260
+            manpower: 120
+
+      6:
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - epic_airstrike_officer level 5
+        research:
+          unlock_day: 17
+          time:
+            days: 0
+            hours: 6
+            minutes: 0
+          cost:
+            supplies: 850
+            components: 0
+            fuel: 0
+            rares: 700
+            electronics: 0
+            cash: 1100
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 13
+          cost:
+            supplies: 0
+            components: 1400
+            fuel: 0
+            rares: 0
+            electronics: 1200
+            cash: 3500
+            manpower: 1050
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 110
+            rares: 0
+            electronics: 110
+            cash: 280
+            manpower: 140
+
+      7:
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - epic_airstrike_officer level 6
+        research:
+          unlock_day: 20
+          time:
+            days: 0
+            hours: 7
+            minutes: 30
+          cost:
+            supplies: 1000
+            components: 0
+            fuel: 0
+            rares: 850
+            electronics: 0
+            cash: 1300
+            manpower: 0
+        mobilisation:
+          time:
+            days: 2
+            hours: 12
+          cost:
+            supplies: 0
+            components: 1650
+            fuel: 0
+            rares: 0
+            electronics: 1450
+            cash: 5000
+            manpower: 1300
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 120
+            rares: 0
+            electronics: 120
+            cash: 300
+            manpower: 150
+  
+   
+  uncommon_infantry_officer:
+    name: Uncommon Infantry Officer
+    category: Infantry
+    doctrine: Western
+    levels: 
+      1:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+        research:
+          unlock_day: 1
+          time:
+            days: 0
+            hours: 0
+            minutes: 22
+            seconds: 30
+          cost:
+            supplies: 200
+            components: 0
+            fuel: 0
+            rares: 200
+            electronics: 0
+            cash: 200
+            manpower: 0
+        mobilisation:
+          unit_limit: 1
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 0
+            components: 700
+            fuel: 0
+            rares: 0
+            electronics: 400
+            cash: 1500
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 70
+            rares: 0
+            electronics: 60
+            cash: 180
+            manpower: 70
+      2:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - uncommon_infantry_officer level 1
+        research:
+          unlock_day: 5
+          time:
+            days: 0
+            hours: 1
+            minutes: 30
+          cost:
+            supplies: 250
+            components: 0
+            fuel: 0
+            rares: 250
+            electronics: 0
+            cash: 250
+            manpower: 0
+        mobilisation:
+          unit_limit: 1
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 0
+            components: 700
+            fuel: 0
+            rares: 0
+            electronics: 400
+            cash: 1500
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 70
+            rares: 0
+            electronics: 60
+            cash: 180
+            manpower: 70
+
+      3:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - uncommon_infantry_officer level 2
+        research:
+          unlock_day: 9
+          time:
+            days: 0
+            hours: 2
+            minutes: 15
+          cost:
+            supplies: 300
+            components: 0
+            fuel: 0
+            rares: 300
+            electronics: 0
+            cash: 300
+            manpower: 0
+        mobilisation:
+          unit_limit: 1
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 0
+            components: 700
+            fuel: 0
+            rares: 0
+            electronics: 400
+            cash: 1500
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 70
+            rares: 0
+            electronics: 60
+            cash: 180
+            manpower: 70
+
+      4:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - uncommon_infantry_officer level 3
+        research:
+          unlock_day: 13
+          time:
+            days: 0
+            hours: 3
+            minutes: 45
+          cost:
+            supplies: 350
+            components: 0
+            fuel: 0
+            rares: 350
+            electronics: 0
+            cash: 350
+            manpower: 0
+        mobilisation:
+          unit_limit: 1
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 0
+            components: 700
+            fuel: 0
+            rares: 0
+            electronics: 400
+            cash: 1500
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 70
+            rares: 0
+            electronics: 60
+            cash: 180
+            manpower: 70
+
+      5:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - uncommon_infantry_officer level 4
+        research:
+          unlock_day: 17
+          time:
+            days: 0
+            hours: 6
+            minutes: 0
+          cost:
+            supplies: 400
+            components: 0
+            fuel: 0
+            rares: 400
+            electronics: 0
+            cash: 400
+            manpower: 0
+        mobilisation:
+          unit_limit: 1
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 0
+            components: 700
+            fuel: 0
+            rares: 0
+            electronics: 400
+            cash: 1500
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 70
+            rares: 0
+            electronics: 60
+            cash: 180
+            manpower: 70
+
+      6:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - uncommon_infantry_officer level 5
+        research:
+          unlock_day: 21
+          time:
+            days: 0
+            hours: 5
+            minutes: 15
+          cost:
+            supplies: 450
+            components: 0
+            fuel: 0
+            rares: 450
+            electronics: 0
+            cash: 450
+            manpower: 0
+        mobilisation:
+          unit_limit: 1
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 0
+            components: 700
+            fuel: 0
+            rares: 0
+            electronics: 400
+            cash: 1500
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 70
+            rares: 0
+            electronics: 60
+            cash: 180
+            manpower: 70
+
+      7:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - uncommon_infantry_officer level 6
+        research:
+          unlock_day: 24
+          time:
+            days: 0
+            hours: 6
+            minutes: 45
+          cost:
+            supplies: 500
+            components: 0
+            fuel: 0
+            rares: 500
+            electronics: 0
+            cash: 500
+            manpower: 0
+        mobilisation:
+          unit_limit: 1
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 0
+            components: 700
+            fuel: 0
+            rares: 0
+            electronics: 400
+            cash: 1500
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 70
+            rares: 0
+            electronics: 60
+            cash: 180
+            manpower: 70

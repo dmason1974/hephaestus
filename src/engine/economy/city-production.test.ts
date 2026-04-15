@@ -50,9 +50,9 @@ test("hourly resource table splits each day into 24 game hours", () => {
   assert.equal(hourly.rows[24].hour, 25);
   assert.equal(hourly.rows[24].day, 2);
   assert.equal(hourly.rows[24].hourOfDay, 1);
+  assert.equal(hourly.total, hourly.rows.reduce((sum, row) => sum + row.amount, 0));
   assert.equal(hourly.rows[0].amount, Math.floor(daily.rows[0].amount / 24));
   assert.equal(hourly.rows[24].amount, Math.floor(daily.rows[1].amount / 24));
-  assert.equal(hourly.total, hourly.rows.reduce((sum, row) => sum + row.amount, 0));
 });
 
 test("hourly resource table uses calendar midnight for morale/day ticks when startAbsoluteHour is offset", () => {
@@ -66,7 +66,6 @@ test("hourly resource table uses calendar midnight for morale/day ticks when sta
   const hourly = buildHourlyResourceTable(2, "4x", city, {
     startAbsoluteHour: 15,
   });
-
   assert.equal(hourly.rows[0]?.day, 1);
   assert.equal(hourly.rows[0]?.hourOfDay, 16);
   assert.equal(hourly.rows[8]?.day, 1);
@@ -74,6 +73,19 @@ test("hourly resource table uses calendar midnight for morale/day ticks when sta
   assert.equal(hourly.rows[9]?.day, 2);
   assert.equal(hourly.rows[9]?.hourOfDay, 1);
   assert.notEqual(hourly.rows[8]?.amount, hourly.rows[9]?.amount);
+});
+
+test("hourly resource table applies population growth incrementally within the day", () => {
+  const city = {
+    resource: "cash" as const,
+    startPop: 4 as const,
+    ecoInfraMultiplier: 1,
+    moraleParams: { S: 70, T: 90, N: 0, D: 8 },
+  };
+
+  const hourly = buildHourlyResourceTable(1, "1x", city);
+
+  assert.ok((hourly.rows[23]?.amount ?? 0) > (hourly.rows[0]?.amount ?? 0));
 });
 
 test("hourly balance table carries starting balance and production only", () => {
@@ -171,4 +183,23 @@ test("manpower applies recruiting office multiplier and flat bonus", () => {
 
   assert.equal(baseline.rows[0]?.amount, 140);
   assert.equal(improved.rows[0]?.amount, 260);
+});
+
+test("military hospital speeds population-linked hourly production", () => {
+  const buildings = buildTestBuildings();
+  const baseline = buildHourlyResourceTable(5, "1x", {
+    resource: "cash",
+    startPop: 4,
+    moraleParams: { S: 70, T: 90, N: 0, D: 8 },
+  });
+  const improved = buildHourlyResourceTable(5, "1x", {
+    resource: "cash",
+    startPop: 4,
+    moraleParams: { S: 70, T: 90, N: 0, D: 8 },
+    buildingEffects: getEconomicBuildingEffectsForLevels(buildings, {
+      military_hospital: 1,
+    }),
+  });
+
+  assert.ok(improved.total > baseline.total);
 });

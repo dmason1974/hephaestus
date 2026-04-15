@@ -1,5 +1,7 @@
 import type { BuildingsFile } from "../../schemas/building-schema.js";
 import {
+  defaultStartingMoraleForCityStatus,
+  defaultStartingPopulationForCityStatus,
   DEFAULT_MORALE_DECAY_D,
   HOMELAND_TARGET_MORALE,
   STARTING_MORALE_DAY1,
@@ -133,6 +135,7 @@ function zeroEconomicEffects(): EconomicBuildingEffects {
   return {
     productionBonusPct: 0,
     manpowerBonusPct: 0,
+    populationBonusPct: 0,
     flatBonuses: {},
     moraleBonusN: 0,
   };
@@ -141,6 +144,7 @@ function zeroEconomicEffects(): EconomicBuildingEffects {
 function addEconomicEffects(target: EconomicBuildingEffects, source: EconomicBuildingEffects) {
   target.productionBonusPct += source.productionBonusPct;
   target.manpowerBonusPct += source.manpowerBonusPct;
+  target.populationBonusPct += source.populationBonusPct;
   target.moraleBonusN += source.moraleBonusN;
 
   for (const [resource, amount] of Object.entries(source.flatBonuses) as Array<[Resource, number | undefined]>) {
@@ -158,7 +162,7 @@ function buildCityResourceInputs(
   buildingEffects: CityResourceInputs["buildingEffects"]
 ): CityResourceInputs {
   const moraleParams = city.moraleParams ?? {
-    S: STARTING_MORALE_DAY1,
+    S: defaultStartingMoraleForCityStatus(cityStatus),
     T: HOMELAND_TARGET_MORALE,
     N: 0,
     D: DEFAULT_MORALE_DECAY_D,
@@ -166,7 +170,7 @@ function buildCityResourceInputs(
 
   return {
     resource,
-    startPop: city.startPop,
+    startPop: defaultStartingPopulationForCityStatus(city.startPop, cityStatus),
     moraleOverride,
     moraleParams: {
       ...moraleParams,
@@ -184,7 +188,7 @@ function buildCityResourceInputs(
 
 function interpolatedEconomicEffectsForBuilding(args: {
   buildings: BuildingsFile;
-  buildingId: "air_base" | "arms_industry" | "naval_base";
+  buildingId: "air_base" | "arms_industry" | "military_hospital" | "naval_base";
   startingLevel: number;
   segments: ReturnType<typeof scheduleBuildSegments> extends Map<string, infer T>
     ? T[keyof T]
@@ -227,8 +231,7 @@ function activeHeadquartersCityId(args: {
   }
 
   const siblingCities = args.cities.filter(city => countryKey(city) === countryKey(sourceCity));
-  let activeCityId =
-    siblingCities.find(city => city.capital)?.cityId ?? siblingCities[0]?.cityId ?? sourceCity.cityId;
+  let activeCityId = siblingCities.find(city => city.capital)?.cityId;
   let latestCompletionMinute = -1;
 
   for (const city of siblingCities) {
@@ -338,13 +341,14 @@ export function simulateBuildOrder(args: {
         segmentsByCity,
       });
       const citySegments = segmentsByCity.get(city.cityId) ?? {
-      air_base: [],
-      annex_city: [],
-      arms_industry: [],
-      naval_base: [],
-      recruiting_office: [],
-      relocate_headquarters: [],
-      underground_bunkers: [],
+        air_base: [],
+        annex_city: [],
+        arms_industry: [],
+        military_hospital: [],
+        naval_base: [],
+        recruiting_office: [],
+        relocate_headquarters: [],
+        underground_bunkers: [],
       };
       const airBase = interpolatedEconomicEffectsForBuilding({
         buildings: args.buildings,
@@ -370,6 +374,14 @@ export function simulateBuildOrder(args: {
         hour,
         scenario: args.scenario,
       });
+      const militaryHospital = interpolatedEconomicEffectsForBuilding({
+        buildings: args.buildings,
+        buildingId: "military_hospital",
+        startingLevel: city.buildings.military_hospital ?? 0,
+        segments: citySegments.military_hospital,
+        hour,
+        scenario: args.scenario,
+      });
       const bunkerLevelAtDayStart = getCompletedBuildingLevelAtDayStart({
         mapDay,
         startingLevel: city.buildings.underground_bunkers,
@@ -390,11 +402,12 @@ export function simulateBuildOrder(args: {
       const dynamicBuildingEffects = zeroEconomicEffects();
       addEconomicEffects(dynamicBuildingEffects, airBase.effects);
       addEconomicEffects(dynamicBuildingEffects, armsIndustry.effects);
+      addEconomicEffects(dynamicBuildingEffects, militaryHospital.effects);
       addEconomicEffects(dynamicBuildingEffects, navalBase.effects);
       addEconomicEffects(dynamicBuildingEffects, bunkerEffects);
       addEconomicEffects(dynamicBuildingEffects, recruitingOfficeEffects);
       const baseMoraleParams = city.moraleParams ?? {
-        S: STARTING_MORALE_DAY1,
+        S: defaultStartingMoraleForCityStatus(effectiveCityStatus),
         T: HOMELAND_TARGET_MORALE,
         N: 0,
         D: DEFAULT_MORALE_DECAY_D,
@@ -494,6 +507,7 @@ export function simulateBuildOrder(args: {
           ...citySegments.arms_industry,
           ...citySegments.naval_base,
           ...citySegments.recruiting_office,
+          ...citySegments.relocate_headquarters,
           ...citySegments.underground_bunkers,
         ])
         .map(segment => ({

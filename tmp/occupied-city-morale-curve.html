@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Occupied City Morale Curve</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, sans-serif; line-height: 1.4; padding: 24px; max-width: 1100px; margin: 0 auto; }
+    h1, h2 { margin: 20px 0 8px; }
+    .note { color: #555; margin-bottom: 16px; }
+    svg { width: 100%; height: auto; border: 1px solid #d0d7de; background: #fff; }
+    table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+    th, td { border: 1px solid #d0d7de; padding: 8px 10px; text-align: left; }
+    th { background: #f6f8fa; }
+    .axis { stroke: #666; stroke-width: 1; }
+    .grid { stroke: #e5e7eb; stroke-width: 1; }
+    .curve { fill: none; stroke: #c2410c; stroke-width: 3; }
+    .point { fill: #c2410c; }
+    .label { font-size: 12px; fill: #374151; }
+  </style>
+</head>
+<body>
+  <h1>Occupied City Morale Curve</h1>
+  <p class="note">
+    This uses the repo's current morale function with params
+    S=70,
+    T=93,
+    N=0,
+    D=13.
+    In the current codebase, <code>cityStatus: "occupied"</code> does not by itself change the morale curve;
+    occupation changes production through the city-status multiplier separately.
+  </p>
+
+  <svg viewBox="0 0 960 420" role="img" aria-label="Occupied city morale curve">
+    <line class="grid" x1="56" y1="380" x2="936" y2="380"></line><line class="grid" x1="56" y1="308.8" x2="936" y2="308.8"></line><line class="grid" x1="56" y1="237.6" x2="936" y2="237.6"></line><line class="grid" x1="56" y1="166.4" x2="936" y2="166.4"></line><line class="grid" x1="56" y1="95.2" x2="936" y2="95.2"></line><line class="grid" x1="56" y1="24" x2="936" y2="24"></line>
+    <line class="grid" x1="56" y1="24" x2="56" y2="380"></line><line class="grid" x1="186.37037037037035" y1="24" x2="186.37037037037035" y2="380"></line><line class="grid" x1="316.7407407407407" y1="24" x2="316.7407407407407" y2="380"></line><line class="grid" x1="447.1111111111111" y1="24" x2="447.1111111111111" y2="380"></line><line class="grid" x1="544.8888888888889" y1="24" x2="544.8888888888889" y2="380"></line><line class="grid" x1="675.2592592592592" y1="24" x2="675.2592592592592" y2="380"></line><line class="grid" x1="805.6296296296297" y1="24" x2="805.6296296296297" y2="380"></line><line class="grid" x1="936" y1="24" x2="936" y2="380"></line>
+    <line class="axis" x1="56" y1="380" x2="936" y2="380"></line>
+    <line class="axis" x1="56" y1="24" x2="56" y2="380"></line>
+    <text class="label" x="46" y="384" text-anchor="end">0</text><text class="label" x="46" y="312.8" text-anchor="end">20</text><text class="label" x="46" y="241.6" text-anchor="end">40</text><text class="label" x="46" y="170.4" text-anchor="end">60</text><text class="label" x="46" y="99.2" text-anchor="end">80</text><text class="label" x="46" y="28" text-anchor="end">100</text>
+    <text class="label" x="56" y="398" text-anchor="middle">Day 1</text><text class="label" x="186.37037037037035" y="398" text-anchor="middle">Day 5</text><text class="label" x="316.7407407407407" y="398" text-anchor="middle">Day 9</text><text class="label" x="447.1111111111111" y="398" text-anchor="middle">Day 13</text><text class="label" x="544.8888888888889" y="398" text-anchor="middle">Day 16</text><text class="label" x="675.2592592592592" y="398" text-anchor="middle">Day 20</text><text class="label" x="805.6296296296297" y="398" text-anchor="middle">Day 24</text><text class="label" x="936" y="398" text-anchor="middle">Day 28</text>
+    <path class="curve" d="M 56.00 130.80 L 88.59 123.68 L 121.19 120.12 L 153.78 113.00 L 186.37 109.44 L 218.96 102.32 L 251.56 98.76 L 284.15 95.20 L 316.74 91.64 L 349.33 88.08 L 381.93 84.52 L 414.52 80.96 L 447.11 77.40 L 479.70 73.84 L 512.30 70.28 L 544.89 66.72 L 577.48 63.16 L 610.07 59.60 L 642.67 56.04 L 675.26 52.48 L 707.85 48.92 L 740.44 48.92 L 773.04 48.92 L 805.63 48.92 L 838.22 48.92 L 870.81 48.92 L 903.41 48.92 L 936.00 48.92"></path>
+    <circle class="point" cx="56.00" cy="130.80" r="3"></circle><circle class="point" cx="88.59" cy="123.68" r="3"></circle><circle class="point" cx="121.19" cy="120.12" r="3"></circle><circle class="point" cx="153.78" cy="113.00" r="3"></circle><circle class="point" cx="186.37" cy="109.44" r="3"></circle><circle class="point" cx="218.96" cy="102.32" r="3"></circle><circle class="point" cx="251.56" cy="98.76" r="3"></circle><circle class="point" cx="284.15" cy="95.20" r="3"></circle><circle class="point" cx="316.74" cy="91.64" r="3"></circle><circle class="point" cx="349.33" cy="88.08" r="3"></circle><circle class="point" cx="381.93" cy="84.52" r="3"></circle><circle class="point" cx="414.52" cy="80.96" r="3"></circle><circle class="point" cx="447.11" cy="77.40" r="3"></circle><circle class="point" cx="479.70" cy="73.84" r="3"></circle><circle class="point" cx="512.30" cy="70.28" r="3"></circle><circle class="point" cx="544.89" cy="66.72" r="3"></circle><circle class="point" cx="577.48" cy="63.16" r="3"></circle><circle class="point" cx="610.07" cy="59.60" r="3"></circle><circle class="point" cx="642.67" cy="56.04" r="3"></circle><circle class="point" cx="675.26" cy="52.48" r="3"></circle><circle class="point" cx="707.85" cy="48.92" r="3"></circle><circle class="point" cx="740.44" cy="48.92" r="3"></circle><circle class="point" cx="773.04" cy="48.92" r="3"></circle><circle class="point" cx="805.63" cy="48.92" r="3"></circle><circle class="point" cx="838.22" cy="48.92" r="3"></circle><circle class="point" cx="870.81" cy="48.92" r="3"></circle><circle class="point" cx="903.41" cy="48.92" r="3"></circle><circle class="point" cx="936.00" cy="48.92" r="3"></circle>
+  </svg>
+
+  <h2>Values</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Day</th>
+        <th>Morale</th>
+        <th>Production Multiplier</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>70</td><td>0.81</td></tr><tr><td>2</td><td>72</td><td>0.83</td></tr><tr><td>3</td><td>73</td><td>0.83</td></tr><tr><td>4</td><td>75</td><td>0.85</td></tr><tr><td>5</td><td>76</td><td>0.86</td></tr><tr><td>6</td><td>78</td><td>0.87</td></tr><tr><td>7</td><td>79</td><td>0.88</td></tr><tr><td>8</td><td>80</td><td>0.89</td></tr><tr><td>9</td><td>81</td><td>0.90</td></tr><tr><td>10</td><td>82</td><td>0.91</td></tr><tr><td>11</td><td>83</td><td>0.91</td></tr><tr><td>12</td><td>84</td><td>0.92</td></tr><tr><td>13</td><td>85</td><td>0.93</td></tr><tr><td>14</td><td>86</td><td>0.94</td></tr><tr><td>15</td><td>87</td><td>0.95</td></tr><tr><td>16</td><td>88</td><td>0.95</td></tr><tr><td>17</td><td>89</td><td>0.96</td></tr><tr><td>18</td><td>90</td><td>0.97</td></tr><tr><td>19</td><td>91</td><td>0.98</td></tr><tr><td>20</td><td>92</td><td>0.99</td></tr><tr><td>21</td><td>93</td><td>0.99</td></tr><tr><td>22</td><td>93</td><td>0.99</td></tr><tr><td>23</td><td>93</td><td>0.99</td></tr><tr><td>24</td><td>93</td><td>0.99</td></tr><tr><td>25</td><td>93</td><td>0.99</td></tr><tr><td>26</td><td>93</td><td>0.99</td></tr><tr><td>27</td><td>93</td><td>0.99</td></tr><tr><td>28</td><td>93</td><td>0.99</td></tr>
+    </tbody>
+  </table>
+</body>
+</html>

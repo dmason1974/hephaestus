@@ -1,0 +1,274 @@
+schema_version: 1
+domain: units
+
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+
+units:
+
+  deployable_gear:
+    name: Deployable Gear
+    category: Loadout
+    doctrine: Western
+    levels: 
+      1:
+        requirements:
+          - arms_industry level 1
+        research:
+          unlock_day: 0
+          time:
+            days: 0
+            hours: 0
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 0
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 10
+          cost:
+            supplies: 0
+            components: 500
+            fuel: 250
+            rares: 20
+            electronics: 0
+            cash: 2000
+            manpower: 0
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 0
+            manpower: 0
+
+  
+  elite_drone_mothership:
+    name: Elite Drone Mothership
+    category: Naval
+    doctrine: Western
+    levels: 
+      1:
+        requirements:
+          - naval_base level 2
+          - arms_industry level 3
+        research:
+          unlock_day: 3
+          time:
+            days: 0
+            hours: 21
+          cost:
+            supplies: 1600
+            components: 0
+            fuel: 0
+            rares: 1900
+            electronics: 0
+            cash: 4000
+            manpower: 0
+        mobilisation:
+          unit_limit: 5
+          time:
+            days: 1
+            hours: 6
+          cost:
+            supplies: 700
+            components: 800
+            fuel: 0
+            rares: 0
+            electronics: 600
+            cash: 2000
+            manpower: 200
+        daily_upkeep:
+          cost:
+            supplies: 35
+            components: 0
+            fuel: 0
+            rares: 10
+            electronics: 0
+            cash: 100
+            manpower: 10
+
+      2:
+        requirements:
+          - naval_base level 2
+          - arms_industry level 4
+        research:
+          unlock_day: 15
+          time:
+            days: 1
+            hours: 1
+            minutes: 30
+          cost:
+            supplies: 2000
+            components: 0
+            fuel: 0
+            rares: 2400
+            electronics: 0
+            cash: 5000
+            manpower: 0
+        mobilisation:
+          unit_limit: 10
+          time:
+            days: 1
+            hours: 11
+          cost:
+            supplies: 990
+            components: 1100
+            fuel: 0
+            rares: 0
+            electronics: 800
+            cash: 2600
+            manpower: 220
+        daily_upkeep:
+          cost:
+            supplies: 50
+            components: 0
+            fuel: 0
+            rares: 15
+            electronics: 0
+            cash: 150
+            manpower: 1
+
+  elite_frigate:
+    name: Elite Frigate
+    category: Naval
+    doctrine: Western
+    levels: 
+      1:
+        requirements:
+          - naval_base level 2
+          - arms_industry level 1
+          - frigate level 1
+        research:
+          unlock_day: 3
+          time:
+            days: 0
+            hours: 21
+          cost:
+            supplies: 1250
+            components: 0
+            fuel: 0
+            rares: 1800
+            electronics: 0
+            cash: 4000
+            manpower: 0
+        mobilisation:
+          unit_limit: 5
+          time:
+            days: 1
+            hours: 0
+          cost:
+            supplies: 0
+            components: 2100
+            fuel: 0
+            rares: 0
+            electronics: 1150
+            cash: 1900
+            manpower: 800
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 90
+            fuel: 50
+            rares: 0
+            electronics: 0
+            cash: 120
+            manpower: 50
+
+      2:
+        requirements:
+          - naval_base level 4
+          - arms_industry level 2
+          - frigate level 4
+        research:
+          unlock_day: 14
+          time:
+            days: 1
+            hours: 3
+            minutes: 45
+          cost:
+            supplies: 1850
+            components: 0
+            fuel: 0
+            rares: 2400
+            electronics: 0
+            cash: 5500
+            manpower: 0
+        mobilisation:
+          unit_limit: 10
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 0
+            components: 2350
+            fuel: 0
+            rares: 0
+            electronics: 1350
+            cash: 2900
+            manpower: 1050
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 110
+            fuel: 80
+            rares: 0
+            electronics: 0
+            cash: 160
+            manpower: 60
+
+      3:
+        requirements:
+          - naval_base level 5
+          - secret_weapons_lab level 1
+          - arms_industry level 3
+          - frigate level 7
+        research:
+          unlock_day: 27
+          time:
+            days: 1
+            hours: 9
+            minutes: 45
+          cost:
+            supplies: 2450
+            components: 0
+            fuel: 0
+            rares: 2900
+            electronics: 0
+            cash: 6500
+            manpower: 0
+        mobilisation:
+          unit_limit: 15
+          time:
+            days: 1
+            hours: 7
+          cost:
+            supplies: 0
+            components: 2750
+            fuel: 0
+            rares: 0
+            electronics: 1900
+            cash: 3900
+            manpower: 1400
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 135
+            fuel: 100
+            rares: 0
+            electronics: 0
+            cash: 200
+            manpower: 70

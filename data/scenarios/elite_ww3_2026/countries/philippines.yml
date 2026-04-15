@@ -1,0 +1,65 @@
+version: 1
+
+country:
+  id: philippines
+  name: Philippines
+  doctrine: western
+
+cities:
+  - id: cebu
+    name: Cebu
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: davao
+    name: Davao
+    capital: true
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: manila
+    name: Manila
+    capital: false
+    resource: rares
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 1
+
+  - id: puerto_princesa
+    name: Puerto Princesa
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: zamboanga
+    name: Zamboanga
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+provinces:
+  total: 30
+  supplies: 0
+  components: 2
+  fuel: 1
+  rares: 0
+  electronics: 1

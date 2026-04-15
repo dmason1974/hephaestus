@@ -20,6 +20,17 @@ export const BASE_RESOURCE_PRODUCTION: Record<Exclude<Resource, "manpower">, num
   cash: 1500,
 };
 
+export const BASE_PROVINCE_RESOURCE_PRODUCTION: Record<Exclude<Resource, "manpower">, number> = {
+  supplies: 210,
+  components: 180,
+  fuel: 210,
+  electronics: 150,
+  rares: 120,
+  cash: 150,
+};
+
+export const BASE_PROVINCE_MANPOWER_PRODUCTION = 12;
+
 export const MANPOWER_BY_POPULATION_TABLE: ReadonlyArray<{
   population: number;
   amount: number;
@@ -54,6 +65,8 @@ export const DEFAULT_MORALE_DECAY_D = 13;
  * Population growth support
  */
 export type StartingPopulation = 4 | 5 | 6;
+export const CAPTURED_STARTING_POPULATION: StartingPopulation = 4;
+export const CAPTURED_STARTING_MORALE_DAY1 = 25;
 
 export const MIN_POPULATION = 4;
 export const POPULATION_CAP = 10;
@@ -63,7 +76,7 @@ export const POPULATION_CAP = 10;
  * Days are measured as elapsed whole days since Day 1.
  */
 export const POPULATION_GROWTH_DAYS_BY_POP = {
-  4: 5,
+  4: 3.2,
   5: 10,
   6: 15,
   7: 25,
@@ -117,6 +130,21 @@ export const GAME_SPEED_MULTIPLIER: Record<GameSpeed, number> = {
 };
 
 export type CityStatus = "homeland" | "occupied" | "annexed";
+
+export function defaultStartingMoraleForCityStatus(cityStatus?: CityStatus): number {
+  return cityStatus === "occupied" || cityStatus === "annexed"
+    ? CAPTURED_STARTING_MORALE_DAY1
+    : STARTING_MORALE_DAY1;
+}
+
+export function defaultStartingPopulationForCityStatus(
+  startPop: StartingPopulation,
+  cityStatus?: CityStatus
+): StartingPopulation {
+  return cityStatus === "occupied" || cityStatus === "annexed"
+    ? CAPTURED_STARTING_POPULATION
+    : startPop;
+}
 
 export const CITY_STATUS_MULTIPLIER: Record<CityStatus, number> = {
   homeland: 1.0,

@@ -1,0 +1,565 @@
+schema_version: 1
+domain: units
+
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+
+units:
+
+
+  mobile_anti_air_vehicle:
+    name: Mobile Anti-Air Vehicle
+    category: Support
+    doctrine: Western
+    levels: 
+      1:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+        research:
+          unlock_day: 1
+          time:
+            days: 0
+            hours: 0
+            minutes: 22
+            seconds: 30
+          cost:
+            supplies: 1100
+            components: 0
+            fuel: 0
+            rares: 1200
+            electronics: 0
+            cash: 1550
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 16
+          cost:
+            supplies: 900
+            components: 1150
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 1000
+            manpower: 400
+        daily_upkeep:
+          cost:
+            supplies: 40
+            components: 0
+            fuel: 25
+            rares: 0
+            electronics: 0
+            cash: 70
+            manpower: 25
+
+
+      2:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - mobile_anti_air_vehicle level 1
+        research:
+          unlock_day: 3
+          time:
+            days: 0
+            hours: 0
+            minutes: 18
+            seconds: 45
+          cost:
+            supplies: 1210
+            components: 0
+            fuel: 0
+            rares: 1320
+            electronics: 0
+            cash: 1705
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 17
+          cost:
+            supplies: 900
+            components: 1150
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 1000
+            manpower: 400
+        daily_upkeep:
+          cost:
+            supplies: 45
+            components: 0
+            fuel: 30
+            rares: 0
+            electronics: 0
+            cash: 75
+            manpower: 30
+
+
+      3:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - mobile_anti_air_vehicle level 2
+        research:
+          unlock_day: 6
+          time:
+            days: 0
+            hours: 19
+            minutes: 30
+            seconds: 0
+          cost:
+            supplies: 1320
+            components: 0
+            fuel: 0
+            rares: 1440
+            electronics: 0
+            cash: 1860
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 18
+          cost:
+            supplies: 900
+            components: 1150
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 1000
+            manpower: 400
+        daily_upkeep:
+          cost:
+            supplies: 50
+            components: 0
+            fuel: 35
+            rares: 0
+            electronics: 0
+            cash: 80
+            manpower: 35
+
+
+      4:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - mobile_anti_air_vehicle level 3
+        research:
+          unlock_day: 11
+          time:
+            days: 0
+            hours: 23
+            minutes: 15
+          cost:
+            supplies: 1430
+            components: 0
+            fuel: 0
+            rares: 1560
+            electronics: 0
+            cash: 2015
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 19
+          cost:
+            supplies: 1000
+            components: 1200
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 1500
+            manpower: 550
+        daily_upkeep:
+          cost:
+            supplies: 60
+            components: 0
+            fuel: 50
+            rares: 0
+            electronics: 0
+            cash: 85
+            manpower: 45
+
+
+      5:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - mobile_anti_air_vehicle level 4
+        research:
+          unlock_day: 1
+          time:
+            days: 1
+            hours: 1
+            minutes: 30
+          cost:
+            supplies: 1540
+            components: 0
+            fuel: 0
+            rares: 1680
+            electronics: 0
+            cash: 2170
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 20
+          cost:
+            supplies: 1000
+            components: 1200
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 1500
+            manpower: 550
+        daily_upkeep:
+          cost:
+            supplies: 65
+            components: 0
+            fuel: 55
+            rares: 0
+            electronics: 0
+            cash: 90
+            manpower: 50
+
+
+      6:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - mobile_anti_air_vehicle level 5
+        research:
+          unlock_day: 23
+          time:
+            days: 1
+            hours: 5
+            minutes: 15
+          cost:
+            supplies: 1650
+            components: 0
+            fuel: 0
+            rares: 1800
+            electronics: 0
+            cash: 2325
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 21
+          cost:
+            supplies: 1150
+            components: 1400
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 1750
+            manpower: 725
+        daily_upkeep:
+          cost:
+            supplies: 75
+            components: 0
+            fuel: 60
+            rares: 0
+            electronics: 0
+            cash: 100
+            manpower: 60
+
+
+      7:
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - mobile_anti_air_vehicle level 6
+        research:
+          unlock_day: 29
+          time:
+            days: 1
+            hours: 7
+            minutes: 30
+          cost:
+            supplies: 1650
+            components: 0
+            fuel: 0
+            rares: 1800
+            electronics: 0
+            cash: 2325
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 22
+          cost:
+            supplies: 1150
+            components: 1400
+            fuel: 0
+            rares: 0  
+            electronics: 0
+            cash: 1750
+            manpower: 725
+        daily_upkeep:
+          cost:
+            supplies: 85
+            components: 0
+            fuel: 65
+            rares: 0
+            electronics: 0
+            cash: 110
+            manpower: 70
+
+
+  multiple_rocket_launcher:
+    name: Multiple Rocket Launcher
+    category: Support
+    doctrine: Western
+    levels: 
+      1:
+        requirements:
+          - army_base level 4
+          - arms_industry level 1
+        research:
+          unlock_day: 5
+          time:
+            hours: 20
+            minutes: 15
+          cost:
+            supplies: 1750
+            components: 0
+            fuel: 0
+            rares: 2000
+            electronics: 0
+            cash: 3000
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+          cost:
+            supplies: 1500
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 800
+            cash: 1750
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 90
+            components: 0
+            fuel: 30
+            rares: 0
+            electronics: 0
+            cash: 125
+            manpower: 30
+
+      2:
+        requirements:
+          - army_base level 4
+          - arms_industry level 1
+          - multiple_rocket_launcher level 1
+        research:
+          unlock_day: 9
+          time:
+            hours: 21
+            minutes: 0
+          cost:
+            supplies: 1925
+            components: 0
+            fuel: 0
+            rares: 2200
+            electronics: 0
+            cash: 3300
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 1
+          cost:
+            supplies: 1500
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 800
+            cash: 1750
+            manpower: 0
+        daily_upkeep:
+          cost:
+            supplies: 95
+            components: 0
+            fuel: 40
+            rares: 0
+            electronics: 0
+            cash: 135
+            manpower: 40
+
+      3:
+        requirements:
+          - army_base level 4
+          - arms_industry level 1
+          - multiple_rocket_launcher level 2
+        research:
+          unlock_day: 13
+          time:
+            hours: 23
+            minutes: 15 
+          cost:
+            supplies: 2100
+            components: 0
+            fuel: 0
+            rares: 2400
+            electronics: 0
+            cash: 3600
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 2
+          cost:
+            supplies: 1500
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 800
+            cash: 1750
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 100
+            components: 0
+            fuel: 50
+            rares: 0
+            electronics: 0
+            cash: 150
+            manpower: 50   
+
+      4:
+        requirements:
+          - army_base level 4
+          - arms_industry level 1
+          - multiple_rocket_launcher level 3
+        research:
+          unlock_day: 17
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 2275
+            components: 0
+            fuel: 0
+            rares: 2600
+            electronics: 0
+            cash: 3900
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 1750
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 1000
+            cash: 2500
+            manpower: 675
+        daily_upkeep:
+          cost:
+            supplies: 110
+            components: 0
+            fuel: 65
+            rares: 0
+            electronics: 0
+            cash: 2500
+            manpower: 60         
+
+      5:
+        requirements:
+          - army_base level 4
+          - arms_industry level 1
+          - multiple_rocket_launcher level 4
+        research:
+          unlock_day: 27
+          time:
+            days: 1
+            hours: 6
+            minutes: 45
+          cost:
+            supplies: 2450
+            components: 0
+            fuel: 0
+            rares: 2800
+            electronics: 0
+            cash: 4200
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 6
+          cost:
+            supplies: 2250
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 1200
+            cash: 3000
+            manpower: 800
+        daily_upkeep:
+          cost:
+            supplies: 120
+            components: 0
+            fuel: 80
+            rares: 0
+            electronics: 0
+            cash: 170
+            manpower: 70       
+
+  
+  towed_artillery:
+    name: Towed Artillery
+    category: Support
+    doctrine: Western
+    levels: 
+      1:
+        requirements:
+          - army_base level 2
+          - arms_industry level 1
+        research:
+          unlock_day: 1
+          time:
+            days: 0
+            hours: 18
+            minutes: 0
+          cost:
+            supplies: 1100
+            components: 0
+            fuel: 0
+            rares: 1375
+            electronics: 0
+            cash: 1500
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 18
+          cost:
+            supplies: 0
+            components: 950
+            fuel: 0
+            rares: 0
+            electronics: 400
+            cash: 1250
+            manpower: 1000
+        daily_upkeep:
+          cost:
+            supplies: 40
+            components: 0
+            fuel: 15
+            rares: 0
+            electronics: 0
+            cash: 50
+            manpower: 15

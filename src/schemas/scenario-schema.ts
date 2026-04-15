@@ -1,6 +1,16 @@
 import { z } from "zod";
 
+import type { GameSpeed } from "../core/constants.js";
+
 const cityStatusSchema = z.enum(["homeland", "occupied", "annexed"]);
+const gameSpeedSchema = z.custom<GameSpeed>((value): value is GameSpeed => (
+  value === "1x" ||
+  value === "4x" ||
+  value === "4x1.4" ||
+  value === "10x"
+), {
+  message: "Invalid game speed",
+});
 
 const resourceAmountsSchema = z
   .object({
@@ -24,8 +34,12 @@ export const scenarioFileSchema = z
       day: z.number(),
       hour: z.number(),
     }).strict(),
-    speed: z.enum(["1x", "4x", "10x"]),
+    truce_length_days: z.number().int().min(0).optional(),
+    speed: gameSpeedSchema,
     starting_balance: resourceAmountsSchema,
+    research: z.object({
+      unlocked_through_day_at_start: z.number().int().min(0).optional(),
+    }).strict().optional(),
     city_statuses: z.record(z.string().min(1), z.record(z.string().min(1), cityStatusSchema)).optional(),
     headquarters_city_by_country: z.record(z.string().min(1), z.string().min(1)).optional(),
   })
@@ -80,4 +94,16 @@ export function resolveScenarioHeadquartersCity(
   countryId: string
 ): string | undefined {
   return scenario.headquarters_city_by_country?.[countryId];
+}
+
+export function scenarioResearchUnlockedThroughDayAtStart(
+  scenario: ScenarioFile
+): number {
+  return scenario.research?.unlocked_through_day_at_start ?? 0;
+}
+
+export function scenarioTruceLengthDays(
+  scenario: ScenarioFile
+): number | undefined {
+  return scenario.truce_length_days;
 }

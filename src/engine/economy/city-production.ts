@@ -107,6 +107,10 @@ function flatBonusForResource(
   return buildingEffects?.flatBonuses[resource] ?? 0;
 }
 
+function populationBonusMultiplier(buildingEffects: EconomicBuildingEffects | undefined) {
+  return 1 + (buildingEffects?.populationBonusPct ?? 0);
+}
+
 export const DEFAULT_MULTIPLIER_BY_POP = Object.fromEntries(
   POPULATION_MODIFIER_TABLE.map(({ population, percent }) => [population, 1 + percent / 100])
 ) as Record<number, number>;
@@ -374,9 +378,10 @@ export function hourlyResourcePointAtAbsoluteHour(
   }
   const hidden = city.hiddenMultiplierOverride ?? speedMul;
   const calendarDay = Math.floor(absoluteHour / 24) + 1;
+  const populationDay = 1 + ((absoluteHour / 24) * populationBonusMultiplier(buildingEffects));
   const morale = city.moraleOverride ?? moraleOnDay(calendarDay, city.moraleParams);
   const moraleMul = moraleProductionMultiplier(morale);
-  const population = populationAtDay(calendarDay, city.startPop, populationMode, city.populationOpts);
+  const population = populationAtDay(populationDay, city.startPop, populationMode, city.populationOpts);
   const popDecimal = populationToEffectiveLevel(population);
   const popMul = populationToMultiplier(popDecimal, multiplierByPop);
   const productionMultiplier = 1 + (buildingEffects?.productionBonusPct ?? 0);

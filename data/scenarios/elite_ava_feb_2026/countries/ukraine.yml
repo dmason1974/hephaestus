@@ -1,0 +1,77 @@
+version: 1
+
+country:
+  id: ukraine
+  name: Ukraine
+  doctrine: eastern
+
+cities:
+  - id: dnipro
+    name: Dnipro
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: donetsk
+    name: Donetsk
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: kharkiv
+    name: Kharkiv
+    capital: false
+    resource: electronics
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: kyiv
+    name: Kyiv
+    capital: true
+    resource: rares
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 1
+
+  - id: lviv
+    name: Lviv
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: odessa
+    name: Odessa
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: zaporizhia
+    name: Zaporizhia
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

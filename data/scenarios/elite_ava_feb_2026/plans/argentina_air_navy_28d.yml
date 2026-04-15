@@ -1,0 +1,18 @@
+schema_version: 1
+domain: force_plan
+name: Argentina Air and Navy 28d
+
+scenario: elite_ava_feb_2026
+country: argentina
+truce_days: 28
+
+search:
+  top: 10
+  max_extra_cities: 2
+  max_recruiting_office_level: 5
+
+demands:
+  - unitId: air_superiority_fighter
+    count: 30
+  - unitId: frigate
+    count: 20

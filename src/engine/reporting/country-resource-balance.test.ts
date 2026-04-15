@@ -352,3 +352,83 @@ test("country hourly balance table can move headquarters morale bonus via scenar
       relocated.rows[relocated.rows.length - 1].balances.supplies
   );
 });
+
+test("country hourly balance table includes province cash, manpower, and counted province resources", () => {
+  const buildings = buildTestBuildings();
+  const country = {
+    version: 1,
+    country: {
+      id: "testland",
+      name: "Testland",
+      doctrine: "western",
+    },
+    cities: [
+      {
+        id: "alpha",
+        name: "Alpha",
+        capital: true,
+        resource: "supplies",
+        population: 5,
+        starting: {
+          air_base: 0,
+          naval_base: 0,
+          underground_bunkers: 0,
+        },
+      },
+    ],
+    provinces: {
+      total: 10,
+      supplies: 2,
+      components: 1,
+      fuel: 0,
+      rares: 0,
+      electronics: 0,
+    },
+  };
+
+  const table = buildCountryHourlyResourceBalanceTable(country, 1, "4x", {
+    buildingsFile: buildings,
+  });
+
+  assert.equal(table.rows[0]?.balances.supplies, 63);
+  assert.equal(table.rows[0]?.balances.components, 4);
+  assert.equal(table.rows[0]?.balances.cash, 73);
+  assert.equal(table.rows[0]?.balances.manpower, 7);
+});
+
+test("country hourly balance table applies province local industry to resources and combat outpost to morale-driven output", () => {
+  const buildings = buildTestBuildings();
+  const country = {
+    version: 1,
+    country: {
+      id: "testland",
+      name: "Testland",
+      doctrine: "western",
+    },
+    cities: [],
+    provinces: {
+      total: 10,
+      supplies: 2,
+      components: 0,
+      fuel: 0,
+      rares: 0,
+      electronics: 0,
+    },
+  };
+
+  const base = buildCountryHourlyResourceBalanceTable(country, 4, "4x", {
+    buildingsFile: buildings,
+  });
+  const improved = buildCountryHourlyResourceBalanceTable(country, 4, "4x", {
+    buildingsFile: buildings,
+    provinceDefaults: {
+      localIndustryLevel: 1,
+      combatOutpostLevel: 1,
+    },
+  });
+
+  assert.ok((improved.rows[0]?.balances.supplies ?? 0) > (base.rows[0]?.balances.supplies ?? 0));
+  assert.ok(
+    (improved.rows[72]?.balances.cash ?? 0) > (base.rows[72]?.balances.cash ?? 0)
+  );
+});

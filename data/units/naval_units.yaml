@@ -1,0 +1,472 @@
+schema_version: 1
+domain: units
+
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+
+units:
+  
+  frigate:
+    name: Frigate
+    category: Naval
+    doctrine: Western
+    levels: 
+      1:
+        requirements:
+          - naval_base level 2
+          - arms_industry level 1
+        research:
+          unlock_day: 2
+          time:
+            days: 0
+            hours: 21
+          cost:
+            supplies: 1400
+            components: 0
+            fuel: 0
+            rares: 1750
+            electronics: 0
+            cash: 3000
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 0
+          cost:
+            supplies: 0
+            components: 2000
+            fuel: 0
+            rares: 0
+            electronics: 1100
+            cash: 1750
+            manpower: 750
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 90
+            fuel: 45
+            rares: 0
+            electronics: 0
+            cash: 120
+            manpower: 45
+
+      2:
+        requirements:
+          - naval_base level 2
+          - arms_industry level 1
+          - frigate level 1
+        research:
+          unlock_day: 4        
+          time:
+            days: 0
+            hours: 22
+            minutes: 30
+          cost:
+            supplies: 1540
+            components: 0
+            fuel: 0
+            rares: 1925
+            electronics: 0
+            cash: 3300
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 1
+          cost:
+            supplies: 0
+            components: 2000
+            fuel: 0
+            rares: 0
+            electronics: 1100
+            cash: 1750
+            manpower: 750
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 100
+            fuel: 50
+            rares: 0
+            electronics: 0
+            cash: 120
+            manpower: 50
+
+      3:
+        requirements:
+          - naval_base level 2
+          - arms_industry level 1
+          - frigate level 2
+        research:
+          unlock_day: 7
+          time:
+            days: 1
+            hours: 0
+            minutes: 0
+          cost:
+            supplies: 1680
+            components: 0
+            fuel: 0
+            rares: 2100
+            electronics: 0
+            cash: 3600
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 2
+          cost:
+            supplies: 0
+            components: 2000
+            fuel: 0
+            rares: 0
+            electronics: 1100
+            cash: 1750
+            manpower: 750
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 110
+            fuel: 55
+            rares: 0
+            electronics: 0
+            cash: 130
+            manpower: 55
+
+      4:
+        requirements:
+          - naval_base level 2
+          - arms_industry level 1
+          - frigate level 3
+        research:
+          unlock_day: 13
+          time:
+            days: 1
+            hours: 3
+            minutes: 45
+          cost:
+            supplies: 1820
+            components: 0
+            fuel: 0
+            rares: 2275
+            electronics: 0
+            cash: 3900
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 0
+            components: 2250
+            fuel: 0
+            rares: 0
+            electronics: 1350
+            cash: 2500
+            manpower: 975
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 120
+            fuel: 65
+            rares: 0
+            electronics: 0
+            cash: 160
+            manpower: 60
+  
+  naval_veteran:  
+    name: Naval Veteran
+    category: Naval
+    doctrine: Western
+    levels: 
+      1:
+        requirements:
+          - naval_base level 2
+          - recruiting_office level 1
+        research:
+          unlock_day: 2
+          time:
+            days: 0
+            hours: 6
+          cost:
+            supplies: 400
+            components: 0
+            fuel: 0
+            rares: 400
+            electronics: 0
+            cash: 1000
+            manpower: 0
+        mobilisation:
+          unit_limit: 1
+          time:
+            days: 1
+            hours: 0
+          cost:
+            supplies: 2650
+            components: 4000
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 5300
+            manpower: 1500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 220
+            fuel: 110
+            rares: 0
+            electronics: 0
+            cash: 325
+            manpower: 110
+
+      2:
+        requirements:
+          - naval_base level 2
+          - recruiting_office level 1
+          - naval_veteran level 1
+        research:
+          unlock_day: 6
+          time:
+            days: 0
+            hours: 6
+            minutes: 45
+          cost:
+            supplies: 450
+            components: 0
+            fuel: 0
+            rares: 450
+            electronics: 0
+            cash: 1200
+            manpower: 0
+        mobilisation:
+          unit_limit: 1
+          time:
+            days: 1
+            hours: 4
+          cost:
+            supplies: 3300
+            components: 5000
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 6000
+            manpower: 1900
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 230
+            fuel: 115
+            rares: 0
+            electronics: 0
+            cash: 350
+            manpower: 120
+
+      3:
+        requirements:
+          - naval_base level 2
+          - recruiting_office level 1
+          - naval_veteran level 2
+        research:
+          unlock_day: 10
+          time:
+            days: 0
+            hours: 7
+            minutes: 30
+          cost:
+            supplies: 500
+            components: 0
+            fuel: 0
+            rares: 500
+            electronics: 0
+            cash: 1400
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 10
+          cost:
+            supplies: 3800
+            components: 6000
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 8000
+            manpower: 2200
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 240
+            fuel: 130
+            rares: 0
+            electronics: 0
+            cash: 375
+            manpower: 130 
+
+      4:
+        requirements:
+          - naval_base level 3
+          - recruiting_office level 2
+          - naval_veteran level 3
+        research:
+          unlock_day: 13
+          time:
+            days: 0
+            hours: 9
+            minutes: 0
+          cost:
+            supplies: 600
+            components: 0
+            fuel: 0
+            rares: 600
+            electronics: 0
+            cash: 1750
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 18
+          cost:
+            supplies: 4400
+            components: 7250
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 9000
+            manpower: 3500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 260
+            fuel: 130
+            rares: 0
+            electronics: 0
+            cash: 425
+            manpower: 140  
+
+      5:
+        requirements:
+          - naval_base level 3
+          - recruiting_office level 2
+          - naval_veteran level 4
+        research:
+          unlock_day: 17
+          time:
+            days: 0
+            hours: 9
+            minutes: 45
+          cost:
+            supplies: 700
+            components: 0
+            fuel: 0
+            rares: 700
+            electronics: 0
+            cash: 1900
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 18
+          cost:
+            supplies: 5000
+            components: 8600
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 9900
+            manpower: 3850
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 280
+            fuel: 135
+            rares: 0
+            electronics: 0
+            cash: 475
+            manpower: 150
+
+      6:
+        requirements:
+          - naval_base level 3
+          - recruiting_office level 2
+          - naval_veteran level 5
+        research:
+          unlock_day: 20
+          time:
+            days: 0
+            hours: 10
+            minutes: 30
+          cost:
+            supplies: 800
+            components: 0
+            fuel: 0
+            rares: 800
+            electronics: 0
+            cash: 2050
+            manpower: 0
+        mobilisation:
+          time:
+            days: 2
+            hours: 14
+          cost:
+            supplies: 6100
+            components: 9600
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 12000
+            manpower: 5500
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 300
+            fuel: 145
+            rares: 0
+            electronics: 0
+            cash: 500
+            manpower: 160  
+
+      7:
+        requirements:
+          - naval_base level 4
+          - recruiting_office level 3
+          - naval_veteran level 6
+        research:
+          unlock_day: 23
+          time:
+            days: 0
+            hours: 12
+            minutes: 0
+          cost:
+            supplies: 1000
+            components: 0
+            fuel: 0
+            rares: 1000
+            electronics: 0
+            cash: 2250
+            manpower: 0
+        mobilisation:
+          time:
+            days: 3
+            hours: 0
+          cost:
+            supplies: 7200
+            components: 10600
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 13000
+            manpower: 6550
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 325
+            fuel: 150
+            rares: 0
+            electronics: 0
+            cash: 525
+            manpower: 170         

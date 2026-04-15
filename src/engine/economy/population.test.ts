@@ -15,12 +15,12 @@ import {
 test("step mode uses exact 1-based threshold days for startPop 4", () => {
   const expected = new Map([
     [1, 4],
-    [6, 5],
-    [16, 6],
-    [31, 7],
-    [56, 8],
-    [91, 9],
-    [136, 10],
+    [4.2, 5],
+    [14.2, 6],
+    [29.2, 7],
+    [54.2, 8],
+    [89.2, 9],
+    [134.2, 10],
   ]);
 
   for (const [day, pop] of expected) {
@@ -87,18 +87,18 @@ test("population multiplier details and marginal schedule use tier durations", (
       popFrom: 4,
       popTo: 5,
       dayStartInclusive: 1,
-      dayEndExclusive: 6,
-      durationDays: 5,
+      dayEndExclusive: 4.2,
+      durationDays: 3.2,
       multiplierFrom: 0.8,
       multiplierTo: 1,
       incrementalGain: 0.19999999999999996,
-      marginalGainPerDay: 0.039999999999999994,
+      marginalGainPerDay: 0.062499999999999986,
     },
     {
       popFrom: 5,
       popTo: 6,
-      dayStartInclusive: 6,
-      dayEndExclusive: 16,
+      dayStartInclusive: 4.2,
+      dayEndExclusive: 14.2,
       durationDays: 10,
       multiplierFrom: 1,
       multiplierTo: 1.05,
@@ -108,8 +108,8 @@ test("population multiplier details and marginal schedule use tier durations", (
     {
       popFrom: 6,
       popTo: 7,
-      dayStartInclusive: 16,
-      dayEndExclusive: 31,
+      dayStartInclusive: 14.2,
+      dayEndExclusive: 29.2,
       durationDays: 15,
       multiplierFrom: 1.05,
       multiplierTo: 1.1,

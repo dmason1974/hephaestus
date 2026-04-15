@@ -1,0 +1,16 @@
+schema_version: 1
+domain: force_plan
+name: Indonesia Air and Navy 28d
+
+scenario: elite_ww3_2026
+country: indonesia
+truce_days: 28
+
+search:
+  top: 10
+  max_extra_cities: 2
+  max_recruiting_office_level: 5
+
+demands:
+  - unitId: frigate
+    count: 40

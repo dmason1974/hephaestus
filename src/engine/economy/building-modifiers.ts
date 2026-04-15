@@ -4,6 +4,7 @@ import type { BuildingsFile } from "../../schemas/building-schema.js";
 export type EconomicBuildingEffects = {
   productionBonusPct: number;
   manpowerBonusPct: number;
+  populationBonusPct: number;
   flatBonuses: Partial<Record<Resource, number>>;
   moraleBonusN: number;
 };
@@ -11,6 +12,9 @@ export type EconomicBuildingEffects = {
 export type StaticEconomicBuildingLevels = {
   air_base?: number;
   arms_industry?: number;
+  combat_outpost?: number;
+  local_industry?: number;
+  military_hospital?: number;
   naval_base?: number;
   recruiting_office?: number;
   underground_bunkers?: number;
@@ -24,7 +28,7 @@ export type InterpolatedArmsIndustryLevels = {
 };
 
 export type InterpolatedEconomicBuildingLevels = {
-  buildingId: "air_base" | "arms_industry" | "naval_base";
+  buildingId: "air_base" | "arms_industry" | "local_industry" | "military_hospital" | "naval_base";
   fromLevel: number;
   toLevel: number;
   progressRatio: number;
@@ -38,6 +42,7 @@ function zeroEconomicBuildingEffects(): EconomicBuildingEffects {
   return {
     productionBonusPct: 0,
     manpowerBonusPct: 0,
+    populationBonusPct: 0,
     flatBonuses: {},
     moraleBonusN: 0,
   };
@@ -96,11 +101,25 @@ function buildingLevelEffect(
     return zeroEconomicBuildingEffects();
   }
 
+  const productionBonusPct = Number.isFinite(levelData.production_bonus_pct ?? NaN)
+    ? (levelData.production_bonus_pct ?? 0)
+    : 0;
+  const manpowerBonusPct = Number.isFinite(levelData.manpower_bonus_pct ?? NaN)
+    ? (levelData.manpower_bonus_pct ?? 0)
+    : 0;
+  const populationBonusPct = Number.isFinite(levelData.population_bonus_pct ?? NaN)
+    ? (levelData.population_bonus_pct ?? 0)
+    : 0;
+  const moraleBonusPct = Number.isFinite(levelData.morale_bonus_pct ?? NaN)
+    ? (levelData.morale_bonus_pct ?? 0)
+    : 0;
+
   return {
-    productionBonusPct: levelData.production_bonus_pct ?? 0,
-    manpowerBonusPct: levelData.manpower_bonus_pct ?? 0,
+    productionBonusPct,
+    manpowerBonusPct,
+    populationBonusPct,
     flatBonuses: { ...(levelData.flat_bonus ?? {}) },
-    moraleBonusN: Math.round((levelData.morale_bonus_pct ?? 0) * 100),
+    moraleBonusN: Math.round(moraleBonusPct * 100),
   };
 }
 
@@ -117,9 +136,20 @@ function armsIndustryLevelEffect(buildings: BuildingsFile, level: number): Econo
     throw new Error(`missing arms_industry level ${level} in buildings data`);
   }
 
+  const productionBonusPct = Number.isFinite(levelData.production_bonus_pct ?? NaN)
+    ? (levelData.production_bonus_pct ?? 0)
+    : 0;
+  const manpowerBonusPct = Number.isFinite(levelData.manpower_bonus_pct ?? NaN)
+    ? (levelData.manpower_bonus_pct ?? 0)
+    : 0;
+  const populationBonusPct = Number.isFinite(levelData.population_bonus_pct ?? NaN)
+    ? (levelData.population_bonus_pct ?? 0)
+    : 0;
+
   return {
-    productionBonusPct: levelData.production_bonus_pct ?? 0,
-    manpowerBonusPct: levelData.manpower_bonus_pct ?? 0,
+    productionBonusPct,
+    manpowerBonusPct,
+    populationBonusPct,
     flatBonuses: { ...(levelData.flat_bonus ?? {}) },
     moraleBonusN: 0,
   };
@@ -188,6 +218,7 @@ function undergroundBunkerLevelEffect(buildings: BuildingsFile, level: number): 
   return {
     productionBonusPct: effect.productionBonusPct,
     manpowerBonusPct: effect.manpowerBonusPct,
+    populationBonusPct: effect.populationBonusPct,
     flatBonuses: effect.flatBonuses,
     moraleBonusN: undergroundBunkerMoraleBonusN(buildings, level),
   };
@@ -201,6 +232,9 @@ export function getEconomicBuildingEffectsForLevels(
   const effects = [
     buildingLevelEffect(buildings, "air_base", levels.air_base ?? 0),
     armsIndustryLevelEffect(buildings, levels.arms_industry ?? 0),
+    buildingLevelEffect(buildings, "combat_outpost", levels.combat_outpost ?? 0),
+    buildingLevelEffect(buildings, "local_industry", levels.local_industry ?? 0),
+    buildingLevelEffect(buildings, "military_hospital", levels.military_hospital ?? 0),
     buildingLevelEffect(buildings, "naval_base", levels.naval_base ?? 0),
     buildingLevelEffect(buildings, "recruiting_office", levels.recruiting_office ?? 0),
     undergroundBunkerLevelEffect(buildings, levels.underground_bunkers ?? 0),
@@ -209,6 +243,7 @@ export function getEconomicBuildingEffectsForLevels(
   for (const effect of effects) {
     result.productionBonusPct += effect.productionBonusPct;
     result.manpowerBonusPct += effect.manpowerBonusPct;
+    result.populationBonusPct += effect.populationBonusPct;
     addFlatBonuses(result.flatBonuses, effect.flatBonuses);
     result.moraleBonusN += effect.moraleBonusN;
   }
@@ -233,6 +268,9 @@ export function interpolateEconomicBuildingEffects(
     manpowerBonusPct:
       fromEffect.manpowerBonusPct +
       ((toEffect.manpowerBonusPct - fromEffect.manpowerBonusPct) * ratio),
+    populationBonusPct:
+      fromEffect.populationBonusPct +
+      ((toEffect.populationBonusPct - fromEffect.populationBonusPct) * ratio),
     flatBonuses: interpolateFlatBonuses(fromEffect.flatBonuses, toEffect.flatBonuses, ratio),
     moraleBonusN: fromEffect.moraleBonusN + ((toEffect.moraleBonusN - fromEffect.moraleBonusN) * ratio),
   };

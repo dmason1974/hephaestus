@@ -31,6 +31,8 @@ function baseCity(buildings?: Partial<TimelineCityState["buildings"]>): Timeline
       air_base: 0,
       annex_city: 0,
       arms_industry: 0,
+      combat_outpost: 0,
+      local_industry: 0,
       naval_base: 0,
       recruiting_office: 0,
       relocate_headquarters: 0,

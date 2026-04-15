@@ -26,3 +26,11 @@ export function getScenarioCountriesDir(scenarioId: string) {
 export function getScenarioCountryPath(scenarioId: string, countryId: string) {
   return path.join(getScenarioCountriesDir(scenarioId), `${countryId}.yml`);
 }
+
+export function getScenarioPlansDir(scenarioId: string) {
+  return path.join(projectRoot(), "data", "scenarios", scenarioId, "plans");
+}
+
+export function getScenarioPlanPath(scenarioId: string, planId: string) {
+  return path.join(getScenarioPlansDir(scenarioId), `${planId}.yml`);
+}

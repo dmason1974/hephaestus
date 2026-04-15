@@ -1,6 +1,7 @@
 import { scenarioStartAbsoluteHour, type ScenarioStartLike } from "../../core/time.js";
 import type { BuildingsFile } from "../../schemas/building-schema.js";
 import {
+  defaultStartingMoraleForCityStatus,
   type CityStatus,
   DEFAULT_MORALE_DECAY_D,
   HOMELAND_TARGET_MORALE,
@@ -11,18 +12,26 @@ import { undergroundBunkerMoraleBonusN } from "../economy/building-modifiers.js"
 import { effectiveDurationFromMorale } from "../timing/activity-duration.js";
 
 export type BuildingId =
+  | "army_base"
   | "air_base"
   | "annex_city"
   | "arms_industry"
+  | "combat_outpost"
+  | "local_industry"
+  | "military_hospital"
   | "naval_base"
   | "recruiting_office"
   | "relocate_headquarters"
   | "underground_bunkers";
 
 export type BuildingLevels = {
+  army_base: number;
   air_base: number;
   annex_city: number;
   arms_industry: number;
+  combat_outpost?: number;
+  local_industry?: number;
+  military_hospital?: number;
   naval_base: number;
   recruiting_office: number;
   relocate_headquarters: number;
@@ -123,9 +132,13 @@ export function scheduleBuildSegments(args: {
   scenario: ScenarioStartLike;
 }): BuildSegmentsByCity {
   const levelTimings = {
+    army_base: getBuildingLevelTimings(args.buildings, "army_base"),
     air_base: getBuildingLevelTimings(args.buildings, "air_base"),
     annex_city: getBuildingLevelTimings(args.buildings, "annex_city"),
     arms_industry: getBuildingLevelTimings(args.buildings, "arms_industry"),
+    combat_outpost: getBuildingLevelTimings(args.buildings, "combat_outpost"),
+    local_industry: getBuildingLevelTimings(args.buildings, "local_industry"),
+    military_hospital: getBuildingLevelTimings(args.buildings, "military_hospital"),
     naval_base: getBuildingLevelTimings(args.buildings, "naval_base"),
     recruiting_office: getBuildingLevelTimings(args.buildings, "recruiting_office"),
     relocate_headquarters: getBuildingLevelTimings(args.buildings, "relocate_headquarters"),
@@ -135,14 +148,31 @@ export function scheduleBuildSegments(args: {
   const cityLevels = new Map<string, BuildingLevels>();
   const cityAvailableMinute = new Map<string, number>();
   const segmentsByCity: BuildSegmentsByCity = new Map();
+  const zeroBuildingLevels = {
+    army_base: 0,
+    air_base: 0,
+    annex_city: 0,
+    arms_industry: 0,
+    combat_outpost: 0,
+    local_industry: 0,
+    military_hospital: 0,
+    naval_base: 0,
+    recruiting_office: 0,
+    relocate_headquarters: 0,
+    underground_bunkers: 0,
+  } satisfies Record<BuildingId, number>;
 
   for (const city of args.cities) {
-    cityLevels.set(city.cityId, { ...city.buildings });
+    cityLevels.set(city.cityId, { ...zeroBuildingLevels, ...city.buildings });
     cityAvailableMinute.set(city.cityId, scenarioStartMinute);
     segmentsByCity.set(city.cityId, {
+      army_base: [],
       air_base: [],
       annex_city: [],
       arms_industry: [],
+      combat_outpost: [],
+      local_industry: [],
+      military_hospital: [],
       naval_base: [],
       recruiting_office: [],
       relocate_headquarters: [],
@@ -244,7 +274,7 @@ function cityMoraleParams(cities: TimelineCityState[], cityId: string): MoralePa
   const city = cityState(cities, cityId);
 
   return city.moraleParams ?? {
-    S: STARTING_MORALE_DAY1,
+    S: defaultStartingMoraleForCityStatus(city.cityStatus),
     T: HOMELAND_TARGET_MORALE,
     N: 0,
     D: DEFAULT_MORALE_DECAY_D,

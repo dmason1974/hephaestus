@@ -27,6 +27,15 @@ export function buildCountrySchema(enums: Enumerations) {
     starting: StartingSchema,
   });
 
+  const ProvinceSchema = z.object({
+    total: NonNegativeInt,
+    supplies: NonNegativeInt,
+    components: NonNegativeInt,
+    fuel: NonNegativeInt,
+    rares: NonNegativeInt,
+    electronics: NonNegativeInt,
+  });
+
   const CountrySchema = z.object({
     version: z.number().int().min(1),
     country: z.object({
@@ -35,6 +44,14 @@ export function buildCountrySchema(enums: Enumerations) {
       doctrine: DoctrineEnum,
     }),
     cities: z.array(CitySchema).min(1),
+    provinces: ProvinceSchema.optional().default({
+      total: 0,
+      supplies: 0,
+      components: 0,
+      fuel: 0,
+      rares: 0,
+      electronics: 0,
+    }),
   });
 
   return CountrySchema;

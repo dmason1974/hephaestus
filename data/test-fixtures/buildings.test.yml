@@ -1,0 +1,486 @@
+schema_version: 1
+domain: buildings
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+buildings:
+  army_base:
+    name: "Army Base"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          minutes: 1
+          seconds: 30
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+      2:
+        build_time:
+          days: 1
+          hours: 4
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+      3:
+        build_time:
+          days: 1
+          hours: 8
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+      4:
+        build_time:
+          days: 1
+          hours: 10
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+      5:
+        build_time:
+          days: 1
+          hours: 12
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+  air_base:
+    name: "Air Base"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          hours: 0
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.05
+      2:
+        build_time:
+          days: 1
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.1
+      3:
+        build_time:
+          days: 2
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.15
+      4:
+        build_time:
+          days: 3
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.2
+      5:
+        build_time:
+          days: 4
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.25
+  annex_city:
+    name: "Annex City"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          hours: 18
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        city_status_pct: 0.25
+  combat_outpost:
+    name: "Combat Outpost"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          hours: 1
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        morale_bonus_pct: 0.1
+  local_industry:
+    name: "Local Industry"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          hours: 9
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.5
+      2:
+        build_time:
+          hours: 18
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.75
+      3:
+        build_time:
+          days: 1
+          hours: 3
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 1
+  military_hospital:
+    name: "Military Hospital"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          hours: 9
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        population_bonus_pct: 0.25
+  arms_industry:
+    name: "Arms Industry"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          hours: 9
+          minutes: 45
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.06
+        flat_bonus:
+          cash: 104
+          supplies: 5
+      2:
+        build_time:
+          days: 1
+          hours: 2
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.12
+        flat_bonus:
+          cash: 208
+          supplies: 10
+      3:
+        build_time:
+          days: 1
+          hours: 12
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.18
+        flat_bonus:
+          cash: 312
+          supplies: 15
+      4:
+        build_time:
+          days: 2
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.24
+        flat_bonus:
+          cash: 416
+          supplies: 20
+      5:
+        build_time:
+          days: 3
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.3
+        flat_bonus:
+          cash: 520
+          supplies: 25
+  naval_base:
+    name: "Naval Base"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          hours: 0
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0
+      2:
+        build_time:
+          days: 1
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.05
+      3:
+        build_time:
+          days: 2
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.1
+      4:
+        build_time:
+          days: 3
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.15
+      5:
+        build_time:
+          days: 4
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        production_bonus_pct: 0.2
+  relocate_headquarters:
+    name: "Relocate Headquarters"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          days: 1
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        morale_bonus_pct: 0.25
+  recruiting_office:
+    name: "Recruiting Office"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          minutes: 30
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        manpower_bonus_pct: 0.5
+        flat_bonus:
+          manpower: 50
+      2:
+        build_time:
+          days: 1
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        manpower_bonus_pct: 0.75
+        flat_bonus:
+          manpower: 75
+  underground_bunkers:
+    name: "Underground Bunkers"
+    category: Buildings
+    levels:
+      1:
+        build_time:
+          days: 1
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        morale_bonus_pct: 0.05
+      2:
+        build_time:
+          days: 2
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        morale_bonus_pct: 0.1
+      3:
+        build_time:
+          days: 3
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        morale_bonus_pct: 0.2
+      4:
+        build_time:
+          days: 4
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        morale_bonus_pct: 0.3
+      5:
+        build_time:
+          days: 5
+        cost:
+          supplies: 0
+          components: 0
+          fuel: 0
+          rares: 0
+          electronics: 0
+          cash: 0
+          manpower: 0
+        morale_bonus_pct: 0.5

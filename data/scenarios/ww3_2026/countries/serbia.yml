@@ -1,0 +1,65 @@
+version: 1
+
+country:
+  id: serbia
+  name: Serbia
+  doctrine: eastern
+
+cities:
+  - id: belgrade
+    name: Belgrade
+    capital: true
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 1
+
+  - id: novi_sad
+    name: Novi Sad
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: nis
+    name: Nis
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: pristina
+    name: Pristina
+    capital: false
+    resource: rares
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: podgorica
+    name: Podgorica
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+provinces:
+  total: 29
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 0

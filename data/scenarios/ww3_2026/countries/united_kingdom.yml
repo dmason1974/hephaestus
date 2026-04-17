@@ -1,0 +1,75 @@
+version: 1
+
+country:
+  id: united_kingdom
+  name: United Kingdom
+  doctrine: european
+
+cities:
+  - id: london
+    name: London
+    capital: true
+    resource: rares
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 1
+
+  - id: plymouth
+    name: Plymouth
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: glasgow
+    name: Glasgow
+    capital: false
+    resource: electronics
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: aberdeen
+    name: Aberdeen
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: belfast
+    name: Belfast
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: manchester
+    name: Manchester
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+provinces:
+  total: 42
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 0

@@ -1,0 +1,24 @@
+schema_version: 1
+domain: scenario
+
+id: ww3_map_apr_2026
+name: "WW3 map Apr 2026"
+start:
+  day: 1
+  hour: 15
+
+truce_length_days: 28
+
+speed: "4x"
+
+research:
+  unlocked_through_day_at_start: 1
+
+starting_balance:
+  supplies: 20000
+  components: 15000
+  fuel: 7500
+  electronics: 5000
+  rares: 5000
+  manpower: 7500
+  cash: 7500

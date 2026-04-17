@@ -1,0 +1,85 @@
+version: 1
+
+country:
+  id: germany
+  name: Germany
+  doctrine: european
+
+cities:
+  - id: berlin
+    name: Berlin
+    capital: true
+    resource: supplies
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 1
+
+  - id: kiel
+    name: Kiel
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: hamburg
+    name: Hamburg
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: leipzig
+    name: Leipzig
+    capital: false
+    resource: electronics
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: cologne
+    name: Cologne
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: frankfurt
+    name: Frankfurt
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: munich
+    name: Munich
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+provinces:
+  total: 37
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 0

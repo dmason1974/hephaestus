@@ -1,0 +1,85 @@
+version: 1
+
+country:
+  id: iran
+  name: Iran
+  doctrine: eastern
+
+cities:
+  - id: tehran
+    name: Tehran
+    capital: true
+    resource: rares
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 1
+
+  - id: rast
+    name: Rast
+    capital: false
+    resource: electronics
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: tabriz
+    name: Tabriz
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: birjand
+    name: Birjand
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: isfahan
+    name: Isfahan
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: ahvaz
+    name: Ahvaz
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: bandar_abbas
+    name: Bandar Abbas
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+provinces:
+  total: 42
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 0

@@ -1,0 +1,75 @@
+version: 1
+
+country:
+  id: spain
+  name: Spain
+  doctrine: european
+
+cities:
+  - id: madrid
+    name: Madrid
+    capital: true
+    resource: rares
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 1
+
+  - id: malaga
+    name: Malaga
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: valencia
+    name: Valencia
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: zaragoza
+    name: Zaragoza
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: barcelona
+    name: Barcelona
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: la_coruna
+    name: La Coruna
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+provinces:
+  total: 40
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 0

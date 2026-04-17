@@ -1,0 +1,65 @@
+version: 1
+
+country:
+  id: norway
+  name: Norway
+  doctrine: western
+
+cities:
+  - id: oslo
+    name: Oslo
+    capital: true
+    resource: components
+    population: 5
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 1
+
+  - id: bergen
+    name: Bergen
+    capital: false
+    resource: electronics
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: trondheim
+    name: Trondheim
+    capital: false
+    resource: rares
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: tromso
+    name: Tromso
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: kirkenes
+    name: Kirkenes
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+provinces:
+  total: 40
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 0

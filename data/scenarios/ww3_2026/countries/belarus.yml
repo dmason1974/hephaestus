@@ -1,0 +1,75 @@
+version: 1
+
+country:
+  id: belarus
+  name: Belarus
+  doctrine: eastern
+
+cities:
+  - id: minsk
+    name: Minsk
+    capital: true
+    resource: components
+    population: 5
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 1
+
+  - id: brest
+    name: Brest
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: gomel
+    name: Gomel
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: mogilev
+    name: Mogilev
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: grodno
+    name: Grodno
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: vitebsk
+    name: Vitebsk
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+provinces:
+  total: 39
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 0

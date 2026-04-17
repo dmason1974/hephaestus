@@ -1,0 +1,65 @@
+version: 1
+
+country:
+  id: finland
+  name: Finland
+  doctrine: western
+
+cities:
+  - id: helsinki
+    name: Helsinki
+    capital: true
+    resource: components
+    population: 5
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 1
+
+  - id: turku
+    name: Turku
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: vaasa
+    name: Vaasa
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: tampere
+    name: Tampere
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: rovaniemi
+    name: Rovaniemi
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+provinces:
+  total: 37
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 0

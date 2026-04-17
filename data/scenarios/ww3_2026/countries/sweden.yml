@@ -1,0 +1,75 @@
+version: 1
+
+country:
+  id: sweden
+  name: Sweden
+  doctrine: european
+
+cities:
+  - id: stockholm
+    name: Stockholm
+    capital: true
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 1
+
+  - id: orebro
+    name: Orebro
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: gothenburg
+    name: Gothenburg
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: malmo
+    name: Malmo
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: gavle
+    name: Gavle
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: umea
+    name: Umea
+    capital: false
+    resource: rares
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+provinces:
+  total: 44
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 0

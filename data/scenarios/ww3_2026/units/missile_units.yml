@@ -11,61 +11,29 @@ resources:
   - manpower
 
 units:
-  infantry_officer:
-    name: Infantry Officer
-    category: Infantry
+  conventional_warhead:
+    name: Conventional Warhead
+    category: Missile
     doctrine: european
     levels:
       "1":
-        requirements:
-          - army_base level 1
-          - arms_industry level 1
+        requirements: []
         research:
           unlock_day: 1
           time:
-            days: 0
-            hours: 0
-            minutes: 30
-            seconds: 0
-          cost:
-            supplies: 200
-            components: 200
-            fuel: 0
-            rares: 0
-            electronics: 0
-            cash: 200
-            manpower: 0
-        mobilisation:
-          time:
             days: 1
-            hours: 0
+            hours: 10
             minutes: 0
             seconds: 0
           cost:
-            supplies: 350
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 400
-            cash: 750
-            manpower: 500
-        daily_upkeep:
-          cost:
-            supplies: 90
-            components: 0
+            supplies: 2500
+            components: 3000
             fuel: 0
             rares: 0
             electronics: 0
-            cash: 145
-            manpower: 35
-
-      "2":
-        requirements:
-          - army_base level 1
-          - arms_industry level 1
-          - infantry_officer level 1
-        research:
-          unlock_day: 2
+            cash: 10000
+            manpower: 0
+        mobilisation:
           time:
             days: 0
             hours: 0
@@ -79,246 +47,316 @@ units:
             electronics: 0
             cash: 0
             manpower: 0
-        mobilisation:
-          time:
-            days: 1
-            hours: 2
-            minutes: 0
-            seconds: 0
-          cost:
-            supplies: 400
-            components: 450
-            fuel: 0
-            rares: 0
-            electronics: 550
-            cash: 850
-            manpower: 0
         daily_upkeep:
           cost:
-            supplies: 105
+            supplies: 0
             components: 0
             fuel: 0
             rares: 0
             electronics: 0
-            cash: 155
-            manpower: 45
-
-      "3":
-        requirements:
-          - army_base level 1
-          - arms_industry level 1
-          - infantry_officer level 2
-        research:
-          unlock_day: 9
-          time:
-            days: 0
-            hours: 3
-            minutes: 0
-            seconds: 0
-          cost:
-            supplies: 300
-            components: 300
-            fuel: 0
-            rares: 0
-            electronics: 0
-            cash: 300
+            cash: 0
             manpower: 0
-        mobilisation:
+
+  ballistic_missile:
+    name: Ballistic Missile
+    category: Missile
+    doctrine: european
+    levels:
+      "1":
+        requirements:
+          - conventional_warhead level 1
+        research:
+          unlock_day: 2
           time:
             days: 1
             hours: 4
             minutes: 0
             seconds: 0
           cost:
-            supplies: 450
-            components: 500
+            supplies: 2250
+            components: 2500
             fuel: 0
             rares: 0
-            electronics: 600
-            cash: 950
+            electronics: 0
+            cash: 7000
             manpower: 0
-        daily_upkeep:
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
           cost:
-            supplies: 115
+            supplies: 0
             components: 0
             fuel: 0
             rares: 0
             electronics: 0
-            cash: 170
-            manpower: 65
-
-      "4":
-        requirements:
-          - army_base level 1
-          - arms_industry level 1
-          - infantry_officer level 3
-        research:
-          unlock_day: 13
-          time:
-            days: 0
-            hours: 5
-            minutes: 0
-            seconds: 0
+            cash: 0
+            manpower: 0
+        daily_upkeep:
           cost:
-            supplies: 350
-            components: 350
+            supplies: 0
+            components: 0
             fuel: 0
             rares: 0
             electronics: 0
-            cash: 350
+            cash: 0
             manpower: 0
-        mobilisation:
+
+  cruise_missile:
+    name: Cruise Missile
+    category: Missile
+    doctrine: european
+    levels:
+      "1":
+        requirements:
+          - ballistic_missile level 1
+        research:
+          unlock_day: 3
           time:
             days: 1
             hours: 8
             minutes: 0
             seconds: 0
           cost:
-            supplies: 600
-            components: 650
+            supplies: 2000
+            components: 2250
             fuel: 0
             rares: 0
-            electronics: 750
-            cash: 1200
+            electronics: 0
+            cash: 6000
             manpower: 0
-        daily_upkeep:
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
           cost:
-            supplies: 130
+            supplies: 0
             components: 0
             fuel: 0
             rares: 0
             electronics: 0
-            cash: 180
-            manpower: 70
-
-      "5":
-        requirements:
-          - army_base level 1
-          - arms_industry level 1
-          - infantry_officer level 4
-        research:
-          unlock_day: 17
-          time:
-            days: 0
-            hours: 6
-            minutes: 0
-            seconds: 0
+            cash: 0
+            manpower: 0
+        daily_upkeep:
           cost:
-            supplies: 400
-            components: 400
+            supplies: 0
+            components: 0
             fuel: 0
             rares: 0
             electronics: 0
-            cash: 400
+            cash: 0
             manpower: 0
-        mobilisation:
+
+      "2":
+        requirements:
+          - cruise_missile level 1
+        research:
+          unlock_day: 6
           time:
             days: 1
             hours: 10
             minutes: 0
             seconds: 0
           cost:
-            supplies: 700
-            components: 750
+            supplies: 2200
+            components: 2475
             fuel: 0
             rares: 0
-            electronics: 850
-            cash: 1350
+            electronics: 0
+            cash: 6600
             manpower: 0
-        daily_upkeep:
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
           cost:
-            supplies: 145
+            supplies: 0
             components: 0
             fuel: 0
             rares: 0
             electronics: 0
-            cash: 190
-            manpower: 80
-
-      "6":
-        requirements:
-          - army_base level 1
-          - arms_industry level 1
-          - infantry_officer level 5
-        research:
-          unlock_day: 21
-          time:
-            days: 0
-            hours: 7
-            minutes: 0
-            seconds: 0
+            cash: 0
+            manpower: 0
+        daily_upkeep:
           cost:
-            supplies: 450
-            components: 450
+            supplies: 0
+            components: 0
             fuel: 0
             rares: 0
             electronics: 0
-            cash: 450
+            cash: 0
             manpower: 0
-        mobilisation:
+
+      "3":
+        requirements:
+          - cruise_missile level 2
+        research:
+          unlock_day: 11
           time:
             days: 1
             hours: 12
             minutes: 0
             seconds: 0
           cost:
-            supplies: 800
-            components: 850
-            fuel: 0
-            rares: 0
-            electronics: 950
-            cash: 1500
-            manpower: 0
-        daily_upkeep:
-          cost:
-            supplies: 160
-            components: 0
+            supplies: 2400
+            components: 2700
             fuel: 0
             rares: 0
             electronics: 0
-            cash: 205
-            manpower: 90
-
-      "7":
-        requirements:
-          - army_base level 1
-          - arms_industry level 1
-          - infantry_officer level 6
-        research:
-          unlock_day: 24
-          time:
-            days: 0
-            hours: 9
-            minutes: 0
-            seconds: 0
-          cost:
-            supplies: 500
-            components: 500
-            fuel: 0
-            rares: 0
-            electronics: 0
-            cash: 500
+            cash: 7200
             manpower: 0
         mobilisation:
           time:
-            days: 1
-            hours: 16
+            days: 0
+            hours: 0
             minutes: 0
             seconds: 0
           cost:
-            supplies: 1000
-            components: 1000
-            fuel: 0
-            rares: 0
-            electronics: 1200
-            cash: 1750
-            manpower: 0
-        daily_upkeep:
-          cost:
-            supplies: 175
+            supplies: 0
             components: 0
             fuel: 0
             rares: 0
             electronics: 0
-            cash: 205
-            manpower: 100
+            cash: 0
+            manpower: 0
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 0
+            manpower: 0
+
+      "4":
+        requirements:
+          - cruise_missile level 3
+        research:
+          unlock_day: 15
+          time:
+            days: 1
+            hours: 17
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2600
+            components: 2925
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 7800
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 0
+            manpower: 0
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 0
+            manpower: 0
+
+      "5":
+        requirements:
+          - cruise_missile level 4
+        research:
+          unlock_day: 18
+          time:
+            days: 1
+            hours: 20
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2800
+            components: 3150
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 8400
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 0
+            manpower: 0
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 0
+            manpower: 0
+
+      "6":
+        requirements:
+          - cruise_missile level 5
+        research:
+          unlock_day: 24
+          time:
+            days: 2
+            hours: 1
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 3000
+            components: 3375
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 9000
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 0
+            manpower: 0
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 0
+            manpower: 0

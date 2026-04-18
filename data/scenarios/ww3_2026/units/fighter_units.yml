@@ -218,3 +218,265 @@ units:
             electronics: 75
             cash: 260
             manpower: 70
+  uav:
+    name: UAV
+    category: Air
+    doctrine: european
+    levels:
+      "1":
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+        research:
+          unlock_day: 1
+          time:
+            days: 0
+            hours: 18
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 900
+            components: 900
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 1700
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 13
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 450
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 350
+            cash: 1500
+            manpower: 250
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 10
+            rares: 0
+            electronics: 10
+            cash: 40
+            manpower: 10
+      "2":
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - uav level 1
+        research:
+          unlock_day: 6
+          time:
+            days: 0
+            hours: 20
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 1100
+            components: 1100
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 1900
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 13
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 450
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 350
+            cash: 1500
+            manpower: 250
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 15
+            rares: 0
+            electronics: 15
+            cash: 50
+            manpower: 15
+      "3":
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - uav level 2
+        research:
+          unlock_day: 12
+          time:
+            days: 1
+            hours: 2
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 1300
+            components: 1300
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 2200
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 14
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 650
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 450
+            cash: 2000
+            manpower: 350
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 20
+            rares: 0
+            electronics: 20
+            cash: 80
+            manpower: 20
+      "4":
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - uav level 3
+        research:
+          unlock_day: 17
+          time:
+            days: 1
+            hours: 6
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 1500
+            components: 1500
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 2600
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 15
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 650
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 450
+            cash: 2000
+            manpower: 350
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 25
+            rares: 0
+            electronics: 25
+            cash: 90
+            manpower: 25
+      "5":
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - uav level 4
+        research:
+          unlock_day: 22
+          time:
+            days: 1
+            hours: 10
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 1700
+            components: 1700
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 2900
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 16
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 650
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 450
+            cash: 2000
+            manpower: 350
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 30
+            rares: 0
+            electronics: 30
+            cash: 100
+            manpower: 30
+      "6":
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - uav level 5
+        research:
+          unlock_day: 28
+          time:
+            days: 1
+            hours: 23
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2200
+            components: 2200
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 3800
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 20
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 750
+            components: 0
+            fuel: 0
+            rares: 0
+            electronics: 750
+            cash: 2500
+            manpower: 475
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 35
+            rares: 0
+            electronics: 35
+            cash: 115
+            manpower: 35

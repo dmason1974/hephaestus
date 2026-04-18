@@ -11,3 +11,270 @@ resources:
   - manpower
 
 units:
+  awacs:
+    name: AWACS
+    category: Air
+    doctrine: european
+    levels:
+      "1":
+        requirements:
+          - air_base level 4
+          - arms_industry level 1
+        research:
+          unlock_day: 5
+          time:
+            days: 1
+            hours: 5
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 1000
+            components: 1275
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 2250
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 20
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 0
+            components: 750
+            fuel: 0
+            rares: 0
+            electronics: 700
+            cash: 2500
+            manpower: 400
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 25
+            rares: 0
+            electronics: 25
+            cash: 70
+            manpower: 25
+
+      "2":
+        requirements:
+          - air_base level 4
+          - arms_industry level 1
+          - awacs level 1
+        research:
+          unlock_day: 10
+          time:
+            days: 1
+            hours: 6
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 1100
+            components: 1405
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 2475
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 21
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 0
+            components: 750
+            fuel: 0
+            rares: 0
+            electronics: 700
+            cash: 2500
+            manpower: 400
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 30
+            rares: 0
+            electronics: 30
+            cash: 80
+            manpower: 30
+
+      "3":
+        requirements:
+          - air_base level 4
+          - arms_industry level 1
+          - awacs level 2
+        research:
+          unlock_day: 13
+          time:
+            days: 1
+            hours: 7
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 1200
+            components: 1530
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 2700
+            manpower: 0
+        mobilisation:
+          time:
+            days: 0
+            hours: 22
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 0
+            components: 750
+            fuel: 0
+            rares: 0
+            electronics: 700
+            cash: 2500
+            manpower: 400
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 35
+            rares: 0
+            electronics: 35
+            cash: 90
+            manpower: 35
+
+      "4":
+        requirements:
+          - air_base level 4
+          - arms_industry level 1
+          - awacs level 3
+        research:
+          unlock_day: 17
+          time:
+            days: 1
+            hours: 12
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 1300
+            components: 1660
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 2925
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 0
+            components: 850
+            fuel: 0
+            rares: 0
+            electronics: 950
+            cash: 3000
+            manpower: 575
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 40
+            rares: 0
+            electronics: 40
+            cash: 130
+            manpower: 45
+
+      "5":
+        requirements:
+          - air_base level 4
+          - arms_industry level 1
+          - awacs level 4
+        research:
+          unlock_day: 25
+          time:
+            days: 1
+            hours: 15
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 1400
+            components: 1785
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 3150
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 1
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 0
+            components: 850
+            fuel: 0
+            rares: 0
+            electronics: 950
+            cash: 3000
+            manpower: 575
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 45
+            rares: 0
+            electronics: 45
+            cash: 140
+            manpower: 55
+
+      "6":
+        requirements:
+          - air_base level 4
+          - arms_industry level 1
+          - awacs level 5
+        research:
+          unlock_day: 30
+          time:
+            days: 1
+            hours: 20
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 1500
+            components: 1915
+            fuel: 0
+            rares: 0
+            electronics: 0
+            cash: 3375
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 3
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 0
+            components: 1000
+            fuel: 0
+            rares: 0
+            electronics: 1250
+            cash: 3750
+            manpower: 750
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 55
+            rares: 0
+            electronics: 55
+            cash: 155
+            manpower: 70

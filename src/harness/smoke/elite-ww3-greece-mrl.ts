@@ -15,7 +15,7 @@ function hourOfDayForAbsoluteHour(absoluteHour: number) {
 
 const scenario = loadScenarioFile("elite_ww3_2026");
 const buildings = loadBuildingsFile();
-const supportCatalog = loadUnitCatalog(path.resolve("data/units/support_units.yaml"));
+const supportCatalog = loadUnitCatalog(path.resolve("data/units/support_units.yml"));
 
 const demands = [
   { unitId: "multiple_rocket_launcher", count: 28, researchTargetLevel: 1 },

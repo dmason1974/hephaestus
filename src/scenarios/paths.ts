@@ -34,3 +34,11 @@ export function getScenarioPlansDir(scenarioId: string) {
 export function getScenarioPlanPath(scenarioId: string, planId: string) {
   return path.join(getScenarioPlansDir(scenarioId), `${planId}.yml`);
 }
+
+export function getDefaultUnitsDir() {
+  return path.join(projectRoot(), "data", "units");
+}
+
+export function getScenarioUnitsDir(scenarioId: string) {
+  return path.join(projectRoot(), "data", "scenarios", scenarioId, "units");
+}

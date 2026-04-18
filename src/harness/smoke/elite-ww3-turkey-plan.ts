@@ -19,12 +19,12 @@ const scenarioId = "elite_ww3_2026";
 const scenario = loadScenarioFile(scenarioId);
 const turkey = loadScenarioCountry(scenarioId, "turkey");
 const buildings = loadBuildingsFile();
-const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yaml"));
-const fighterCatalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yaml"));
-const heaviesCatalog = loadUnitCatalog(path.resolve("data/units/heavies_units.yaml"));
-const infantryCatalog = loadUnitCatalog(path.resolve("data/units/infantry_units.yaml"));
-const officerCatalog = loadUnitCatalog(path.resolve("data/units/officer_units.yaml"));
-const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yaml"));
+const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
+const fighterCatalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
+const heaviesCatalog = loadUnitCatalog(path.resolve("data/units/heavies_units.yml"));
+const infantryCatalog = loadUnitCatalog(path.resolve("data/units/infantry_units.yml"));
+const officerCatalog = loadUnitCatalog(path.resolve("data/units/officer_units.yml"));
+const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
 
 const mergedCatalog = {
   ...navalCatalog,

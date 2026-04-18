@@ -1,0 +1,220 @@
+schema_version: 1
+domain: units
+
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+
+units:
+  air_superiority_fighter:
+    name: Air Superiority Fighter
+    category: Air
+    doctrine: european
+    levels:
+      1:
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+        research:
+          unlock_day: 1
+          time:
+            minutes: 30
+          cost:
+            supplies: 1800
+            components: 0
+            fuel: 0
+            rares: 1900
+            electronics: 0
+            cash: 4000
+            manpower: 0
+        mobilisation:
+          time:
+            hours: 23
+          cost:
+            supplies: 0
+            components: 1000
+            fuel: 0
+            rares: 0
+            electronics: 950
+            cash: 3500
+            manpower: 425
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 35
+            rares: 0
+            electronics: 35
+            cash: 100
+            manpower: 35
+      2:
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - air_superiority_fighter level 1
+        research:
+          unlock_day: 3
+          time:
+            hours: 1
+          cost:
+            supplies: 1980
+            components: 0
+            fuel: 0
+            rares: 2090
+            electronics: 0
+            cash: 4400
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+          cost:
+            supplies: 0
+            components: 1000
+            fuel: 0
+            rares: 0
+            electronics: 950
+            cash: 3500
+            manpower: 425
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 40
+            rares: 0
+            electronics: 40
+            cash: 105
+            manpower: 40
+      3:
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - air_superiority_fighter level 2
+        research:
+          unlock_day: 6
+          time:
+            days: 1
+            hours: 2
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2160
+            components: 0
+            fuel: 0
+            rares: 2280
+            electronics: 0
+            cash: 4800
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 1
+          cost:
+            supplies: 0
+            components: 1000
+            fuel: 0
+            rares: 0
+            electronics: 950
+            cash: 3500
+            manpower: 425
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 45
+            rares: 0
+            electronics: 45
+            cash: 110
+            manpower: 45
+      4:
+        requirements:
+          - air_base level 1
+          - arms_industry level 1
+          - air_superiority_fighter level 3
+        research:
+          unlock_day: 11
+          time:
+            days: 1
+            hours: 7
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2340
+            components: 0
+            fuel: 0
+            rares: 2470
+            electronics: 0
+            cash: 5200
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 3
+          cost:
+            supplies: 0
+            components: 1175
+            fuel: 0
+            rares: 0
+            electronics: 1100
+            cash: 4000
+            manpower: 600
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 55
+            rares: 0
+            electronics: 50
+            cash: 150
+            manpower: 50
+  stealth_air_superiority_fighter:
+    name: Stealth Air Superiority Fighter
+    category: Air
+    doctrine: european
+    levels:
+      1:
+        requirements:
+          - air_base level 5
+          - secret_weapons_lab level 1
+          - arms_industry level 1
+          - air_superiority_fighter level 4
+        research:
+          unlock_day: 16
+          time:
+            days: 1
+            hours: 12
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 3000
+            components: 0
+            fuel: 0
+            rares: 4400
+            electronics: 0
+            cash: 8000
+            manpower: 0
+        mobilisation:
+          time:
+            days: 1
+            hours: 12
+          cost:
+            supplies: 0
+            components: 1500
+            fuel: 450
+            rares: 0
+            electronics: 1600
+            cash: 7000
+            manpower: 550
+        daily_upkeep:
+          cost:
+            supplies: 0
+            components: 0
+            fuel: 70
+            rares: 0
+            electronics: 75
+            cash: 260
+            manpower: 70

@@ -530,6 +530,57 @@ buildings:
           cash: 6570
           manpower: 0
 
+  mercenary_outpost:
+    name: "Mercenary Outpost"
+    category: Buildings
+    levels:
+      1:
+        hit_points: 10
+        mobilisation_speed_bonus_pct: 1.00
+        daily_upkeep:
+          cash: 165
+        build_time:
+          hours: 12
+        cost:
+          supplies: 500
+          components: 500
+          fuel: 1000
+          rares: 0
+          electronics: 250
+          cash: 5000
+          manpower: 0
+      2:
+        hit_points: 15
+        mobilisation_speed_bonus_pct: 1.00
+        daily_upkeep:
+          cash: 330
+        build_time:
+          days: 1
+        cost:
+          supplies: 1500
+          components: 1500
+          fuel: 750
+          rares: 0
+          electronics: 500
+          cash: 7500
+          manpower: 0
+      3:
+        hit_points: 20
+        mobilisation_speed_bonus_pct: 1.00
+        daily_upkeep:
+          cash: 495
+        build_time:
+          days: 1
+          hours: 12
+        cost:
+          supplies: 2000
+          components: 2000
+          fuel: 500
+          rares: 1000
+          electronics: 750
+          cash: 10000
+          manpower: 0
+
   relocate_headquarters:
     name: "Relocate Headquarters"
     category: Buildings

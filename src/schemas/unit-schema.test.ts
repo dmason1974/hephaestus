@@ -8,9 +8,9 @@ import YAML from "yaml";
 import { loadEnumerations } from "../scenarios/io/load-enums.js";
 import { buildUnitCatalogSchema, parseUnitCatalog } from "./unit-schema.js";
 
-test("naval_units.yaml validates against the unit catalog schema", () => {
+test("naval_units.yml validates against the unit catalog schema", () => {
   const enums = loadEnumerations(path.resolve("data/enums.yml"));
-  const filePath = path.resolve("data/units/naval_units.yaml");
+  const filePath = path.resolve("data/units/naval_units.yml");
   const raw = YAML.parse(fs.readFileSync(filePath, "utf8"));
   const parsed = parseUnitCatalog(raw, enums, filePath);
 
@@ -19,9 +19,9 @@ test("naval_units.yaml validates against the unit catalog schema", () => {
   assert.equal(parsed.units.naval_veteran.doctrine, "western");
 });
 
-test("seasonal_units.yaml validates against the unit catalog schema", () => {
+test("seasonal_units.yml validates against the unit catalog schema", () => {
   const enums = loadEnumerations(path.resolve("data/enums.yml"));
-  const filePath = path.resolve("data/units/seasonal_units.yaml");
+  const filePath = path.resolve("data/units/seasonal_units.yml");
   const raw = YAML.parse(fs.readFileSync(filePath, "utf8"));
   const parsed = parseUnitCatalog(raw, enums, filePath);
 

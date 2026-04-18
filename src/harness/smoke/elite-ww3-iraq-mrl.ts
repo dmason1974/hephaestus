@@ -19,9 +19,9 @@ const scenarioId = "elite_ww3_2026";
 const scenario = loadScenarioFile(scenarioId);
 const iraq = loadScenarioCountry(scenarioId, "iraq");
 const buildings = loadBuildingsFile();
-const supportCatalog = loadUnitCatalog(path.resolve("data/units/support_units.yaml"));
-const infantryCatalog = loadUnitCatalog(path.resolve("data/units/infantry_units.yaml"));
-const officerCatalog = loadUnitCatalog(path.resolve("data/units/officer_units.yaml"));
+const supportCatalog = loadUnitCatalog(path.resolve("data/units/support_units.yml"));
+const infantryCatalog = loadUnitCatalog(path.resolve("data/units/infantry_units.yml"));
+const officerCatalog = loadUnitCatalog(path.resolve("data/units/officer_units.yml"));
 
 const mergedCatalog = {
   ...supportCatalog,

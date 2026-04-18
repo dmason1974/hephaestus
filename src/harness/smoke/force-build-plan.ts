@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 
 import type { Resource, StartingPopulation } from "../../core/constants.js";
@@ -10,7 +9,7 @@ import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadForcePlanFile, loadScenarioForcePlan } from "../../scenarios/io/load-force-plan.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
-import { loadUnitCatalog } from "../../scenarios/io/load-unit-catalog.js";
+import { loadMergedUnitCatalogForScenario } from "../../scenarios/io/load-unit-catalog.js";
 import type { BuildingsFile } from "../../schemas/building-schema.js";
 import type { UnitCatalog } from "../../schemas/unit-schema.js";
 import type { BuildingId } from "../../engine/orchestration/build-order-timeline.js";
@@ -156,7 +155,6 @@ const RESOURCE_KEYS: Resource[] = [
   "manpower",
 ];
 
-const UNIT_FILE_DIR = path.resolve("data/units");
 const MAX_BUILDING_LEVEL = 5;
 
 function parsePositiveInt(value: string | undefined, fallback: number) {
@@ -249,25 +247,6 @@ function queueTypeForUnit(catalog: UnitCatalog, unitId: string): QueueType {
 function queueKeyForDemand(catalog: UnitCatalog, demand: MobilizationDemand) {
   const queueType = queueTypeForUnit(catalog, demand.unitId);
   return `${queueType}:${demand.queueGroup ?? demand.unitId}`;
-}
-
-function loadMergedUnitCatalog() {
-  const catalogs = fs
-    .readdirSync(UNIT_FILE_DIR)
-    .filter(file => file.endsWith(".yaml") || file.endsWith(".yml"))
-    .sort()
-    .map(file => loadUnitCatalog(path.join(UNIT_FILE_DIR, file)));
-
-  return catalogs.reduce<UnitCatalog>(
-    (merged, catalog) => ({
-      ...merged,
-      units: {
-        ...merged.units,
-        ...catalog.units,
-      },
-    }),
-    { schema_version: 1, domain: "units", units: {} }
-  );
 }
 
 function parseDemandList(envValue: string | undefined) {
@@ -973,7 +952,7 @@ const scenario = {
 };
 const country = loadScenarioCountry(scenarioId, countryId);
 const buildings = loadBuildingsFile();
-const catalog = loadMergedUnitCatalog();
+const catalog = loadMergedUnitCatalogForScenario(scenarioId);
 const scenarioStartHour = scenarioStartAbsoluteHour(scenario);
 const deadlineAbsoluteHour = scenarioStartHour + (truceLengthDays * 24);
 const baselineCountryTable = buildCountryHourlyResourceBalanceTable(

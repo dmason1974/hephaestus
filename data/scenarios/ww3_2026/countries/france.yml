@@ -78,8 +78,8 @@ cities:
 
 provinces:
   total: 38
-  supplies: 0
+  supplies: 1
   components: 0
   fuel: 0
-  rares: 0
-  electronics: 0
+  rares: 1
+  electronics: 1

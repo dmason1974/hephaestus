@@ -1,0 +1,13 @@
+schema_version: 1
+domain: units
+
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+
+units:

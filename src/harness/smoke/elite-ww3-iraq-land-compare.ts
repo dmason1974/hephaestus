@@ -18,7 +18,7 @@ const scenarioId = "elite_ww3_2026";
 const scenario = loadScenarioFile(scenarioId);
 const iraq = loadScenarioCountry(scenarioId, "iraq");
 const buildings = loadBuildingsFile();
-const supportCatalog = loadUnitCatalog(path.resolve("data/units/support_units.yaml"));
+const supportCatalog = loadUnitCatalog(path.resolve("data/units/support_units.yml"));
 
 const iraqLandCandidates = iraq.cities
   .filter(city => city.resource === "electronics" || city.resource === "supplies" || city.resource === "components")

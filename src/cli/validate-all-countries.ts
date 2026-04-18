@@ -9,7 +9,7 @@ export function validateScenarioCountries(scenarioId: string): void {
   const dir = getScenarioCountriesDir(scenarioId);
   const files = fs
     .readdirSync(dir)
-    .filter(file => file.endsWith(".yml") || file.endsWith(".yaml"))
+    .filter(file => file.endsWith(".yml") || file.endsWith(".yml"))
     .sort();
 
   if (files.length === 0) {

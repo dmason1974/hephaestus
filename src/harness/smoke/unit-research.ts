@@ -11,8 +11,8 @@ import { loadUnitCatalog } from "../../scenarios/io/load-unit-catalog.js";
 const scenarioId = "elite_ww3_2026";
 const scenario = loadScenarioFile(scenarioId);
 
-const fighterCatalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yaml"));
-const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yaml"));
+const fighterCatalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
+const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
 
 const fighterQueue = simulateUnitResearchQueue(
   fighterCatalog,

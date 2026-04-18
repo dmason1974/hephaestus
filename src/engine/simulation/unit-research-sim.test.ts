@@ -6,7 +6,7 @@ import { loadUnitCatalog } from "../../scenarios/io/load-unit-catalog.js";
 import { simulateUnitResearchQueue, simulateUnitResearchTargets } from "./unit-research-sim.js";
 
 test("unit research queue schedules chained levels on the earliest free slot", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yaml"));
+  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -48,7 +48,7 @@ test("unit research queue schedules chained levels on the earliest free slot", (
 });
 
 test("unit research queue respects unlock day when it is later than scenario start", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/naval_units.yaml"));
+  const catalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -63,7 +63,7 @@ test("unit research queue respects unlock day when it is later than scenario sta
 });
 
 test("unit research queue uses two country research slots by default", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yaml"));
+  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -102,7 +102,7 @@ test("unit research queue uses two country research slots by default", () => {
 });
 
 test("unit research queue aggregates spend by research start hour", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yaml"));
+  const catalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -127,7 +127,7 @@ test("unit research queue aggregates spend by research start hour", () => {
 });
 
 test("unit research targets builds a two-slot plan automatically", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yaml"));
+  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
 
   const result = simulateUnitResearchTargets(
     catalog,
@@ -173,8 +173,8 @@ test("unit research targets builds a two-slot plan automatically", () => {
 });
 
 test("unit research targets auto-includes cross-file unit prerequisites when catalogs are merged", () => {
-  const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yaml"));
-  const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yaml"));
+  const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
+  const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
   const catalog = {
     ...navalCatalog,
     units: {
@@ -216,8 +216,8 @@ test("unit research targets auto-includes cross-file unit prerequisites when cat
 });
 
 test("unit research targets waits for prerequisite unit completion", () => {
-  const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yaml"));
-  const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yaml"));
+  const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
+  const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
   const mergedCatalog = {
     ...navalCatalog,
     units: {
@@ -241,7 +241,7 @@ test("unit research targets waits for prerequisite unit completion", () => {
 });
 
 test("unit research queue treats unlock days through the scenario offset as available at start", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yaml"));
+  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -257,7 +257,7 @@ test("unit research queue treats unlock days through the scenario offset as avai
 });
 
 test("unit research queue shifts later unlock days forward by the scenario offset", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/infantry_units.yaml"));
+  const catalog = loadUnitCatalog(path.resolve("data/units/infantry_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,

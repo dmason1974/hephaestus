@@ -1,8 +1,5 @@
 import type { Resource } from "../../core/constants.js";
 
-/**
- * Configuration for mobilization across multiple cities
- */
 export type MobilizationConfig = {
   cities: Array<{
     cityId: string;
@@ -10,37 +7,37 @@ export type MobilizationConfig = {
     unitsAllocated: number;
   }>;
   buildingCost: number;
+  buildingCostByCity?: Record<string, number>;
 };
 
-/**
- * Allocation of units across research levels
- */
-export type BatchAllocation = {
-  L1: number;
-  L2: number;
-  L3: number;
-  L4: number;
-  L5: number;
-};
+// Dynamic batch allocation supporting variable number of levels
+// Maps level number to unit count at that level
+export type BatchAllocation = Record<number, number>;
 
-/**
- * Research schedule timing
- */
-export type ResearchSchedule = Array<{
+// Helper to create empty batch allocation
+export function createEmptyBatchAllocation(): BatchAllocation {
+  return {};
+}
+
+// Helper to get total units from batch allocation
+export function getTotalUnitsFromBatch(batch: BatchAllocation): number {
+  return Object.values(batch).reduce((sum, count) => sum + count, 0);
+}
+
+export type ResearchScheduleEntry = {
   level: number;
   startHour: number;
   endHour: number;
-}>;
+};
 
-/**
- * Cost breakdown for a mobilization plan
- */
+export type ResearchSchedule = ResearchScheduleEntry[];
+
 export type CostBreakdown = {
-  building: number; // Cost to build/upgrade infrastructure
-  mobilization: number; // Cost to mobilize all units
-  upkeep: number; // Cost of unit upkeep until deadline
-  total: number; // Sum of all costs
-  feasible: boolean; // Whether plan can meet deadline
+  building: number;
+  mobilization: number;
+  upkeep: number;
+  total: number;
+  feasible: boolean;
   details?: {
     mobilizationByLevel: Record<number, number>;
     upkeepByLevel: Record<number, number>;
@@ -48,9 +45,6 @@ export type CostBreakdown = {
   };
 };
 
-/**
- * Mobilization timing for a batch
- */
 export type BatchTiming = {
   level: number;
   count: number;
@@ -60,7 +54,31 @@ export type BatchTiming = {
   upkeepDurationHours: number;
 };
 
-/**
- * Resource cost for an operation
- */
+// Helper to get maximum level available for a unit
+export function getMaxLevel(unitId: string, unitCatalog: UnitCatalog): number {
+  const unit = unitCatalog.units[unitId];
+  if (!unit) {
+    throw new Error(`Unknown unit: ${unitId}`);
+  }
+  
+  const levels = Object.keys(unit.levels).map(Number);
+  if (levels.length === 0) {
+    throw new Error(`Unit ${unitId} has no levels defined`);
+  }
+  
+  return Math.max(...levels);
+}
+
+// Helper to get all available levels for a unit (sorted)
+export function getAvailableLevels(unitId: string, unitCatalog: UnitCatalog): number[] {
+  const unit = unitCatalog.units[unitId];
+  if (!unit) {
+    throw new Error(`Unknown unit: ${unitId}`);
+  }
+  
+  return Object.keys(unit.levels).map(Number).sort((a, b) => a - b);
+}
+
 export type ResourceCost = Partial<Record<Resource, number>>;
+
+import type { UnitCatalog } from "../../schemas/unit-schema.js";

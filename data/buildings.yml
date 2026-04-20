@@ -157,6 +157,21 @@ buildings:
           cash: 7500
           manpower: 0
 
+      5:
+        daily_upkeep:
+          cash: 140
+        build_time:
+          days: 1
+          hours: 12
+        cost:
+          supplies: 2500
+          components: 1500
+          fuel: 500
+          rares: 2500
+          electronics: 1000
+          cash: 9500
+          manpower: 0
+
   arms_industry:
     name: "Arms Industry"
     category: Buildings

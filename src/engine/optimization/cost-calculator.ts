@@ -1,6 +1,7 @@
 import type { BuildingsFile } from "../../schemas/building-schema.js";
 import type { UnitCatalog } from "../../schemas/unit-schema.js";
 import type { Resource } from "../../core/constants.js";
+import { effectiveDurationFromMorale } from "../timing/activity-duration.js";
 import type {
   MobilizationConfig,
   BatchAllocation,
@@ -8,71 +9,36 @@ import type {
   CostBreakdown,
   ResourceCost,
 } from "./types.js";
+import { getAvailableLevels, getTotalUnitsFromBatch } from "./types.js";
 
-/**
- * Calculate the mobilization cost for a specific unit at a given level
- */
+const RESOURCE_KEYS: Resource[] = [
+  "supplies",
+  "components",
+  "fuel",
+  "electronics",
+  "rares",
+  "cash",
+  "manpower",
+];
+
 export function calculateMobilizationCost(
   unitId: string,
   level: number,
   count: number,
   unitCatalog: UnitCatalog
 ): ResourceCost {
-  const unit = unitCatalog.units[unitId];
-  if (!unit) {
-    throw new Error(`Unknown unit: ${unitId}`);
-  }
-
-  const levelData = unit.levels[String(level)];
-  if (!levelData) {
-    throw new Error(`Unknown level ${level} for unit ${unitId}`);
-  }
-
-  const cost: ResourceCost = {};
-  const resources: Resource[] = [
-    "supplies",
-    "components",
-    "fuel",
-    "electronics",
-    "rares",
-    "cash",
-    "manpower",
-  ];
-
-  for (const resource of resources) {
-    const unitCost = levelData.mobilisation.cost[resource];
-    if (unitCost > 0) {
-      cost[resource] = unitCost * count;
-    }
-  }
-
-  return cost;
+  const levelData = getUnitLevelData(unitId, level, unitCatalog);
+  return scaleResourceCost(levelData.mobilisation.cost, count);
 }
 
-/**
- * Calculate upkeep cost per day for a unit at a given level
- */
 export function calculateDailyUpkeep(
   unitId: string,
   level: number,
   unitCatalog: UnitCatalog
 ): ResourceCost {
-  const unit = unitCatalog.units[unitId];
-  if (!unit) {
-    throw new Error(`Unknown unit: ${unitId}`);
-  }
-
-  const levelData = unit.levels[String(level)];
-  if (!levelData) {
-    throw new Error(`Unknown level ${level} for unit ${unitId}`);
-  }
-
-  return levelData.daily_upkeep.cost;
+  return { ...getUnitLevelData(unitId, level, unitCatalog).daily_upkeep.cost };
 }
 
-/**
- * Calculate total upkeep cost over a period
- */
 export function calculateUpkeepCost(
   unitId: string,
   level: number,
@@ -80,20 +46,9 @@ export function calculateUpkeepCost(
   durationHours: number,
   unitCatalog: UnitCatalog
 ): ResourceCost {
-  const dailyUpkeep = calculateDailyUpkeep(unitId, level, unitCatalog);
-  const durationDays = durationHours / 24;
-
-  const cost: ResourceCost = {};
-  for (const [resource, amount] of Object.entries(dailyUpkeep)) {
-    cost[resource as Resource] = amount * count * durationDays;
-  }
-
-  return cost;
+  return scaleResourceCost(calculateDailyUpkeep(unitId, level, unitCatalog), count * (durationHours / 24));
 }
 
-/**
- * Calculate the cost to upgrade a building from one level to another
- */
 export function calculateBuildingCost(
   buildingId: string,
   fromLevel: number,
@@ -110,51 +65,37 @@ export function calculateBuildingCost(
   }
 
   const totalCost: ResourceCost = {};
-
   for (let level = fromLevel + 1; level <= toLevel; level++) {
-    const levelData = building.levels[String(level)];
+    const levelKey = String(level) as keyof typeof building.levels;
+    const levelData = building.levels[levelKey];
     if (!levelData) {
       throw new Error(`Unknown level ${level} for building ${buildingId}`);
     }
-
-    for (const [resource, amount] of Object.entries(levelData.cost)) {
-      if (amount > 0) {
-        totalCost[resource as Resource] = (totalCost[resource as Resource] ?? 0) + amount;
-      }
-    }
+    mergeResourceCostInto(totalCost, levelData.cost);
   }
 
   return totalCost;
 }
 
-/**
- * Sum multiple resource costs
- */
 export function sumResourceCosts(...costs: ResourceCost[]): ResourceCost {
   const total: ResourceCost = {};
-
   for (const cost of costs) {
-    for (const [resource, amount] of Object.entries(cost)) {
-      total[resource as Resource] = (total[resource as Resource] ?? 0) + amount;
-    }
+    mergeResourceCostInto(total, cost);
   }
-
   return total;
 }
 
-/**
- * Convert resource cost to a single scalar value
- * Uses weighted sum based on resource rarity/importance
- */
 export function resourceCostToScalar(cost: ResourceCost, weights?: Partial<Record<Resource, number>>): number {
+  // Default weights based on resource priority:
+  // Electronics (highest) > Supplies > Rares > Components > Manpower > Fuel > Cash (lowest)
   const defaultWeights: Record<Resource, number> = {
-    supplies: 1,
-    components: 1.2,
-    fuel: 0.8,
-    electronics: 1.5,
-    rares: 2.0,
-    cash: 0.5,
-    manpower: 1.0,
+    electronics: 3.0,   // Highest priority - most scarce/valuable
+    supplies: 2.0,      // Second priority - commonly needed
+    rares: 1.5,         // Third priority - moderately scarce
+    components: 1.2,    // Medium priority
+    manpower: 1.0,      // Standard priority
+    fuel: 0.8,          // Lower priority
+    cash: 0.5,          // Lowest priority - most abundant
   };
 
   const effectiveWeights = { ...defaultWeights, ...weights };
@@ -168,132 +109,109 @@ export function resourceCostToScalar(cost: ResourceCost, weights?: Partial<Recor
   return total;
 }
 
-/**
- * Calculate mobilization duration for a batch of units
- */
 export function calculateMobilizationDuration(
   unitId: string,
   level: number,
   count: number,
   cityCount: number,
   roLevel: number,
-  unitCatalog: UnitCatalog
+  unitCatalog: UnitCatalog,
+  buildings: BuildingsFile,
+  moralePct = 90
 ): number {
-  const unit = unitCatalog.units[unitId];
-  if (!unit) {
-    throw new Error(`Unknown unit: ${unitId}`);
-  }
-
-  const levelData = unit.levels[String(level)];
-  if (!levelData) {
-    throw new Error(`Unknown level ${level} for unit ${unitId}`);
-  }
-
-  // Base mobilization time
-  const baseDuration =
-    (levelData.mobilisation.time.days ?? 0) * 24 +
-    (levelData.mobilisation.time.hours ?? 0) +
-    (levelData.mobilisation.time.minutes ?? 0) / 60 +
-    (levelData.mobilisation.time.seconds ?? 0) / 3600;
-
-  // RO level reduces mobilization time
-  const roSpeedBonus = getROMobilizationSpeedBonus(roLevel);
-  const adjustedDuration = baseDuration * (1 - roSpeedBonus);
-
-  // Units per city (rounded up)
-  const unitsPerCity = Math.ceil(count / cityCount);
-
-  // Total duration = units per city × adjusted duration per unit
-  return Math.ceil(unitsPerCity * adjustedDuration);
+  const levelData = getUnitLevelData(unitId, level, unitCatalog);
+  const baseDurationHours = durationHours(levelData.mobilisation.time);
+  const moraleAdjustedHours = effectiveDurationFromMorale(baseDurationHours, moralePct);
+  const bonusPct = getRecruitingOfficeSpeedBonusPct(buildings, roLevel);
+  const adjustedDurationHours = moraleAdjustedHours / (1 + bonusPct);
+  return Math.ceil(Math.ceil(count / cityCount) * adjustedDurationHours);
 }
 
-/**
- * Get mobilization speed bonus from recruiting office level
- */
-function getROMobilizationSpeedBonus(roLevel: number): number {
-  const bonuses: Record<number, number> = {
-    0: 0.0,
-    1: 0.10,
-    2: 0.25,
-    3: 0.45,
-    4: 0.70,
-    5: 1.00,
-  };
+export function calculateCompletionHour(
+  unitId: string,
+  config: MobilizationConfig,
+  batchAllocation: BatchAllocation,
+  researchSchedule: ResearchSchedule,
+  unitCatalog: UnitCatalog,
+  buildings: BuildingsFile,
+  moralePct = 90
+): number {
+  let latestCompletionHour = 0;
 
-  return bonuses[roLevel] ?? 0;
+  const availableLevels = getAvailableLevels(unitId, unitCatalog);
+  
+  for (const level of availableLevels) {
+    const count = batchAllocation[level] ?? 0;
+    if (count <= 0) {
+      continue;
+    }
+
+    const research = researchSchedule.find(entry => entry.level === level);
+    if (!research) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    const completionHour = research.endHour + estimateLevelMobilizationDuration(
+      unitId,
+      level,
+      count,
+      config,
+      unitCatalog,
+      buildings,
+      moralePct
+    );
+    latestCompletionHour = Math.max(latestCompletionHour, completionHour);
+  }
+
+  return latestCompletionHour;
 }
 
-/**
- * Calculate total cost for a mobilization configuration
- */
 export function calculateTotalCost(
   unitId: string,
   config: MobilizationConfig,
   batchAllocation: BatchAllocation,
   researchSchedule: ResearchSchedule,
   deadlineHour: number,
-  unitCatalog: UnitCatalog
+  unitCatalog: UnitCatalog,
+  buildings: BuildingsFile,
+  moralePct = 90
 ): CostBreakdown {
   let mobilizationCost: ResourceCost = {};
   let upkeepCost: ResourceCost = {};
-  let latestCompletionHour = 0;
-
   const mobilizationByLevel: Record<number, number> = {};
   const upkeepByLevel: Record<number, number> = {};
 
-  // Calculate costs for each level
-  for (let level = 1; level <= 5; level++) {
-    const count = batchAllocation[`L${level}` as keyof BatchAllocation];
-    if (count === 0) continue;
+  const availableLevels = getAvailableLevels(unitId, unitCatalog);
+  
+  for (const level of availableLevels) {
+    const count = batchAllocation[level] ?? 0;
+    if (count <= 0) {
+      continue;
+    }
 
     const research = researchSchedule.find(r => r.level === level);
     if (!research) {
-      return {
-        building: config.buildingCost,
-        mobilization: 0,
-        upkeep: 0,
-        total: Infinity,
-        feasible: false,
-      };
+      return infeasibleCostBreakdown(config);
     }
 
-    // Mobilization timing
-    const mobilizationStart = research.endHour;
-    const cityCount = config.cities.length;
-    const avgROLevel = Math.round(
-      config.cities.reduce((sum, c) => sum + c.roLevel, 0) / cityCount
-    );
-
-    const mobilizationDuration = calculateMobilizationDuration(
+    const mobilizationDuration = estimateLevelMobilizationDuration(
       unitId,
       level,
       count,
-      cityCount,
-      avgROLevel,
-      unitCatalog
+      config,
+      unitCatalog,
+      buildings,
+      moralePct
     );
-
-    const mobilizationEnd = mobilizationStart + mobilizationDuration;
-
-    // Check feasibility
+    const mobilizationEnd = research.endHour + mobilizationDuration;
     if (mobilizationEnd > deadlineHour) {
-      return {
-        building: config.buildingCost,
-        mobilization: 0,
-        upkeep: 0,
-        total: Infinity,
-        feasible: false,
-      };
+      return infeasibleCostBreakdown(config);
     }
 
-    latestCompletionHour = Math.max(latestCompletionHour, mobilizationEnd);
-
-    // Mobilization cost
     const mobCost = calculateMobilizationCost(unitId, level, count, unitCatalog);
     mobilizationCost = sumResourceCosts(mobilizationCost, mobCost);
     mobilizationByLevel[level] = resourceCostToScalar(mobCost);
 
-    // Upkeep cost
     const upkeepDuration = deadlineHour - mobilizationEnd;
     const upCost = calculateUpkeepCost(unitId, level, count, upkeepDuration, unitCatalog);
     upkeepCost = sumResourceCosts(upkeepCost, upCost);
@@ -313,10 +231,148 @@ export function calculateTotalCost(
     details: {
       mobilizationByLevel,
       upkeepByLevel,
-      buildingByCity: config.cities.reduce((acc, city) => {
-        acc[city.cityId] = 0; // Would need building costs here
-        return acc;
-      }, {} as Record<string, number>),
+      buildingByCity:
+        config.buildingCostByCity ??
+        config.cities.reduce(
+          (acc, city) => {
+            acc[city.cityId] = 0;
+            return acc;
+          },
+          {} as Record<string, number>
+        ),
     },
+  };
+}
+
+function getUnitLevelData(unitId: string, level: number, unitCatalog: UnitCatalog) {
+  const unit = unitCatalog.units[unitId];
+  if (!unit) {
+    throw new Error(`Unknown unit: ${unitId}`);
+  }
+
+  const levelData = unit.levels[String(level)];
+  if (!levelData) {
+    throw new Error(`Unknown level ${level} for unit ${unitId}`);
+  }
+
+  return levelData;
+}
+
+function mergeResourceCostInto(target: ResourceCost, cost: ResourceCost) {
+  for (const resource of RESOURCE_KEYS) {
+    const amount = cost[resource];
+    if (amount) {
+      target[resource] = (target[resource] ?? 0) + amount;
+    }
+  }
+}
+
+function scaleResourceCost(cost: ResourceCost, scale: number): ResourceCost {
+  const scaled: ResourceCost = {};
+  for (const resource of RESOURCE_KEYS) {
+    const amount = cost[resource];
+    if (amount) {
+      scaled[resource] = amount * scale;
+    }
+  }
+  return scaled;
+}
+
+function durationHours(duration: {
+  days?: number;
+  hours?: number;
+  minutes?: number;
+  seconds?: number;
+}): number {
+  return (
+    (duration.days ?? 0) * 24 +
+    (duration.hours ?? 0) +
+    (duration.minutes ?? 0) / 60 +
+    (duration.seconds ?? 0) / 3600
+  );
+}
+
+function getRecruitingOfficeSpeedBonusPct(buildings: BuildingsFile, roLevel: number): number {
+  if (roLevel <= 0) {
+    return 0;
+  }
+
+  const levelData = buildings.buildings.recruiting_office?.levels[
+    String(roLevel) as keyof typeof buildings.buildings.recruiting_office.levels
+  ];
+  return levelData?.mobilisation_speed_bonus_pct ?? 0;
+}
+
+function apportionUnits(totalCount: number, config: MobilizationConfig): number[] {
+  const requestedAllocations = config.cities.map(city => Math.max(0, city.unitsAllocated));
+  const requestedTotal = requestedAllocations.reduce((sum, value) => sum + value, 0);
+  if (requestedTotal <= 0) {
+    return evenSplit(totalCount, config.cities.length);
+  }
+
+  const baseAllocations = requestedAllocations.map(value => Math.floor((totalCount * value) / requestedTotal));
+  let assigned = baseAllocations.reduce((sum, value) => sum + value, 0);
+
+  const rankedIndexes = requestedAllocations
+    .map((value, index) => ({
+      index,
+      remainder: (totalCount * value) / requestedTotal - baseAllocations[index],
+    }))
+    .sort((left, right) => right.remainder - left.remainder || left.index - right.index);
+
+  for (const { index } of rankedIndexes) {
+    if (assigned >= totalCount) {
+      break;
+    }
+    baseAllocations[index] += 1;
+    assigned += 1;
+  }
+
+  return baseAllocations;
+}
+
+function evenSplit(totalCount: number, cityCount: number): number[] {
+  if (cityCount <= 0) {
+    return [];
+  }
+
+  const base = Math.floor(totalCount / cityCount);
+  const remainder = totalCount % cityCount;
+  return Array.from({ length: cityCount }, (_, index) => base + (index < remainder ? 1 : 0));
+}
+
+function estimateLevelMobilizationDuration(
+  unitId: string,
+  level: number,
+  count: number,
+  config: MobilizationConfig,
+  unitCatalog: UnitCatalog,
+  buildings: BuildingsFile,
+  moralePct: number
+): number {
+  if (config.cities.length === 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const levelData = getUnitLevelData(unitId, level, unitCatalog);
+  const baseDurationHours = durationHours(levelData.mobilisation.time);
+  const unitsPerCity = apportionUnits(count, config);
+
+  return config.cities.reduce((maxDuration, city, index) => {
+    const moraleAdjustedHours = effectiveDurationFromMorale(baseDurationHours, moralePct);
+    const bonusPct = getRecruitingOfficeSpeedBonusPct(buildings, city.roLevel);
+    const perUnitHours = moraleAdjustedHours / (1 + bonusPct);
+    const cityDuration = Math.ceil((unitsPerCity[index] ?? 0) * perUnitHours);
+    return Math.max(maxDuration, cityDuration);
+  }, 0);
+}
+
+function infeasibleCostBreakdown(config: MobilizationConfig): CostBreakdown {
+  return {
+    building: config.buildingCost,
+    mobilization: 0,
+    upkeep: 0,
+    total: Number.POSITIVE_INFINITY,
+    feasible: false,
   };
 }

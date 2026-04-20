@@ -640,6 +640,46 @@ units:
             electronics: 0
             cash: 200
             manpower: 55
+      5:
+        requirements:
+          - army_base level 5
+          - arms_industry level 1
+          - theatre_defense_system level 4
+        research:
+          unlock_day: 20
+          time:
+            days: 1
+            hours: 17
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2590
+            components: 0
+            fuel: 0
+            rares: 2800
+            electronics: 0
+            cash: 4200
+            manpower: 0
+        mobilisation:
+          time:
+            hours: 22
+          cost:
+            supplies: 1750
+            components: 700
+            fuel: 0
+            rares: 0
+            electronics: 1250
+            cash: 2500
+            manpower: 0
+        daily_upkeep:
+          cost:
+            supplies: 100
+            components: 0
+            fuel: 60
+            rares: 0
+            electronics: 0
+            cash: 200
+            manpower: 55
   mobile_radar:
     name: Mobile Radar
     category: Support

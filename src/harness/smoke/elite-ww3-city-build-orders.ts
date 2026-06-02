@@ -16,7 +16,7 @@ import {
   challengeHomelandEcoBaseline,
 } from "./default-eco-baseline.js";
 
-const scenarioId = "elite_ww3_2026";
+const scenarioId = "elite/ww3";
 const scenario = loadScenarioFile(scenarioId);
 const buildingsFile = loadBuildingsFile(path.resolve("data/buildings.yml"));
 const turkey = loadScenarioCountry(scenarioId, "turkey");

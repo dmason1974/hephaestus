@@ -922,7 +922,7 @@ function compareOptions(a: EvaluatedOption, b: EvaluatedOption) {
   );
 }
 
-const explicitScenarioId = process.env.PLAN_SCENARIO ?? "elite_ava_feb_2026";
+const explicitScenarioId = process.env.PLAN_SCENARIO ?? "elite/antarctica";
 const planFilePath = process.env.PLAN_FILE;
 const planId = process.env.PLAN_ID;
 const planFile =

@@ -14,7 +14,7 @@ function hourOfDayForAbsoluteHour(absoluteHour: number) {
   return (absoluteHour % 24) + 1;
 }
 
-const scenarioId = "elite_ww3_2026";
+const scenarioId = "elite/ww3";
 const scenario = loadScenarioFile(scenarioId);
 const iraq = loadScenarioCountry(scenarioId, "iraq");
 const buildings = loadBuildingsFile();

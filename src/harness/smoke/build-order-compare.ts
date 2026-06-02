@@ -11,7 +11,7 @@ import {
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 
-const scenarioId = "elite_ava_feb_2026";
+const scenarioId = "elite/antarctica";
 const countryId = "argentina";
 const cityId = "buenos_aires";
 const mapDaysToCompare = 28;

@@ -26,7 +26,7 @@ import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import type { Country } from "../../schemas/country-schema.js";
 
-const scenarioId = "elite_ww3_2026";
+const scenarioId = "elite/ww3";
 const buildingsFile = loadBuildingsFile(path.resolve("data/buildings.yml"));
 const scenario = loadScenarioFile(scenarioId);
 

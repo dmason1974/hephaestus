@@ -10,10 +10,10 @@ import { optimizeForceProjection, formatSolution, formatSearchStats } from "./fo
 
 test("optimizeForceProjection finds optimal solution for germany mobile_anti_air_vehicle", () => {
   // Load germany_mrl scenario data
-  const scenario = loadScenarioFile("ww3_2026");
-  const country = loadScenarioCountry("ww3_2026", "germany");
+  const scenario = loadScenarioFile("standard/ww3");
+  const country = loadScenarioCountry("standard/ww3", "germany");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("ww3_2026");
+  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
 
   // 28-day deadline from scenario start
   const scenarioStart = scenarioStartAbsoluteHour(scenario);
@@ -65,10 +65,10 @@ test("optimizeForceProjection finds optimal solution for germany mobile_anti_air
 });
 
 test("optimizeForceProjection handles smaller unit count efficiently", () => {
-  const scenario = loadScenarioFile("ww3_2026");
-  const country = loadScenarioCountry("ww3_2026", "germany");
+  const scenario = loadScenarioFile("standard/ww3");
+  const country = loadScenarioCountry("standard/ww3", "germany");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("ww3_2026");
+  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
 
   const scenarioStart = scenarioStartAbsoluteHour(scenario);
   const deadlineHour = scenarioStart + (28 * 24);
@@ -97,10 +97,10 @@ test("optimizeForceProjection handles smaller unit count efficiently", () => {
 });
 
 test("optimizeForceProjection returns sorted solutions by cost", () => {
-  const scenario = loadScenarioFile("ww3_2026");
-  const country = loadScenarioCountry("ww3_2026", "germany");
+  const scenario = loadScenarioFile("standard/ww3");
+  const country = loadScenarioCountry("standard/ww3", "germany");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("ww3_2026");
+  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
 
   const scenarioStart = scenarioStartAbsoluteHour(scenario);
   const deadlineHour = scenarioStart + (28 * 24);
@@ -136,9 +136,9 @@ test("optimizeForceProjection returns sorted solutions by cost", () => {
 });
 
 test("optimizeForceProjection handles country with no cities gracefully", () => {
-  const scenario = loadScenarioFile("ww3_2026");
+  const scenario = loadScenarioFile("standard/ww3");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("ww3_2026");
+  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
 
   // Create a country with no cities
   const emptyCountry = {
@@ -179,10 +179,10 @@ test("optimizeForceProjection handles country with no cities gracefully", () => 
 });
 
 test("formatSolution produces readable output", () => {
-  const scenario = loadScenarioFile("ww3_2026");
-  const country = loadScenarioCountry("ww3_2026", "germany");
+  const scenario = loadScenarioFile("standard/ww3");
+  const country = loadScenarioCountry("standard/ww3", "germany");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("ww3_2026");
+  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
 
   const scenarioStart = scenarioStartAbsoluteHour(scenario);
   const deadlineHour = scenarioStart + (28 * 24);
@@ -211,10 +211,10 @@ test("formatSolution produces readable output", () => {
 });
 
 test("formatSearchStats produces readable output", () => {
-  const scenario = loadScenarioFile("ww3_2026");
-  const country = loadScenarioCountry("ww3_2026", "germany");
+  const scenario = loadScenarioFile("standard/ww3");
+  const country = loadScenarioCountry("standard/ww3", "germany");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("ww3_2026");
+  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
 
   const scenarioStart = scenarioStartAbsoluteHour(scenario);
   const deadlineHour = scenarioStart + (28 * 24);

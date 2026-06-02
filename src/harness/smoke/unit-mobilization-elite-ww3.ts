@@ -13,7 +13,7 @@ function hourOfDayForAbsoluteHour(absoluteHour: number) {
   return (absoluteHour % 24) + 1;
 }
 
-const scenario = loadScenarioFile("elite_ww3_2026");
+const scenario = loadScenarioFile("elite/ww3");
 const buildings = loadBuildingsFile();
 const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
 const fighterCatalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));

@@ -9,11 +9,11 @@ import { loadUnitCatalog } from "../../scenarios/io/load-unit-catalog.js";
 import { planMobilizationBuild } from "./unit-mobilization-plan.js";
 
 function loadMergedUnitCatalog() {
-  const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
-  const fighterCatalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
-  const infantryCatalog = loadUnitCatalog(path.resolve("data/units/infantry_units.yml"));
-  const officerCatalog = loadUnitCatalog(path.resolve("data/units/officer_units.yml"));
-  const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
+  const navalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/naval_units.yml"));
+  const fighterCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const infantryCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/infantry_units.yml"));
+  const officerCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/officer_units.yml"));
+  const seasonalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/seasonal_units.yml"));
 
   return {
     ...navalCatalog,
@@ -31,7 +31,7 @@ test("mobilization planner splits capped units into the lowest feasible mobilisa
   const result = planMobilizationBuild({
     catalog: loadMergedUnitCatalog(),
     buildings: loadBuildingsFile(),
-    scenario: loadScenarioFile("elite_ww3_2026"),
+    scenario: loadScenarioFile("elite/ww3"),
     demands: [
       { unitId: "naval_veteran", count: 1 },
       { unitId: "fixed_wing_veteran", count: 1, researchTargetLevel: 6 },
@@ -67,7 +67,7 @@ test("mobilization planner can force a unit to mobilise at a higher minimum leve
   const result = planMobilizationBuild({
     catalog: loadMergedUnitCatalog(),
     buildings: loadBuildingsFile(),
-    scenario: loadScenarioFile("elite_ww3_2026"),
+    scenario: loadScenarioFile("elite/ww3"),
     demands: [
       { unitId: "epic_airstrike_officer", count: 1, researchTargetLevel: 6, minMobilizeLevel: 6 },
     ],
@@ -89,7 +89,7 @@ test("mobilization planner can force a higher recruiting office level than the u
   const result = planMobilizationBuild({
     catalog: loadMergedUnitCatalog(),
     buildings: loadBuildingsFile(),
-    scenario: loadScenarioFile("elite_ww3_2026"),
+    scenario: loadScenarioFile("elite/ww3"),
     demands: [
       { unitId: "air_superiority_fighter", count: 18, forcedRecruitingOfficeLevel: 2 },
     ],
@@ -100,7 +100,7 @@ test("mobilization planner can force a higher recruiting office level than the u
 });
 
 test("mobilization planner fits the elite ww3 package before truce end and derives city requirements", () => {
-  const scenario = loadScenarioFile("elite_ww3_2026");
+  const scenario = loadScenarioFile("elite/ww3");
   const result = planMobilizationBuild({
     catalog: loadMergedUnitCatalog(),
     buildings: loadBuildingsFile(),

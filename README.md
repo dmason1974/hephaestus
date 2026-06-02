@@ -30,13 +30,13 @@ npm run smoke:beam:country
 The Beam scripts are scenario-driven and take their main inputs from environment variables:
 
 ```bash
-BS_SCENARIO=elite_ava_feb_2026 BS_COUNTRY=argentina npm run smoke:beam:city
-BSC_SCENARIO=elite_ava_feb_2026 BSC_COUNTRY=argentina npm run smoke:beam:country
+BS_SCENARIO=elite/antarctica BS_COUNTRY=argentina npm run smoke:beam:city
+BSC_SCENARIO=elite/antarctica BSC_COUNTRY=argentina npm run smoke:beam:country
 ```
 
 ### Scenario Ground Truth
 
-Smoke scripts use `data/scenarios/elite_ava_feb_2026/scenario.yml` as the source of truth for:
+Smoke scripts use `data/scenarios/elite/antarctica/scenario.yml` as the source of truth for:
 
 - `start.day`
 - `start.hour`
@@ -90,7 +90,7 @@ Hourly and daily reporting now use map time, not "24 hours since scenario start"
 
 `smoke:argentina:hourly`
 
-- Loads `data/scenarios/elite_ava_feb_2026/countries/argentina.yml`.
+- Loads `data/scenarios/elite/antarctica/countries/argentina.yml`.
 - Aggregates hourly country balances for `supplies`, `components`, `fuel`, `electronics`, `rare`, `manpower`, and `cash`.
 - Uses scenario `speed`.
 - Uses scenario `starting_balance`.

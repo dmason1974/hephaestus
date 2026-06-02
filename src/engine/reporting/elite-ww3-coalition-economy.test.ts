@@ -43,7 +43,7 @@ function hourlyProductionDeltas(
 }
 
 test("elite ww3 coalition baseline economy includes occupied Greece from map day 3 over 28 full days", () => {
-  const scenarioId = "elite_ww3_2026";
+  const scenarioId = "elite/ww3";
   const scenario = loadScenarioFile(scenarioId);
   const buildingsFile = loadBuildingsFile(path.resolve("data/buildings.yml"));
   const turkey = loadScenarioCountry(scenarioId, "turkey");

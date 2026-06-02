@@ -10,7 +10,7 @@ import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { aggregateHourlyAmountsByMapDay, scenarioReportWindow } from "../../engine/reporting/scenario-reporting.js";
 
-const scenarioId = "elite_ava_feb_2026";
+const scenarioId = "elite/antarctica";
 const countryId = "argentina";
 const cityId = "buenos_aires";
 const scenario = loadScenarioFile(scenarioId);

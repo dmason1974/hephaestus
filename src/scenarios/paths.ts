@@ -35,10 +35,13 @@ export function getScenarioPlanPath(scenarioId: string, planId: string) {
   return path.join(getScenarioPlansDir(scenarioId), `${planId}.yml`);
 }
 
-export function getDefaultUnitsDir() {
-  return path.join(projectRoot(), "data", "units");
-}
-
 export function getScenarioUnitsDir(scenarioId: string) {
   return path.join(projectRoot(), "data", "scenarios", scenarioId, "units");
+}
+
+export function getScenarioTierUnitsDir(scenarioId: string): string | null {
+  const slashIndex = scenarioId.lastIndexOf("/");
+  if (slashIndex === -1) return null;
+  const tier = scenarioId.slice(0, slashIndex);
+  return path.join(projectRoot(), "data", "scenarios", tier, "units");
 }

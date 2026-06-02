@@ -3,7 +3,7 @@ import { baselineHomelandMoraleOnDay } from "../../engine/economy/morale.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { hourOfMapDay, mapDayForAbsoluteHour, scenarioReportWindow } from "../../engine/reporting/scenario-reporting.js";
 
-const scenarioId = "elite_ava_feb_2026";
+const scenarioId = "elite/antarctica";
 const scenario = loadScenarioFile(scenarioId);
 const mapDaysToReport = 30;
 const reportWindow = scenarioReportWindow(scenario, mapDaysToReport);

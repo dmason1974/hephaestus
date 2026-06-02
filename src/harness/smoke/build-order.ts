@@ -17,7 +17,7 @@ import { getEconomicBuildingEffectsForLevels } from "../../engine/economy/buildi
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 
-const scenarioId = "elite_ava_feb_2026";
+const scenarioId = "elite/antarctica";
 const scenario = loadScenarioFile(scenarioId);
 const buildings = loadBuildingsFile(
   path.join(process.cwd(), "data", "buildings.yml")

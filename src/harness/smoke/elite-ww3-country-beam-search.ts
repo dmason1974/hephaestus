@@ -69,7 +69,7 @@ type CandidatePlan = {
   ranked: RankedSequence;
 };
 
-const scenarioId = process.env.BSC_SCENARIO ?? "elite_ww3_2026";
+const scenarioId = process.env.BSC_SCENARIO ?? "elite/ww3";
 const countryId = process.env.BSC_COUNTRY ?? "indonesia";
 const beamWidth = parsePositiveInt(process.env.BSC_WIDTH, 50);
 const topN = parsePositiveInt(process.env.BSC_TOP, 5);

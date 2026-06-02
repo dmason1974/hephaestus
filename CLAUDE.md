@@ -39,9 +39,11 @@ src/
 data/
   buildings.yml               Shared building definitions
   scenarios/
-    ww3_2026/                 Standard scenario (unlocked_through_day_at_start: 1)
-    elite_ww3_2026/           Elite scenario (unlocked_through_day_at_start: 10)
-    elite_ava_feb_2026/       Second elite scenario
+    standard/
+      ww3/                    Standard WW3 scenario (unlocked_through_day_at_start: 1)
+    elite/
+      ww3/                    Elite WW3 scenario (unlocked_through_day_at_start: 10)
+      antarctica/             Elite Antarctica scenario
 ```
 
 **Key data flow:**
@@ -93,4 +95,4 @@ data/
 
 3. **Update the Gemini gem** — re-upload the updated `unit-schema.ts`, `building-schema.ts`, and a few exemplar YAML unit files so future AI-generated unit data is sparse by default (no zero resource entries).
 
-4. **Untracked scenario data** — `elite_ww3_2026/countries/indonesia.yml`, `iraq.yml`, `philippines.yml`, `turkey.yml` were already committed in earlier sessions and are on main.
+4. **Untracked scenario data** — `elite/ww3/countries/indonesia.yml`, `iraq.yml`, `philippines.yml`, `turkey.yml` were already committed in earlier sessions and are on main.

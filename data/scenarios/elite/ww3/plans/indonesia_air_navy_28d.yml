@@ -2,7 +2,7 @@ schema_version: 1
 domain: force_plan
 name: Indonesia Air and Navy 28d
 
-scenario: elite_ww3_2026
+scenario: elite/ww3
 country: indonesia
 truce_days: 28
 

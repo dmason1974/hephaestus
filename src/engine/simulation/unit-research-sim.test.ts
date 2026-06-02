@@ -271,3 +271,220 @@ test("unit research queue shifts later unlock days forward by the scenario offse
   assert.equal(result.segments[4]?.level, 5);
   assert.equal(result.segments[4]?.startAbsoluteHour, 480);
 });
+
+test("determineMaximumFeasibleLevel finds max level achievable before deadline", async () => {
+  const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/fighter_units.yml"));
+
+  // Scenario: 28 day truce, starting day 1
+  const scenario = {
+    start: { day: 1, hour: 0 },
+    truce_length_days: 28,
+  };
+
+  const result = determineMaximumFeasibleLevel(
+    catalog,
+    "air_superiority_fighter",
+    scenario,
+    {
+      slots: 2,
+    }
+  );
+
+  // Should be able to research multiple levels in 28 days
+  assert.ok(result.maxLevel >= 1, "Should achieve at least level 1");
+  assert.ok(result.feasible, "Should be feasible");
+  assert.ok(result.level1CompletesBeforeMobilization, "Level 1 should complete before mobilization");
+});
+
+test("determineMaximumFeasibleLevel respects unlock day constraints", async () => {
+  const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/infantry_units.yml"));
+
+  // Scenario: only 5 days available
+  const scenario = {
+    start: { day: 1, hour: 0 },
+    truce_length_days: 5,
+  };
+
+  const result = determineMaximumFeasibleLevel(
+    catalog,
+    "special_forces",
+    scenario,
+    {
+      slots: 2,
+    }
+  );
+
+  // Special forces has late unlock days, so max level should be limited
+  assert.ok(result.maxLevel >= 0, "Should return valid max level");
+  assert.equal(result.feasible, result.maxLevel > 0, "Feasibility should match max level");
+});
+
+test("determineMaximumFeasibleLevel handles mobilization start constraint", async () => {
+  const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/fighter_units.yml"));
+
+  const scenario = {
+    start: { day: 1, hour: 0 },
+    truce_length_days: 28,
+  };
+
+  // Mobilization starts at day 3 (hour 48)
+  const mobilizationStartHour = 48;
+
+  const result = determineMaximumFeasibleLevel(
+    catalog,
+    "air_superiority_fighter",
+    scenario,
+    {
+      slots: 2,
+      mobilizationStartHour,
+    }
+  );
+
+  assert.ok(result.feasible, "Should be feasible");
+  assert.ok(
+    result.level1CompletesBeforeMobilization,
+    "Level 1 should complete before mobilization at hour 48"
+  );
+});
+
+test("determineMaximumFeasibleLevel returns infeasible when no time available", async () => {
+  const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/fighter_units.yml"));
+
+  const scenario = {
+    start: { day: 1, hour: 0 },
+  };
+
+  // Deadline is before scenario start (impossible)
+  const result = determineMaximumFeasibleLevel(
+    catalog,
+    "air_superiority_fighter",
+    scenario,
+    {
+      deadlineAbsoluteHour: -100,
+      slots: 2,
+    }
+  );
+
+  assert.equal(result.maxLevel, 0, "Should achieve no levels");
+  assert.equal(result.feasible, false, "Should be infeasible");
+  assert.equal(result.level1CompletesBeforeMobilization, false, "Level 1 cannot complete");
+});
+
+test("simulateUnitResearchTargets with JIT scheduling ensures level 1 before mobilization", async () => {
+  const { simulateUnitResearchTargets } = await import("./unit-research-sim.js");
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/fighter_units.yml"));
+
+  const scenario = {
+    start: { day: 1, hour: 0 },
+    truce_length_days: 28,
+  };
+
+  // Mobilization starts at day 10 (hour 216)
+  const mobilizationStartHour = 216;
+
+  const result = simulateUnitResearchTargets(
+    catalog,
+    {
+      air_superiority_fighter: 2,
+    },
+    scenario,
+    {
+      slots: 2,
+      mobilizationStartHour,
+      enableJitScheduling: true,
+    }
+  );
+
+  // Find level 1 segment
+  const level1Segment = result.segments.find(
+    seg => seg.unitId === "air_superiority_fighter" && seg.level === 1
+  );
+
+  assert.ok(level1Segment, "Level 1 segment should exist");
+  assert.ok(
+    level1Segment.endAbsoluteHourExclusive <= mobilizationStartHour,
+    `Level 1 should complete (${level1Segment.endAbsoluteHourExclusive}) before mobilization (${mobilizationStartHour})`
+  );
+
+  // Higher levels should be scheduled JIT for truce end
+  const level2Segment = result.segments.find(
+    seg => seg.unitId === "air_superiority_fighter" && seg.level === 2
+  );
+
+  if (level2Segment) {
+    const truceEndHour = 28 * 24; // 672 hours
+    assert.ok(
+      level2Segment.endAbsoluteHourExclusive <= truceEndHour,
+      "Level 2 should complete before truce end"
+    );
+  }
+});
+
+test("simulateUnitResearchTargets with JIT disabled uses standard scheduling", async () => {
+  const { simulateUnitResearchTargets } = await import("./unit-research-sim.js");
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/fighter_units.yml"));
+
+  const scenario = {
+    start: { day: 1, hour: 0 },
+    truce_length_days: 28,
+  };
+
+  const mobilizationStartHour = 216;
+
+  const result = simulateUnitResearchTargets(
+    catalog,
+    {
+      air_superiority_fighter: 2,
+    },
+    scenario,
+    {
+      slots: 2,
+      mobilizationStartHour,
+      enableJitScheduling: false,
+    }
+  );
+
+  // With JIT disabled, scheduling should still work but may not respect mobilization constraint
+  assert.ok(result.segments.length > 0, "Should have research segments");
+  assert.ok(result.totals.cash > 0, "Should have research costs");
+});
+
+test("determineMaximumFeasibleLevel handles units with no levels", async () => {
+  const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
+  
+  // Create a minimal catalog with a unit that has no levels
+  const catalog = {
+    schema_version: 1,
+    domain: "units" as const,
+    resources: ["supplies", "components", "fuel", "rares", "electronics", "cash", "manpower"],
+    units: {
+      empty_unit: {
+        name: "Empty Unit",
+        category: "air",
+        doctrine: "none",
+        levels: {},
+      },
+    },
+  };
+
+  const scenario = {
+    start: { day: 1, hour: 0 },
+    truce_length_days: 28,
+  };
+
+  const result = determineMaximumFeasibleLevel(
+    catalog,
+    "empty_unit",
+    scenario,
+    {
+      slots: 2,
+    }
+  );
+
+  assert.equal(result.maxLevel, 0, "Should have max level 0");
+  assert.equal(result.feasible, false, "Should be infeasible");
+});

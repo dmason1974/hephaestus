@@ -1,0 +1,110 @@
+schema_version: 1
+domain: units
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+units:
+  attack_helicopter:
+    name: Attack Helicopter
+    category: Air
+    doctrine: Western
+    levels:
+      "1":
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+        research:
+          unlock_day: 0
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+          cost: {}
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+      "2":
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - attack_helicopter level 1
+        research:
+          unlock_day: 0
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+          cost: {}
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+      "3":
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - attack_helicopter level 2
+        research:
+          unlock_day: 0
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+          cost: {}
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+      "4":
+        requirements:
+          - army_base level 0
+          - arms_industry level 0
+          - attack_helicopter level 3
+        research:
+          unlock_day: 0
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+          cost: {}
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+      "5":
+        requirements:
+          - army_base level 0
+          - arms_industry level 0
+          - attack_helicopter level 4
+        research:
+          unlock_day: 0
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+          cost: {}
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}

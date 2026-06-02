@@ -1,64 +1,64 @@
 version: 1
 
 country:
-  id: greece
-  name: Greece
+  id: austria
+  name: Austria
   doctrine: european
 
 cities:
-  - id: athens
-    name: Athens
+  - id: vienna
+    name: Vienna
     capital: true
-    resource: rares
+    resource: supplies
     population: 6
     starting:
       air_base: 1
-      naval_base: 1
+      naval_base: 0
       underground_bunkers: 1
 
-  - id: alexandroupoli
-    name: Alexandroupoli
+  - id: bregenz
+    name: Bregenz
     capital: false
-    resource: fuel
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: heraklion
-    name: Heraklion
-    capital: false
-    resource: supplies
+    resource: components
     population: 5
     starting:
       air_base: 0
-      naval_base: 1
+      naval_base: 0
       underground_bunkers: 0
 
-  - id: limassol
-    name: Limassol
-    capital: false
-    resource: components
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: thessaloniki
-    name: Thessaloniki
+  - id: graz
+    name: Graz
     capital: false
     resource: electronics
     population: 5
     starting:
       air_base: 0
-      naval_base: 1
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: linz
+    name: Linz
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: innsbruck
+    name: Innsbruck
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
       underground_bunkers: 0
 
 provinces:
-  total: 31
-  supplies: 0
+  total: 26
+  supplies: 1
   components: 0
   fuel: 0
   rares: 0

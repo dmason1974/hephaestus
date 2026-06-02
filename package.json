@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "plan": "node --import tsx src/cli/run-force-plan.ts",
     "validate:country": "node --import tsx src/cli/validate-country.ts",
     "validate:countries": "node --import tsx src/cli/validate-all-countries.ts",
     "convert:beam-city:build-plan": "node --import tsx src/cli/beam-city-html-to-build-plan.ts",
@@ -17,6 +18,7 @@
     "smoke:research": "node --import tsx src/harness/smoke/unit-research.ts",
     "smoke:research:elite-ww3": "node --import tsx src/harness/smoke/unit-research-elite-ww3.ts",
     "smoke:coalition:elite-ww3": "node --import tsx src/harness/smoke/elite-ww3-coalition.ts",
+    "smoke:coalition:ww3-2026": "node --import tsx src/harness/smoke/ww3-2026-coalition-eco.ts",
     "smoke:city-builds:elite-ww3": "node --import tsx src/harness/smoke/elite-ww3-city-build-orders.ts",
     "smoke:force:elite-ww3": "node --import tsx src/harness/smoke/elite-ww3-force-validator.ts",
     "smoke:mobilization:elite-ww3": "node --import tsx src/harness/smoke/unit-mobilization-elite-ww3.ts",

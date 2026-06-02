@@ -161,6 +161,12 @@ logs/
 # Mac noise
 .DS_Store
 
+# Generated output files
+tmp/
+
+# Claude Code
+.claude/
+
 # VS Code
 .vscode/
 

@@ -504,6 +504,7 @@ export function simulateBuildOrder(args: {
       builds: Array.from(segmentsByCity.values())
         .flatMap(citySegments => [
           ...citySegments.air_base,
+          ...citySegments.army_base,
           ...citySegments.arms_industry,
           ...citySegments.naval_base,
           ...citySegments.recruiting_office,

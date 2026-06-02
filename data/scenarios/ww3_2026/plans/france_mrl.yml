@@ -1,9 +1,9 @@
 schema_version: 1
 domain: force_plan
-name: Germany MRL
+name: France MRL
 
 scenario: ww3_2026
-country: germany
+country: france
 truce_days: 28
 
 search:
@@ -13,10 +13,10 @@ search:
 
 demands:
   - unitId: mobile_anti_air_vehicle
-    count: 82
+    count: 69
     queueGroup: land_force
   - unitId: multiple_rocket_launcher
-    count: 37
+    count: 30
     queueGroup: land_force
   - unitId: tank_veteran
     count: 1

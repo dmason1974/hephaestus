@@ -1,13 +1,13 @@
 version: 1
 
 country:
-  id: greece
-  name: Greece
+  id: italy
+  name: Italy
   doctrine: european
 
 cities:
-  - id: athens
-    name: Athens
+  - id: rome
+    name: Rome
     capital: true
     resource: rares
     population: 6
@@ -16,8 +16,18 @@ cities:
       naval_base: 1
       underground_bunkers: 1
 
-  - id: alexandroupoli
-    name: Alexandroupoli
+  - id: palermo
+    name: Palermo
+    capital: false
+    resource: electronics
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: bari
+    name: Bari
     capital: false
     resource: fuel
     population: 4
@@ -26,40 +36,40 @@ cities:
       naval_base: 1
       underground_bunkers: 0
 
-  - id: heraklion
-    name: Heraklion
+  - id: florence
+    name: Florence
     capital: false
     resource: supplies
-    population: 5
+    population: 4
     starting:
       air_base: 0
-      naval_base: 1
+      naval_base: 0
       underground_bunkers: 0
 
-  - id: limassol
-    name: Limassol
+  - id: venice
+    name: Venice
     capital: false
-    resource: components
+    resource: supplies
     population: 4
     starting:
       air_base: 0
       naval_base: 1
       underground_bunkers: 0
 
-  - id: thessaloniki
-    name: Thessaloniki
+  - id: milan
+    name: Milan
     capital: false
-    resource: electronics
+    resource: components
     population: 5
     starting:
       air_base: 0
-      naval_base: 1
+      naval_base: 0
       underground_bunkers: 0
 
 provinces:
-  total: 31
-  supplies: 0
-  components: 0
+  total: 42
+  supplies: 2
+  components: 1
   fuel: 0
   rares: 0
-  electronics: 0
+  electronics: 1

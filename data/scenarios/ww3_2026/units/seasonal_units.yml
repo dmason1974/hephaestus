@@ -10,4 +10,6 @@ resources:
   - cash
   - manpower
 
-units:
+units: {}
+
+# Made with Bob

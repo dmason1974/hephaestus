@@ -1,6 +1,5 @@
 schema_version: 1
 domain: units
-
 resources:
   - supplies
   - components
@@ -9,51 +8,39 @@ resources:
   - electronics
   - cash
   - manpower
-
 units:
   mobile_anti_air_vehicle:
     name: Mobile Anti-Air Vehicle
     category: Support
     doctrine: European
     levels:
-      1:
+      "1":
         requirements:
           - army_base level 1
           - arms_industry level 1
-          - secret_weapons_lab level 1
         research:
           unlock_day: 1
           time:
             minutes: 30
           cost:
             supplies: 1100
-            components: 0
-            fuel: 0
             rares: 1200
-            electronics: 0
             cash: 1550
-            manpower: 0
         mobilisation:
           time:
             hours: 16
           cost:
             supplies: 900
             components: 1150
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 1000
             manpower: 400
         daily_upkeep:
           cost:
             supplies: 40
-            components: 0
             fuel: 25
-            rares: 0
-            electronics: 0
             cash: 70
             manpower: 25
-      2:
+      "2":
         requirements:
           - army_base level 1
           - arms_industry level 1
@@ -65,33 +52,23 @@ units:
             hours: 1
           cost:
             supplies: 1210
-            components: 0
-            fuel: 0
             rares: 1320
-            electronics: 0
             cash: 1705
-            manpower: 0
         mobilisation:
           time:
             hours: 17
           cost:
             supplies: 900
             components: 1150
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 1000
             manpower: 400
         daily_upkeep:
           cost:
             supplies: 45
-            components: 0
             fuel: 30
-            rares: 0
-            electronics: 0
             cash: 75
             manpower: 30
-      3:
+      "3":
         requirements:
           - army_base level 1
           - arms_industry level 1
@@ -103,33 +80,23 @@ units:
             hours: 2
           cost:
             supplies: 1320
-            components: 0
-            fuel: 0
             rares: 1440
-            electronics: 0
             cash: 1860
-            manpower: 0
         mobilisation:
           time:
             hours: 18
           cost:
             supplies: 900
             components: 1150
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 1000
             manpower: 400
         daily_upkeep:
           cost:
             supplies: 50
-            components: 0
             fuel: 35
-            rares: 0
-            electronics: 0
             cash: 80
             manpower: 35
-      4:
+      "4":
         requirements:
           - army_base level 1
           - arms_industry level 1
@@ -141,33 +108,23 @@ units:
             hours: 7
           cost:
             supplies: 1430
-            components: 0
-            fuel: 0
             rares: 1560
-            electronics: 0
             cash: 2015
-            manpower: 0
         mobilisation:
           time:
             hours: 19
           cost:
             supplies: 1000
             components: 1200
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 1500
             manpower: 550
         daily_upkeep:
           cost:
             supplies: 60
-            components: 0
             fuel: 50
-            rares: 0
-            electronics: 0
             cash: 85
             manpower: 45
-      5:
+      "5":
         requirements:
           - army_base level 1
           - arms_industry level 1
@@ -179,33 +136,23 @@ units:
             hours: 10
           cost:
             supplies: 1540
-            components: 0
-            fuel: 0
             rares: 1680
-            electronics: 0
             cash: 2170
-            manpower: 0
         mobilisation:
           time:
             hours: 20
           cost:
             supplies: 1000
             components: 1200
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 1500
             manpower: 550
         daily_upkeep:
           cost:
             supplies: 65
-            components: 0
             fuel: 55
-            rares: 0
-            electronics: 0
             cash: 90
             manpower: 50
-      6:
+      "6":
         requirements:
           - army_base level 1
           - arms_industry level 1
@@ -217,33 +164,23 @@ units:
             hours: 15
           cost:
             supplies: 1650
-            components: 0
-            fuel: 0
             rares: 1800
-            electronics: 0
             cash: 2325
-            manpower: 0
         mobilisation:
           time:
             hours: 21
           cost:
             supplies: 1150
             components: 1400
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 1750
             manpower: 725
         daily_upkeep:
           cost:
             supplies: 75
-            components: 0
             fuel: 60
-            rares: 0
-            electronics: 0
             cash: 100
             manpower: 60
-      7:
+      "7":
         requirements:
           - army_base level 1
           - arms_industry level 1
@@ -255,30 +192,20 @@ units:
             hours: 18
           cost:
             supplies: 1650
-            components: 0
-            fuel: 0
             rares: 1800
-            electronics: 0
             cash: 2325
-            manpower: 0
         mobilisation:
           time:
             hours: 22
           cost:
             supplies: 1150
             components: 1400
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 1750
             manpower: 725
         daily_upkeep:
           cost:
             supplies: 85
-            components: 0
             fuel: 65
-            rares: 0
-            electronics: 0
             cash: 110
             manpower: 70
   multiple_rocket_launcher:
@@ -286,7 +213,7 @@ units:
     category: Support
     doctrine: european
     levels:
-      1:
+      "1":
         requirements:
           - army_base level 4
           - arms_industry level 1
@@ -297,34 +224,24 @@ units:
             hours: 3
           cost:
             supplies: 1750
-            components: 0
-            fuel: 0
             rares: 2000
-            electronics: 0
             cash: 3000
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 1
           cost:
             supplies: 1500
-            components: 0
-            fuel: 0
-            rares: 0
             electronics: 800
             cash: 1750
             manpower: 500
         daily_upkeep:
           cost:
             supplies: 90
-            components: 0
             fuel: 30
-            rares: 0
-            electronics: 0
             cash: 125
             manpower: 30
-      2:
+      "2":
         requirements:
           - army_base level 4
           - arms_industry level 1
@@ -336,33 +253,23 @@ units:
             hours: 4
           cost:
             supplies: 1925
-            components: 0
-            fuel: 0
             rares: 2200
-            electronics: 0
             cash: 3300
-            manpower: 0
         mobilisation:
           time:
             days: 1
           cost:
             supplies: 1500
-            components: 0
-            fuel: 0
-            rares: 0
             electronics: 800
             cash: 1750
             manpower: 500
         daily_upkeep:
           cost:
             supplies: 90
-            components: 0
             fuel: 30
-            rares: 0
-            electronics: 0
             cash: 125
             manpower: 30
-      3:
+      "3":
         requirements:
           - army_base level 4
           - arms_industry level 1
@@ -374,34 +281,24 @@ units:
             hours: 7
           cost:
             supplies: 2100
-            components: 0
-            fuel: 0
             rares: 2400
-            electronics: 0
             cash: 3600
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 2
           cost:
             supplies: 1500
-            components: 0
-            fuel: 0
-            rares: 0
             electronics: 800
             cash: 1750
             manpower: 500
         daily_upkeep:
           cost:
             supplies: 100
-            components: 0
             fuel: 50
-            rares: 0
-            electronics: 0
             cash: 150
             manpower: 50
-      4:
+      "4":
         requirements:
           - army_base level 4
           - arms_industry level 1
@@ -413,34 +310,24 @@ units:
             hours: 12
           cost:
             supplies: 2275
-            components: 0
-            fuel: 0
             rares: 2600
-            electronics: 0
             cash: 3900
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 4
           cost:
             supplies: 1750
-            components: 0
-            fuel: 0
-            rares: 0
             electronics: 1000
             cash: 2500
             manpower: 675
         daily_upkeep:
           cost:
             supplies: 110
-            components: 0
             fuel: 65
-            rares: 0
-            electronics: 0
             cash: 160
             manpower: 60
-      5:
+      "5":
         requirements:
           - army_base level 4
           - arms_industry level 1
@@ -452,31 +339,21 @@ units:
             hours: 17
           cost:
             supplies: 2450
-            components: 0
-            fuel: 0
             rares: 2800
-            electronics: 0
             cash: 4200
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 6
           cost:
             supplies: 2250
-            components: 0
-            fuel: 0
-            rares: 0
             electronics: 1200
             cash: 3000
             manpower: 800
         daily_upkeep:
           cost:
             supplies: 120
-            components: 0
             fuel: 80
-            rares: 0
-            electronics: 0
             cash: 170
             manpower: 70
   theatre_defense_system:
@@ -484,7 +361,7 @@ units:
     category: Support
     doctrine: european
     levels:
-      1:
+      "1":
         requirements:
           - army_base level 5
           - arms_industry level 1
@@ -497,33 +374,23 @@ units:
             seconds: 0
           cost:
             supplies: 1850
-            components: 0
-            fuel: 0
             rares: 2000
-            electronics: 0
             cash: 3000
-            manpower: 0
         mobilisation:
           time:
             hours: 18
           cost:
             supplies: 1500
             components: 500
-            fuel: 0
-            rares: 0
             electronics: 900
             cash: 2000
-            manpower: 0
         daily_upkeep:
           cost:
             supplies: 80
-            components: 0
             fuel: 30
-            rares: 0
-            electronics: 0
             cash: 125
             manpower: 30
-      2:
+      "2":
         requirements:
           - army_base level 5
           - arms_industry level 1
@@ -536,33 +403,23 @@ units:
             seconds: 0
           cost:
             supplies: 2035
-            components: 0
-            fuel: 0
             rares: 2200
-            electronics: 0
             cash: 3300
-            manpower: 0
         mobilisation:
           time:
             hours: 19
           cost:
             supplies: 1500
             components: 500
-            fuel: 0
-            rares: 0
             electronics: 900
             cash: 2000
-            manpower: 0
         daily_upkeep:
           cost:
             supplies: 85
-            components: 0
             fuel: 35
-            rares: 0
-            electronics: 0
             cash: 140
             manpower: 35
-      3:
+      "3":
         requirements:
           - army_base level 5
           - arms_industry level 1
@@ -575,33 +432,23 @@ units:
             seconds: 0
           cost:
             supplies: 2220
-            components: 0
-            fuel: 0
             rares: 2400
-            electronics: 0
             cash: 3600
-            manpower: 0
         mobilisation:
           time:
             hours: 20
           cost:
             supplies: 1500
             components: 500
-            fuel: 0
-            rares: 0
             electronics: 900
             cash: 2000
-            manpower: 0
         daily_upkeep:
           cost:
             supplies: 90
-            components: 0
             fuel: 40
-            rares: 0
-            electronics: 0
             cash: 155
             manpower: 40
-      4:
+      "4":
         requirements:
           - army_base level 5
           - arms_industry level 1
@@ -614,30 +461,50 @@ units:
             seconds: 0
           cost:
             supplies: 2590
-            components: 0
-            fuel: 0
             rares: 2800
-            electronics: 0
             cash: 4200
-            manpower: 0
         mobilisation:
           time:
             hours: 22
           cost:
             supplies: 1750
             components: 700
-            fuel: 0
-            rares: 0
             electronics: 1250
             cash: 2500
-            manpower: 0
         daily_upkeep:
           cost:
             supplies: 100
-            components: 0
             fuel: 60
-            rares: 0
-            electronics: 0
+            cash: 200
+            manpower: 55
+      "5":
+        requirements:
+          - army_base level 5
+          - arms_industry level 1
+          - theatre_defense_system level 4
+        research:
+          unlock_day: 20
+          time:
+            days: 1
+            hours: 17
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2590
+            rares: 2800
+            cash: 4200
+        mobilisation:
+          time:
+            hours: 22
+          cost:
+            supplies: 1750
+            components: 700
+            electronics: 1250
+            cash: 2500
+        daily_upkeep:
+          cost:
+            supplies: 100
+            fuel: 60
             cash: 200
             manpower: 55
   mobile_radar:
@@ -645,7 +512,7 @@ units:
     category: Support
     doctrine: european
     levels:
-      1:
+      "1":
         requirements:
           - army_base level 2
           - arms_industry level 1
@@ -658,12 +525,8 @@ units:
             seconds: 0
           cost:
             supplies: 750
-            components: 0
-            fuel: 0
             rares: 775
-            electronics: 0
             cash: 1850
-            manpower: 0
         mobilisation:
           time:
             days: 0
@@ -672,9 +535,6 @@ units:
             seconds: 0
           cost:
             supplies: 600
-            components: 0
-            fuel: 0
-            rares: 0
             electronics: 450
             cash: 1000
             manpower: 350
@@ -682,13 +542,10 @@ units:
         daily_upkeep:
           cost:
             supplies: 20
-            components: 0
             fuel: 15
-            rares: 0
-            electronics: 0
             cash: 40
             manpower: 15
-      2:
+      "2":
         requirements:
           - army_base level 2
           - arms_industry level 1
@@ -702,12 +559,8 @@ units:
             seconds: 0
           cost:
             supplies: 825
-            components: 0
-            fuel: 0
             rares: 855
-            electronics: 0
             cash: 2035
-            manpower: 0
         mobilisation:
           time:
             days: 0
@@ -716,9 +569,6 @@ units:
             seconds: 0
           cost:
             supplies: 600
-            components: 0
-            fuel: 0
-            rares: 0
             electronics: 450
             cash: 1000
             manpower: 350
@@ -726,13 +576,10 @@ units:
         daily_upkeep:
           cost:
             supplies: 25
-            components: 0
             fuel: 20
-            rares: 0
-            electronics: 0
             cash: 45
             manpower: 20
-      3:
+      "3":
         requirements:
           - army_base level 2
           - arms_industry level 1
@@ -746,12 +593,8 @@ units:
             seconds: 0
           cost:
             supplies: 900
-            components: 0
-            fuel: 0
             rares: 930
-            electronics: 0
             cash: 2220
-            manpower: 0
         mobilisation:
           time:
             days: 0
@@ -760,9 +603,6 @@ units:
             seconds: 0
           cost:
             supplies: 650
-            components: 0
-            fuel: 0
-            rares: 0
             electronics: 575
             cash: 1250
             manpower: 450
@@ -770,13 +610,10 @@ units:
         daily_upkeep:
           cost:
             supplies: 35
-            components: 0
             fuel: 25
-            rares: 0
-            electronics: 0
             cash: 55
             manpower: 25
-      4:
+      "4":
         requirements:
           - army_base level 2
           - arms_industry level 1
@@ -790,12 +627,8 @@ units:
             seconds: 0
           cost:
             supplies: 975
-            components: 0
-            fuel: 0
             rares: 1010
-            electronics: 0
             cash: 2405
-            manpower: 0
         mobilisation:
           time:
             days: 0
@@ -804,9 +637,6 @@ units:
             seconds: 0
           cost:
             supplies: 650
-            components: 0
-            fuel: 0
-            rares: 0
             electronics: 575
             cash: 1250
             manpower: 450
@@ -814,13 +644,10 @@ units:
         daily_upkeep:
           cost:
             supplies: 40
-            components: 0
             fuel: 30
-            rares: 0
-            electronics: 0
             cash: 60
             manpower: 30
-      5:
+      "5":
         requirements:
           - army_base level 2
           - arms_industry level 1
@@ -834,12 +661,8 @@ units:
             seconds: 0
           cost:
             supplies: 1050
-            components: 0
-            fuel: 0
             rares: 1085
-            electronics: 0
             cash: 2590
-            manpower: 0
         mobilisation:
           time:
             days: 0
@@ -848,9 +671,6 @@ units:
             seconds: 0
           cost:
             supplies: 650
-            components: 0
-            fuel: 0
-            rares: 0
             electronics: 575
             cash: 1250
             manpower: 450
@@ -858,13 +678,10 @@ units:
         daily_upkeep:
           cost:
             supplies: 45
-            components: 0
             fuel: 35
-            rares: 0
-            electronics: 0
             cash: 65
             manpower: 35
-      6:
+      "6":
         requirements:
           - army_base level 2
           - arms_industry level 1
@@ -878,12 +695,8 @@ units:
             seconds: 0
           cost:
             supplies: 1125
-            components: 0
-            fuel: 0
             rares: 1165
-            electronics: 0
             cash: 2775
-            manpower: 0
         mobilisation:
           time:
             days: 1
@@ -892,9 +705,6 @@ units:
             seconds: 0
           cost:
             supplies: 750
-            components: 0
-            fuel: 0
-            rares: 0
             electronics: 700
             cash: 1750
             manpower: 575
@@ -902,10 +712,7 @@ units:
         daily_upkeep:
           cost:
             supplies: 50
-            components: 0
             fuel: 40
-            rares: 0
-            electronics: 0
             cash: 75
             manpower: 40
   radar_station:
@@ -913,7 +720,7 @@ units:
     category: Support
     doctrine: european
     levels:
-      2:
+      "2":
         requirements:
           - combat_outpost level 1
           - advanced_sensors_array level 2
@@ -926,12 +733,8 @@ units:
             seconds: 0
           cost:
             supplies: 825
-            components: 0
-            fuel: 0
             rares: 855
-            electronics: 0
             cash: 2035
-            manpower: 0
         mobilisation:
           time:
             days: 0
@@ -939,24 +742,18 @@ units:
             minutes: 0
             seconds: 0
           cost:
-            supplies: 0
             components: 300
-            fuel: 0
-            rares: 0
             electronics: 200
             cash: 500
             manpower: 175
           unit_limit: 0
         daily_upkeep:
           cost:
-            supplies: 0
             components: 20
-            fuel: 0
-            rares: 0
             electronics: 15
             cash: 40
             manpower: 15
-      3:
+      "3":
         requirements:
           - combat_outpost level 1
           - mobile_radar level 3
@@ -969,12 +766,8 @@ units:
             seconds: 0
           cost:
             supplies: 900
-            components: 0
-            fuel: 0
             rares: 930
-            electronics: 0
             cash: 2220
-            manpower: 0
         mobilisation:
           time:
             days: 0
@@ -982,24 +775,18 @@ units:
             minutes: 0
             seconds: 0
           cost:
-            supplies: 0
             components: 350
-            fuel: 0
-            rares: 0
             electronics: 300
             cash: 650
             manpower: 250
           unit_limit: 0
         daily_upkeep:
           cost:
-            supplies: 0
             components: 25
-            fuel: 0
-            rares: 0
             electronics: 20
             cash: 60
             manpower: 20
-      6:
+      "6":
         requirements:
           - combat_outpost level 1
           - mobile_radar level 6
@@ -1012,12 +799,8 @@ units:
             seconds: 0
           cost:
             supplies: 1125
-            components: 0
-            fuel: 0
             rares: 1165
-            electronics: 0
             cash: 2775
-            manpower: 0
         mobilisation:
           time:
             days: 0
@@ -1025,20 +808,14 @@ units:
             minutes: 0
             seconds: 0
           cost:
-            supplies: 0
             components: 450
-            fuel: 0
-            rares: 0
             electronics: 350
             cash: 900
             manpower: 330
           unit_limit: 0
         daily_upkeep:
           cost:
-            supplies: 0
             components: 30
-            fuel: 0
-            rares: 0
             electronics: 25
             cash: 75
             manpower: 25

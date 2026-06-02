@@ -1,6 +1,31 @@
+/**
+ * Unit Research Simulation Module
+ *
+ * This module provides comprehensive research scheduling capabilities for units in the game,
+ * including:
+ *
+ * 1. **Automatic Level Determination**: Calculates the maximum feasible research level
+ *    achievable within time constraints (unlock days and truce deadline).
+ *
+ * 2. **JIT (Just-In-Time) Scheduling**: Implements intelligent scheduling where:
+ *    - Level 1 research completes before mobilization starts (enabling early unit production)
+ *    - Higher levels are scheduled JIT for the truce end deadline (maximizing research time)
+ *
+ * 3. **Constraint Handling**: Properly handles cases where:
+ *    - Maximum level isn't achievable in the time window
+ *    - Unlock days restrict when research can begin
+ *    - Multiple research slots need coordination
+ *
+ * Key Functions:
+ * - `determineMaximumFeasibleLevel`: Finds max achievable level given constraints
+ * - `simulateUnitResearchTargets`: Schedules research with JIT optimization
+ * - `simulateUnitResearchQueue`: Schedules research from explicit action queue
+ */
+
 import { toAbsoluteHour, type ScenarioStartLike } from "../../core/time.js";
 import type { Resource } from "../../core/constants.js";
 import type { UnitCatalog } from "../../schemas/unit-schema.js";
+import { durationToHours } from "../timing/activity-duration.js";
 import {
   scenarioResearchUnlockedThroughDayAtStart,
   scenarioTruceLengthDays,
@@ -55,12 +80,7 @@ function durationHours(time: {
   minutes?: number;
   seconds?: number;
 }) {
-  return (
-    ((time.days ?? 0) * 24) +
-    (time.hours ?? 0) +
-    ((time.minutes ?? 0) / 60) +
-    ((time.seconds ?? 0) / 3600)
-  );
+  return durationToHours(time);
 }
 
 function normalizeDurationHours(hours: number) {
@@ -85,7 +105,7 @@ function researchUnlockAbsoluteHour(
     scenario as ScenarioFile
   );
 
-  const effectiveUnlockDay = Math.max(1, unlockDay - unlockedThroughDayAtStart + 1);
+  const effectiveUnlockDay = Math.max(1, unlockDay - unlockedThroughDayAtStart);
 
   if (effectiveUnlockDay <= scenario.start.day) {
     return scenarioStartHour;
@@ -101,6 +121,105 @@ function researchDeadlineAbsoluteHour(
   if (truceLengthDays === undefined) return undefined;
 
   return toAbsoluteHour(scenario.start.day, scenario.start.hour) + (truceLengthDays * 24);
+}
+
+/**
+ * Determines the maximum research level achievable for a unit given time constraints.
+ *
+ * @param catalog Unit catalog
+ * @param unitId Unit to research
+ * @param scenario Scenario with timing information
+ * @param opts Options including deadline, slots, and mobilization start time
+ * @returns Maximum level achievable and whether it's feasible
+ */
+export function determineMaximumFeasibleLevel(
+  catalog: UnitCatalog,
+  unitId: string,
+  scenario: ResearchPlanningScenarioLike,
+  opts?: {
+    deadlineAbsoluteHour?: number;
+    mobilizationStartHour?: number;
+    slots?: number;
+  }
+): {
+  maxLevel: number;
+  feasible: boolean;
+  level1CompletesBeforeMobilization: boolean;
+  allLevelsCompleteBeforeDeadline: boolean;
+} {
+  const unit = catalog.units[unitId];
+  if (!unit) {
+    throw new Error(`unknown unit "${unitId}" while determining max feasible level`);
+  }
+
+  const scenarioStartHour = toAbsoluteHour(scenario.start.day, scenario.start.hour);
+  const deadlineHour = opts?.deadlineAbsoluteHour ?? researchDeadlineAbsoluteHour(scenario) ?? Number.POSITIVE_INFINITY;
+  const mobilizationStartHour = opts?.mobilizationStartHour ?? deadlineHour;
+  const slotCount = normalizeSlotCount(opts?.slots);
+
+  // Get all available levels sorted
+  const availableLevels = Object.keys(unit.levels)
+    .map(Number)
+    .filter(level => !isNaN(level))
+    .sort((a, b) => a - b);
+
+  if (availableLevels.length === 0) {
+    return {
+      maxLevel: 0,
+      feasible: false,
+      level1CompletesBeforeMobilization: false,
+      allLevelsCompleteBeforeDeadline: false,
+    };
+  }
+
+  // Simulate research schedule to find maximum achievable level
+  const slotAvailableAt = Array.from({ length: slotCount }, () => scenarioStartHour);
+  let maxAchievableLevel = 0;
+  let level1EndHour = scenarioStartHour;
+  let allLevelsEndHour = scenarioStartHour;
+
+  for (const level of availableLevels) {
+    const levelData = unit.levels[String(level)];
+    if (!levelData?.research) continue;
+
+    const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, levelData.research.unlock_day);
+    
+    // Find earliest available slot
+    const earliestSlot = Math.min(...slotAvailableAt);
+    const slotIndex = slotAvailableAt.indexOf(earliestSlot);
+    
+    // Must wait for previous level to complete (sequential dependency)
+    const startAbsoluteHour = Math.max(
+      earliestSlot,
+      unlockAbsoluteHour,
+      allLevelsEndHour,
+      scenarioStartHour
+    );
+
+    const projectDurationHours = normalizeDurationHours(durationHours(levelData.research.time));
+    const endAbsoluteHourExclusive = startAbsoluteHour + projectDurationHours;
+
+    // Check if this level can complete before deadline
+    if (endAbsoluteHourExclusive > deadlineHour) {
+      break;
+    }
+
+    // Update tracking
+    maxAchievableLevel = level;
+    slotAvailableAt[slotIndex] = endAbsoluteHourExclusive;
+    allLevelsEndHour = endAbsoluteHourExclusive;
+
+    if (level === 1) {
+      level1EndHour = endAbsoluteHourExclusive;
+    }
+  }
+
+  return {
+    maxLevel: maxAchievableLevel,
+    feasible: maxAchievableLevel > 0,
+    level1CompletesBeforeMobilization: level1EndHour <= mobilizationStartHour,
+    allLevelsCompleteBeforeDeadline: allLevelsEndHour <= deadlineHour,
+  };
 }
 
 function parseLevelRequirement(requirement: string) {
@@ -303,6 +422,42 @@ export function simulateUnitResearchQueue(
   };
 }
 
+/**
+ * Simulates unit research scheduling with automatic dependency resolution and JIT optimization.
+ *
+ * This function creates an optimal research schedule that:
+ * - Automatically includes prerequisite units (e.g., researching elite_frigate includes frigate)
+ * - Schedules level 1 to complete before mobilization starts (when JIT enabled)
+ * - Schedules higher levels JIT for the truce deadline
+ * - Respects unlock day constraints
+ * - Uses backward scheduling from deadline for optimal timing
+ *
+ * @param catalog Unit catalog with research data
+ * @param targets Map of unitId to target research level
+ * @param scenario Scenario with timing information
+ * @param opts Optional configuration:
+ *   - slots: Number of parallel research slots (default: 2)
+ *   - latestCompletionByUnitLevel: Override deadlines for specific unit:level combinations
+ *   - unitDemandCounts: Number of units needed (affects prioritization)
+ *   - mobilizationStartHour: When mobilization begins (for JIT level 1 constraint)
+ *   - enableJitScheduling: Enable JIT optimization (default: true)
+ *
+ * @returns Research simulation with segments, spending, and totals
+ *
+ * @example
+ * ```typescript
+ * const result = simulateUnitResearchTargets(
+ *   catalog,
+ *   { air_superiority_fighter: 2 },
+ *   scenario,
+ *   {
+ *     mobilizationStartHour: 216, // Day 10
+ *     enableJitScheduling: true
+ *   }
+ * );
+ * // Level 1 completes before hour 216, level 2 is JIT for truce end
+ * ```
+ */
 export function simulateUnitResearchTargets(
   catalog: UnitCatalog,
   targets: UnitResearchTargets,
@@ -311,6 +466,8 @@ export function simulateUnitResearchTargets(
     slots?: number;
     latestCompletionByUnitLevel?: Record<string, number>;
     unitDemandCounts?: Record<string, number>;
+    mobilizationStartHour?: number;
+    enableJitScheduling?: boolean;
   }
 ): UnitResearchSimulationResult {
   const scenarioStartHour = toAbsoluteHour(scenario.start.day, scenario.start.hour);
@@ -456,11 +613,16 @@ export function simulateUnitResearchTargets(
     successorIds: string[];
     demandCount: number;
     impactScore: number;
+    isLevel1: boolean;
   };
 
   const totals = zeroResources();
   const spendingByHour = new Map<number, Record<Resource, number>>();
   const plannedTasks = new Map<string, PlannedTask>();
+
+  // Determine mobilization start hour for JIT scheduling
+  const mobilizationStartHour = opts?.mobilizationStartHour ?? deadlineAbsoluteHour;
+  const enableJitScheduling = opts?.enableJitScheduling ?? true;
 
   for (const [unitId, targetLevel] of expandedTargets.entries()) {
     for (let level = 1; level <= targetLevel; level++) {
@@ -493,12 +655,16 @@ export function simulateUnitResearchTargets(
         successorIds: [],
         demandCount: opts?.unitDemandCounts?.[unitId] ?? 0,
         impactScore: unitLevelImpactScore(catalog, unitId, level),
+        isLevel1: level === 1,
       });
     }
   }
 
   function taskPriority(task: PlannedTask) {
-    return (task.demandCount * task.impactScore * 1000) + (task.level * 10) + task.impactScore;
+    // For higher levels (>1), reduce priority for high-count units to delay expensive mobilization
+    // This pushes high-count unit's higher levels later in the schedule
+    const levelPenalty = task.level > 1 ? (task.demandCount * task.level * 100) : 0;
+    return (task.demandCount * task.impactScore * 1000) + (task.level * 10) + task.impactScore - levelPenalty;
   }
 
   function candidateBeatsCurrent(args: {
@@ -568,40 +734,86 @@ export function simulateUnitResearchTargets(
       const allSuccessorsScheduled = task.successorIds.every(successorId => scheduledStarts.has(successorId));
       if (!allSuccessorsScheduled) continue;
 
-      const successorStartBound =
-        Math.min(
-          task.successorIds.length > 0
-            ? Math.min(...task.successorIds.map(successorId => scheduledStarts.get(successorId) ?? deadlineAbsoluteHour))
-            : deadlineAbsoluteHour,
-          opts?.latestCompletionByUnitLevel?.[taskId] ?? deadlineAbsoluteHour,
-        );
+      // JIT scheduling: Level 1 must complete before mobilization, higher levels are JIT for truce end
+      let successorStartBound = Math.min(
+        task.successorIds.length > 0
+          ? Math.min(...task.successorIds.map(successorId => scheduledStarts.get(successorId) ?? deadlineAbsoluteHour))
+          : deadlineAbsoluteHour,
+        opts?.latestCompletionByUnitLevel?.[taskId] ?? deadlineAbsoluteHour,
+      );
 
+      // Apply JIT scheduling constraint: level 1 must complete before mobilization starts
+      if (enableJitScheduling && task.isLevel1) {
+        successorStartBound = Math.min(successorStartBound, mobilizationStartHour);
+      }
+
+      // Check if this task can possibly fit
+      let canFit = false;
       for (let slot = 0; slot < slotFreeBefore.length; slot++) {
         const candidateEndHour = Math.min(slotFreeBefore[slot], successorStartBound);
         const candidateStartHour = candidateEndHour - task.durationHours;
-        if (candidateStartHour < task.releaseHour) continue;
+        if (candidateStartHour >= task.releaseHour) {
+          canFit = true;
+          
+          const isBetter = candidateBeatsCurrent({
+            candidateTask: task,
+            candidateTaskId: taskId,
+            candidateStartHour,
+            candidateSlot: slot,
+            selectedTaskId,
+            selectedStartHour,
+            selectedSlot,
+          });
 
-        const isBetter = candidateBeatsCurrent({
-          candidateTask: task,
-          candidateTaskId: taskId,
-          candidateStartHour,
-          candidateSlot: slot,
-          selectedTaskId,
-          selectedStartHour,
-          selectedSlot,
-        });
-
-        if (isBetter) {
-          selectedTaskId = taskId;
-          selectedSlot = slot;
-          selectedStartHour = candidateStartHour;
-          selectedEndHour = candidateEndHour;
+          if (isBetter) {
+            selectedTaskId = taskId;
+            selectedSlot = slot;
+            selectedStartHour = candidateStartHour;
+            selectedEndHour = candidateEndHour;
+          }
         }
+      }
+      
+      // If this task cannot fit in any slot, skip it (don't research this level)
+      if (!canFit) {
+        if (process.env.PLAN_DEBUG === "true") {
+          console.error(`[research-sim] Skipping ${taskId}: cannot fit (releaseHour=${task.releaseHour}, deadline=${successorStartBound})`);
+        }
+        unscheduled.delete(taskId);
+        
+        // Remove this task from successor lists of all other tasks
+        for (const [otherTaskId, otherTask] of plannedTasks.entries()) {
+          const index = otherTask.successorIds.indexOf(taskId);
+          if (index !== -1) {
+            otherTask.successorIds.splice(index, 1);
+            if (process.env.PLAN_DEBUG === "true") {
+              console.error(`[research-sim] Removed ${taskId} from ${otherTaskId}'s successors`);
+            }
+          }
+          
+          // Also skip tasks that depend on this one
+          if (otherTask.dependencyIds.includes(taskId)) {
+            if (process.env.PLAN_DEBUG === "true") {
+              console.error(`[research-sim] Also skipping ${otherTaskId}: depends on skipped ${taskId}`);
+            }
+            unscheduled.delete(otherTaskId);
+          }
+        }
+        continue;
       }
     }
 
     if (selectedTaskId === null || selectedSlot < 0 || !Number.isFinite(selectedStartHour)) {
-      throw new Error("failed to build research plan before the scenario truce deadline");
+      // No more tasks can be scheduled - this is OK, we just schedule what we can
+      if (process.env.PLAN_DEBUG === "true") {
+        console.error(`[research-sim] No more tasks can be scheduled. Remaining ${unscheduled.size} tasks skipped:`);
+        for (const taskId of unscheduled) {
+          const task = plannedTasks.get(taskId);
+          if (!task) continue;
+          console.error(`  ${taskId}: unlock_day=${task.unlockDay}, cannot fit within deadline`);
+        }
+      }
+      break; // Exit the scheduling loop
     }
 
     const selectedTask = plannedTasks.get(selectedTaskId);

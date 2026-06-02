@@ -1,6 +1,5 @@
 schema_version: 1
 domain: units
-
 resources:
   - supplies
   - components
@@ -9,15 +8,13 @@ resources:
   - electronics
   - cash
   - manpower
-
 units:
-  
   airborne_infantry:
     name: Airborne Infantry
     category: Infantry
     doctrine: Western
-    levels: 
-      1:
+    levels:
+      "1":
         requirements:
           - army_base level 1
           - air_base level 2
@@ -30,40 +27,29 @@ units:
             minutes: 15
           cost:
             supplies: 1250
-            components: 0
-            fuel: 0
             rares: 1700
-            electronics: 0
             cash: 1750
-            manpower: 0
         mobilisation:
           time:
             days: 0
             hours: 20
           cost:
-            supplies: 0
             components: 1000
-            fuel: 0
-            rares: 0
             electronics: 400
             cash: 1250
             manpower: 1000
         daily_upkeep:
           cost:
             supplies: 50
-            components: 0
             fuel: 35
-            rares: 0
-            electronics: 0
             cash: 70
             manpower: 30
-
   motorized_infantry:
     name: Motorized Infantry
     category: Infantry
     doctrine: Western
-    levels: 
-      1:
+    levels:
+      "1":
         requirements:
           - army_base level 1
         research:
@@ -74,12 +60,8 @@ units:
             minutes: 7
           cost:
             supplies: 1075
-            components: 0
-            fuel: 0
             rares: 1325
-            electronics: 0
             cash: 1500
-            manpower: 0
         mobilisation:
           time:
             days: 0
@@ -87,27 +69,20 @@ units:
           cost:
             supplies: 650
             components: 350
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 1000
             manpower: 850
         daily_upkeep:
           cost:
             supplies: 40
-            components: 0
             fuel: 15
-            rares: 0
-            electronics: 0
             cash: 60
             manpower: 15
-
   special_forces:
     name: Special Forces
     category: Infantry
     doctrine: Western
-    levels: 
-      1:
+    levels:
+      "1":
         requirements:
           - army_base level 3
           - air_base level 1
@@ -119,35 +94,24 @@ units:
             minutes: 45
           cost:
             supplies: 1500
-            components: 0
-            fuel: 0
             rares: 1875
-            electronics: 0
             cash: 2000
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 0
           cost:
-            supplies: 0
             components: 1100
-            fuel: 0
-            rares: 0
             electronics: 500
             cash: 1000
             manpower: 1000
         daily_upkeep:
           cost:
             supplies: 70
-            components: 0
             fuel: 20
-            rares: 0
-            electronics: 0
             cash: 90
             manpower: 20
-
-      2:
+      "2":
         requirements:
           - army_base level 3
           - air_base level 1
@@ -160,35 +124,24 @@ units:
             minutes: 30
           cost:
             supplies: 1650
-            components: 0
-            fuel: 0
             rares: 2065
-            electronics: 0
             cash: 2200
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 1
           cost:
-            supplies: 0
             components: 1100
-            fuel: 0
-            rares: 0
             electronics: 500
             cash: 1000
             manpower: 1000
         daily_upkeep:
           cost:
             supplies: 75
-            components: 0
             fuel: 35
-            rares: 0
-            electronics: 0
             cash: 95
             manpower: 40
-
-      3:
+      "3":
         requirements:
           - army_base level 3
           - air_base level 1
@@ -201,76 +154,54 @@ units:
             minutes: 15
           cost:
             supplies: 1800
-            components: 0
-            fuel: 0
             rares: 2250
-            electronics: 0
             cash: 2400
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 2
           cost:
-            supplies: 0
             components: 1350
-            fuel: 0
-            rares: 0
             electronics: 650
             cash: 2250
             manpower: 1250
         daily_upkeep:
           cost:
             supplies: 90
-            components: 0
             fuel: 50
-            rares: 0
-            electronics: 0
             cash: 105
             manpower: 65
-
-      4:
+      "4":
         requirements:
           - army_base level 3
           - air_base level 1
           - special_forces level 3
         research:
-          unlock_day: 22 
+          unlock_day: 22
           time:
             days: 1
             hours: 4
             minutes: 30
           cost:
             supplies: 1950
-            components: 0
-            fuel: 0
             rares: 2440
-            electronics: 0
             cash: 2600
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 3
           cost:
-            supplies: 0
             components: 1350
-            fuel: 0
-            rares: 0
             electronics: 650
             cash: 2250
             manpower: 1250
         daily_upkeep:
           cost:
             supplies: 95
-            components: 0
             fuel: 65
-            rares: 0
-            electronics: 0
             cash: 115
             manpower: 75
-
-      5:
+      "5":
         requirements:
           - army_base level 3
           - air_base level 1
@@ -283,30 +214,20 @@ units:
             minutes: 45
           cost:
             supplies: 2100
-            components: 0
-            fuel: 0
             rares: 2625
-            electronics: 0
             cash: 2800
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 4
           cost:
-            supplies: 0
             components: 1600
-            fuel: 0
-            rares: 0
             electronics: 800
             cash: 2500
             manpower: 1500
         daily_upkeep:
           cost:
             supplies: 110
-            components: 0
             fuel: 80
-            rares: 0
-            electronics: 0
             cash: 125
             manpower: 90

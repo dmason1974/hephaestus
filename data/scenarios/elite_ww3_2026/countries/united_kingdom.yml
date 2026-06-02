@@ -1,13 +1,13 @@
 version: 1
 
 country:
-  id: greece
-  name: Greece
+  id: united_kingdom
+  name: United Kingdom
   doctrine: european
 
 cities:
-  - id: athens
-    name: Athens
+  - id: london
+    name: London
     capital: true
     resource: rares
     population: 6
@@ -16,8 +16,28 @@ cities:
       naval_base: 1
       underground_bunkers: 1
 
-  - id: alexandroupoli
-    name: Alexandroupoli
+  - id: plymouth
+    name: Plymouth
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: glasgow
+    name: Glasgow
+    capital: false
+    resource: electronics
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: aberdeen
+    name: Aberdeen
     capital: false
     resource: fuel
     population: 4
@@ -26,40 +46,30 @@ cities:
       naval_base: 1
       underground_bunkers: 0
 
-  - id: heraklion
-    name: Heraklion
+  - id: belfast
+    name: Belfast
     capital: false
     resource: supplies
-    population: 5
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: limassol
-    name: Limassol
-    capital: false
-    resource: components
     population: 4
     starting:
       air_base: 0
       naval_base: 1
       underground_bunkers: 0
 
-  - id: thessaloniki
-    name: Thessaloniki
+  - id: manchester
+    name: Manchester
     capital: false
-    resource: electronics
-    population: 5
+    resource: supplies
+    population: 4
     starting:
       air_base: 0
-      naval_base: 1
+      naval_base: 0
       underground_bunkers: 0
 
 provinces:
-  total: 31
-  supplies: 0
+  total: 42
+  supplies: 2
   components: 0
-  fuel: 0
+  fuel: 1
   rares: 0
-  electronics: 0
+  electronics: 1

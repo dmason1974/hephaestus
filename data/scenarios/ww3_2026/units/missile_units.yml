@@ -1,0 +1,209 @@
+schema_version: 1
+domain: units
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+units:
+  conventional_warhead:
+    name: Conventional Warhead
+    category: Missile
+    doctrine: european
+    levels:
+      "1":
+        requirements: []
+        research:
+          unlock_day: 1
+          time:
+            days: 1
+            hours: 10
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2500
+            components: 3000
+            cash: 10000
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+  ballistic_missile:
+    name: Ballistic Missile
+    category: Missile
+    doctrine: european
+    levels:
+      "1":
+        requirements:
+          - conventional_warhead level 1
+        research:
+          unlock_day: 2
+          time:
+            days: 1
+            hours: 4
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2250
+            components: 2500
+            cash: 7000
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+  cruise_missile:
+    name: Cruise Missile
+    category: Missile
+    doctrine: european
+    levels:
+      "1":
+        requirements:
+          - ballistic_missile level 1
+        research:
+          unlock_day: 3
+          time:
+            days: 1
+            hours: 8
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2000
+            components: 2250
+            cash: 6000
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+      "2":
+        requirements:
+          - cruise_missile level 1
+        research:
+          unlock_day: 6
+          time:
+            days: 1
+            hours: 10
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2200
+            components: 2475
+            cash: 6600
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+      "3":
+        requirements:
+          - cruise_missile level 2
+        research:
+          unlock_day: 11
+          time:
+            days: 1
+            hours: 12
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2400
+            components: 2700
+            cash: 7200
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+      "4":
+        requirements:
+          - cruise_missile level 3
+        research:
+          unlock_day: 15
+          time:
+            days: 1
+            hours: 17
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2600
+            components: 2925
+            cash: 7800
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+      "5":
+        requirements:
+          - cruise_missile level 4
+        research:
+          unlock_day: 18
+          time:
+            days: 1
+            hours: 20
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 2800
+            components: 3150
+            cash: 8400
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+      "6":
+        requirements:
+          - cruise_missile level 5
+        research:
+          unlock_day: 24
+          time:
+            days: 2
+            hours: 1
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 3000
+            components: 3375
+            cash: 9000
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}

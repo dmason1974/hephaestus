@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 
 import type { Resource, StartingPopulation } from "../../core/constants.js";
 import { scenarioStartAbsoluteHour } from "../../core/time.js";
@@ -989,12 +990,33 @@ function dynamicHourlyIncomeFromSimulation(simulation: ReturnType<typeof simulat
   });
 }
 
-const baselinePlan = planMobilizationBuild({
-  catalog,
-  buildings,
-  scenario,
-  demands,
-});
+// Try to create a baseline plan with base cities, but if that fails,
+// use more cities to establish the baseline requirements
+let baselinePlan: MobilizationPlanResult;
+try {
+  baselinePlan = planMobilizationBuild({
+    catalog,
+    buildings,
+    scenario,
+    demands,
+    maxCitiesPerQueue: country.cities.length,
+  });
+} catch (error) {
+  // If baseline with base cities fails, try with max cities to get requirements
+  const maxPossibleCities = Math.max(
+    ...demands.map(demand => {
+      const queueType = queueTypeForUnit(catalog, demand.unitId);
+      return candidateCitiesForQueueType(country, queueType).length;
+    })
+  );
+  baselinePlan = planMobilizationBuild({
+    catalog,
+    buildings,
+    scenario,
+    demands,
+    maxCitiesPerQueue: maxPossibleCities,
+  });
+}
 
 const baselineProfiles = baselinePlan.cityProfiles.map(profile => ({
   queueKey: profile.queueKey,

@@ -1,6 +1,5 @@
 schema_version: 1
 domain: units
-
 resources:
   - supplies
   - components
@@ -9,5 +8,229 @@ resources:
   - electronics
   - cash
   - manpower
-
 units:
+  infantry_officer:
+    name: Infantry Officer
+    category: Infantry
+    doctrine: european
+    levels:
+      "1":
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+        research:
+          unlock_day: 1
+          time:
+            days: 0
+            hours: 0
+            minutes: 30
+            seconds: 0
+          cost:
+            supplies: 200
+            components: 200
+            cash: 200
+        mobilisation:
+          time:
+            days: 1
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 350
+            electronics: 400
+            cash: 750
+            manpower: 500
+        daily_upkeep:
+          cost:
+            supplies: 90
+            cash: 145
+            manpower: 35
+      "2":
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - infantry_officer level 1
+        research:
+          unlock_day: 2
+          time:
+            days: 0
+            hours: 0
+            minutes: 0
+            seconds: 0
+          cost: {}
+        mobilisation:
+          time:
+            days: 1
+            hours: 2
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 400
+            components: 450
+            electronics: 550
+            cash: 850
+        daily_upkeep:
+          cost:
+            supplies: 105
+            cash: 155
+            manpower: 45
+      "3":
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - infantry_officer level 2
+        research:
+          unlock_day: 9
+          time:
+            days: 0
+            hours: 3
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 300
+            components: 300
+            cash: 300
+        mobilisation:
+          time:
+            days: 1
+            hours: 4
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 450
+            components: 500
+            electronics: 600
+            cash: 950
+        daily_upkeep:
+          cost:
+            supplies: 115
+            cash: 170
+            manpower: 65
+      "4":
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - infantry_officer level 3
+        research:
+          unlock_day: 13
+          time:
+            days: 0
+            hours: 5
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 350
+            components: 350
+            cash: 350
+        mobilisation:
+          time:
+            days: 1
+            hours: 8
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 600
+            components: 650
+            electronics: 750
+            cash: 1200
+        daily_upkeep:
+          cost:
+            supplies: 130
+            cash: 180
+            manpower: 70
+      "5":
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - infantry_officer level 4
+        research:
+          unlock_day: 17
+          time:
+            days: 0
+            hours: 6
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 400
+            components: 400
+            cash: 400
+        mobilisation:
+          time:
+            days: 1
+            hours: 10
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 700
+            components: 750
+            electronics: 850
+            cash: 1350
+        daily_upkeep:
+          cost:
+            supplies: 145
+            cash: 190
+            manpower: 80
+      "6":
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - infantry_officer level 5
+        research:
+          unlock_day: 21
+          time:
+            days: 0
+            hours: 7
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 450
+            components: 450
+            cash: 450
+        mobilisation:
+          time:
+            days: 1
+            hours: 12
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 800
+            components: 850
+            electronics: 950
+            cash: 1500
+        daily_upkeep:
+          cost:
+            supplies: 160
+            cash: 205
+            manpower: 90
+      "7":
+        requirements:
+          - army_base level 1
+          - arms_industry level 1
+          - infantry_officer level 6
+        research:
+          unlock_day: 24
+          time:
+            days: 0
+            hours: 9
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 500
+            components: 500
+            cash: 500
+        mobilisation:
+          time:
+            days: 1
+            hours: 16
+            minutes: 0
+            seconds: 0
+          cost:
+            supplies: 1000
+            components: 1000
+            electronics: 1200
+            cash: 1750
+        daily_upkeep:
+          cost:
+            supplies: 175
+            cash: 205
+            manpower: 100

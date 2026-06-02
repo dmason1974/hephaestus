@@ -15,8 +15,6 @@ cities:
       air_base: 1
       naval_base: 1
       underground_bunkers: 1
-      arms_industry: 5
-      recruiting_office: 1
 
   - id: strasbourg
     name: Strasbourg
@@ -27,8 +25,6 @@ cities:
       air_base: 0
       naval_base: 0
       underground_bunkers: 0
-      arms_industry: 3
-      recruiting_office: 1
 
   - id: nevers
     name: Nevers
@@ -39,8 +35,6 @@ cities:
       air_base: 0
       naval_base: 0
       underground_bunkers: 0
-      arms_industry: 1
-      recruiting_office: 1
 
   - id: nantes
     name: Nantes
@@ -51,8 +45,6 @@ cities:
       air_base: 0
       naval_base: 1
       underground_bunkers: 0
-      arms_industry: 5
-      recruiting_office: 1
 
   - id: bordeaux
     name: Bordeaux
@@ -63,8 +55,6 @@ cities:
       air_base: 0
       naval_base: 1
       underground_bunkers: 0
-      arms_industry: 3
-      recruiting_office: 1
 
   - id: marseille
     name: Marseille
@@ -75,8 +65,6 @@ cities:
       air_base: 0
       naval_base: 1
       underground_bunkers: 0
-      arms_industry: 5
-      recruiting_office: 1
 
   - id: calais
     name: Calais
@@ -87,13 +75,11 @@ cities:
       air_base: 0
       naval_base: 1
       underground_bunkers: 0
-      arms_industry: 5
-      recruiting_office: 1
 
 provinces:
   total: 38
   supplies: 1
-  components: 0
-  fuel: 0
-  rares: 1
+  components: 1
+  fuel: 1
+  rares: 0
   electronics: 1

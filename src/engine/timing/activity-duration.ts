@@ -1,3 +1,17 @@
+export function durationToHours(duration: {
+  days?: number;
+  hours?: number;
+  minutes?: number;
+  seconds?: number;
+}): number {
+  return (
+    (duration.days ?? 0) * 24 +
+    (duration.hours ?? 0) +
+    (duration.minutes ?? 0) / 60 +
+    (duration.seconds ?? 0) / 3600
+  );
+}
+
 const MIN_MORALE = 0;
 const MAX_MORALE = 100;
 const NO_PENALTY_MORALE = 90;

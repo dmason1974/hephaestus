@@ -1,4 +1,5 @@
 import { toAbsoluteHour } from "../../core/time.js";
+import { durationToHours } from "../../engine/timing/activity-duration.js";
 import type { Resource } from "../../core/constants.js";
 import type { UnitCatalog } from "../../schemas/unit-schema.js";
 import type { ScenarioFile } from "../../schemas/scenario-schema.js";
@@ -17,19 +18,6 @@ function zeroResources(): Record<Resource, number> {
   };
 }
 
-function durationHours(time: {
-  days?: number;
-  hours?: number;
-  minutes?: number;
-  seconds?: number;
-}) {
-  return (
-    ((time.days ?? 0) * 24) +
-    (time.hours ?? 0) +
-    ((time.minutes ?? 0) / 60) +
-    ((time.seconds ?? 0) / 3600)
-  );
-}
 
 function normalizeDurationHours(hours: number) {
   if (!Number.isFinite(hours) || hours < 0) {
@@ -41,7 +29,7 @@ function normalizeDurationHours(hours: number) {
 function researchUnlockAbsoluteHour(scenario: ScenarioFile, unlockDay: number) {
   const scenarioStartHour = toAbsoluteHour(scenario.start.day, scenario.start.hour);
   const unlockedThroughDayAtStart = scenarioResearchUnlockedThroughDayAtStart(scenario);
-  const effectiveUnlockDay = Math.max(1, unlockDay - unlockedThroughDayAtStart + 1);
+  const effectiveUnlockDay = Math.max(1, unlockDay - unlockedThroughDayAtStart);
 
   if (effectiveUnlockDay <= scenario.start.day) {
     return scenarioStartHour;
@@ -97,7 +85,7 @@ export function buildFixedResearchPlan(args: {
       }
 
       const releaseHour = researchUnlockAbsoluteHour(args.scenario, levelData.research.unlock_day);
-      const duration = normalizeDurationHours(durationHours(levelData.research.time));
+      const duration = normalizeDurationHours(durationToHours(levelData.research.time));
       const actionKey = `${action.unitId}@${action.targetLevel}`;
       const actionLatestEnd = args.latestEndByAction?.[actionKey];
       const endAbsoluteHourExclusive = actionLatestEnd === undefined

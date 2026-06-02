@@ -17,7 +17,6 @@ export type ForceProjectionInput = {
   buildings: BuildingsFile;
   deadlineHour: number;
   maxROLevel?: number;
-  researchSlots?: number;
   moralePct?: number;
 };
 
@@ -67,7 +66,6 @@ export function optimizeForceProjection(input: ForceProjectionInput): ForceProje
     buildings,
     deadlineHour,
     maxROLevel = 5,
-    researchSlots = 2,
     moralePct = 90,
   } = input;
 
@@ -99,20 +97,29 @@ export function optimizeForceProjection(input: ForceProjectionInput): ForceProje
   const configurationsGenerated = configs.length;
   const allSolutions: ForceProjectionSolution[] = [];
 
-  // Step 2: For each configuration, optimize research and batch allocation
-  for (const config of configs) {
-    // Optimize research schedule
-    const researchResult = optimizeResearchSchedule({
-      unitId,
-      unitCatalog,
-      scenario,
-      deadlineHour,
-      researchSlots,
-    });
+  // Research schedule is independent of city/RO configuration — compute once
+  const researchResult = optimizeResearchSchedule({
+    unitId,
+    unitCatalog,
+    scenario,
+    deadlineHour,
+  });
 
-    if (!researchResult.feasible || researchResult.maxLevelAchievable === 0) {
-      continue; // Skip if no research possible
-    }
+  if (!researchResult.feasible || researchResult.maxLevelAchievable === 0) {
+    return {
+      bestSolution: null,
+      allSolutions: [],
+      searchStats: {
+        configurationsGenerated,
+        configurationsEvaluated: 0,
+        feasibleSolutions: 0,
+        searchTimeMs: performance.now() - startTime,
+      },
+    };
+  }
+
+  // Step 2: For each configuration, optimize batch allocation
+  for (const config of configs) {
 
     // Optimize batch allocation
     const batchResult = optimizeBatchAllocation({

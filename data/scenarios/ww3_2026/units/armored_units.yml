@@ -1,6 +1,5 @@
 schema_version: 1
 domain: units
-
 resources:
   - supplies
   - components
@@ -9,14 +8,13 @@ resources:
   - electronics
   - cash
   - manpower
-
 units:
   tank_veteran:
     name: Tank Veteran
     category: Armored
     doctrine: european
     levels:
-      1:
+      "1":
         requirements:
           - army_base level 3
           - recruiting_office level 2
@@ -26,34 +24,24 @@ units:
             hours: 8
           cost:
             supplies: 400
-            components: 0
-            fuel: 0
             rares: 350
-            electronics: 0
             cash: 600
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 6
           cost:
-            supplies: 0
             components: 2400
-            fuel: 0
-            rares: 0
             electronics: 1000
             cash: 2750
             manpower: 1250
         daily_upkeep:
           cost:
-            supplies: 0
             components: 145
             fuel: 65
-            rares: 0
-            electronics: 0
             cash: 270
             manpower: 65
-      2:
+      "2":
         requirements:
           - army_base level 3
           - recruiting_office level 2
@@ -64,34 +52,24 @@ units:
             hours: 9
           cost:
             supplies: 450
-            components: 0
-            fuel: 0
             rares: 400
-            electronics: 0
             cash: 700
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 11
           cost:
-            supplies: 0
             components: 2750
-            fuel: 0
-            rares: 0
             electronics: 1200
             cash: 3250
             manpower: 1350
         daily_upkeep:
           cost:
-            supplies: 0
             components: 155
             fuel: 75
-            rares: 0
-            electronics: 0
             cash: 290
             manpower: 70
-      3:
+      "3":
         requirements:
           - army_base level 3
           - recruiting_office level 2
@@ -102,34 +80,24 @@ units:
             hours: 10
           cost:
             supplies: 600
-            components: 0
-            fuel: 0
             rares: 500
-            electronics: 0
             cash: 800
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 16
           cost:
-            supplies: 0
             components: 3000
-            fuel: 0
-            rares: 0
             electronics: 1400
             cash: 3750
             manpower: 1550
         daily_upkeep:
           cost:
-            supplies: 0
             components: 160
             fuel: 85
-            rares: 0
-            electronics: 0
             cash: 305
             manpower: 80
-      4:
+      "4":
         requirements:
           - army_base level 4
           - recruiting_office level 4
@@ -140,34 +108,24 @@ units:
             hours: 12
           cost:
             supplies: 700
-            components: 0
-            fuel: 0
             rares: 600
-            electronics: 0
             cash: 1000
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 23
           cost:
-            supplies: 0
             components: 3300
-            fuel: 0
-            rares: 0
             electronics: 1650
             cash: 4500
             manpower: 2400
         daily_upkeep:
           cost:
-            supplies: 0
             components: 180
             fuel: 95
-            rares: 0
-            electronics: 0
             cash: 325
             manpower: 100
-      5:
+      "5":
         requirements:
           - army_base level 4
           - recruiting_office level 4
@@ -178,34 +136,24 @@ units:
             hours: 13
           cost:
             supplies: 800
-            components: 0
-            fuel: 0
             rares: 700
-            electronics: 0
             cash: 1200
-            manpower: 0
         mobilisation:
           time:
             days: 2
             hours: 5
           cost:
-            supplies: 0
             components: 3600
-            fuel: 0
-            rares: 0
             electronics: 1900
             cash: 5000
             manpower: 2750
         daily_upkeep:
           cost:
-            supplies: 0
             components: 200
             fuel: 105
-            rares: 0
-            electronics: 0
             cash: 340
             manpower: 110
-      6:
+      "6":
         requirements:
           - army_base level 4
           - recruiting_office level 4
@@ -216,34 +164,24 @@ units:
             hours: 14
           cost:
             supplies: 950
-            components: 0
-            fuel: 0
             rares: 850
-            electronics: 0
             cash: 1500
-            manpower: 0
         mobilisation:
           time:
             days: 2
             hours: 12
           cost:
-            supplies: 0
             components: 4000
-            fuel: 0
-            rares: 0
             electronics: 2300
             cash: 6500
             manpower: 4000
         daily_upkeep:
           cost:
-            supplies: 0
             components: 225
             fuel: 115
-            rares: 0
-            electronics: 0
             cash: 360
             manpower: 125
-      7:
+      "7":
         requirements:
           - army_base level 5
           - recruiting_office level 5
@@ -254,29 +192,19 @@ units:
             hours: 16
           cost:
             supplies: 1100
-            components: 0
-            fuel: 0
             rares: 950
-            electronics: 0
             cash: 1750
-            manpower: 0
         mobilisation:
           time:
             days: 1
           cost:
-            supplies: 0
             components: 4500
-            fuel: 0
-            rares: 0
             electronics: 2700
             cash: 8000
             manpower: 4600
         daily_upkeep:
           cost:
-            supplies: 0
             components: 245
             fuel: 125
-            rares: 0
-            electronics: 0
             cash: 380
             manpower: 145

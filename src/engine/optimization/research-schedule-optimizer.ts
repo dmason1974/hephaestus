@@ -1,6 +1,8 @@
 import type { UnitCatalog } from "../../schemas/unit-schema.js";
 import type { ScenarioFile } from "../../schemas/scenario-schema.js";
 import { scenarioStartAbsoluteHour } from "../../core/time.js";
+import { scenarioResearchUnlockedThroughDayAtStart } from "../../schemas/scenario-schema.js";
+import { durationToHours } from "../timing/activity-duration.js";
 import { getAvailableLevels } from "./types.js";
 import type { ResearchSchedule } from "./types.js";
 
@@ -9,7 +11,6 @@ export type ResearchScheduleInput = {
   unitCatalog: UnitCatalog;
   scenario: ScenarioFile;
   deadlineHour: number;
-  researchSlots?: number;
 };
 
 export type ResearchScheduleResult = {
@@ -32,7 +33,7 @@ export type ResearchScheduleResult = {
  * @returns Research schedule with max achievable level
  */
 export function optimizeResearchSchedule(input: ResearchScheduleInput): ResearchScheduleResult {
-  const { unitId, unitCatalog, scenario, deadlineHour, researchSlots = 2 } = input;
+  const { unitId, unitCatalog, scenario, deadlineHour } = input;
 
   const unit = unitCatalog.units[unitId];
   if (!unit) {
@@ -46,14 +47,10 @@ export function optimizeResearchSchedule(input: ResearchScheduleInput): Research
 
   const schedule: ResearchSchedule = [];
   const scenarioStartHour = scenarioStartAbsoluteHour(scenario);
-  
-  // Track when each research slot becomes available
-  const slotAvailableAt: number[] = Array(researchSlots).fill(scenarioStartHour);
-  
+  const unlockedThroughDayAtStart = scenarioResearchUnlockedThroughDayAtStart(scenario);
+
   let maxLevelAchievable = 0;
   let totalResearchHours = 0;
-
-  // Track when the previous level completes (for sequential dependency)
   let previousLevelEndHour = scenarioStartHour;
 
   for (const level of availableLevels) {
@@ -62,45 +59,23 @@ export function optimizeResearchSchedule(input: ResearchScheduleInput): Research
       throw new Error(`Unit ${unitId} level ${level} has no research data`);
     }
 
-    // Calculate when this level can start research
     const unlockDay = levelData.research.unlock_day ?? 1;
-    const unlockHour = scenarioStartHour + (unlockDay - 1) * 24;
-    
-    // Find the earliest available slot
-    const earliestSlot = Math.min(...slotAvailableAt);
-    
-    // Must wait for: previous level to complete, unlock day, and an available slot
-    const startHour = Math.max(earliestSlot, unlockHour, previousLevelEndHour);
-    
-    // Calculate research duration
-    const researchTime = levelData.research.time;
-    const durationHours = 
-      (researchTime.days ?? 0) * 24 +
-      (researchTime.hours ?? 0) +
-      (researchTime.minutes ?? 0) / 60 +
-      (researchTime.seconds ?? 0) / 3600;
-    
+    const effectiveUnlockDay = Math.max(1, unlockDay - unlockedThroughDayAtStart);
+    const unlockHour = scenarioStartHour + (effectiveUnlockDay - 1) * 24;
+
+    // Each level must wait for the previous level to complete and its own unlock gate
+    const startHour = Math.max(unlockHour, previousLevelEndHour);
+
+    const durationHours = durationToHours(levelData.research.time);
     const endHour = startHour + durationHours;
-    
-    // Check if this level can complete before deadline
+
     if (endHour > deadlineHour) {
-      break; // Can't research this level in time
+      break;
     }
-    
-    // Schedule this level
-    schedule.push({
-      level,
-      startHour,
-      endHour,
-    });
-    
-    // Update the slot that was used
-    const slotIndex = slotAvailableAt.indexOf(earliestSlot);
-    slotAvailableAt[slotIndex] = endHour;
-    
-    // Track when this level completes for the next level's dependency
+
+    schedule.push({ level, startHour, endHour });
+
     previousLevelEndHour = endHour;
-    
     maxLevelAchievable = level;
     totalResearchHours += durationHours;
   }
@@ -124,8 +99,8 @@ export function validateResearchSchedule(
   schedule: ResearchSchedule,
   input: ResearchScheduleInput
 ): boolean {
-  const { unitId, unitCatalog, scenario, deadlineHour, researchSlots = 2 } = input;
-  
+  const { unitId, unitCatalog, scenario, deadlineHour } = input;
+
   if (schedule.length === 0) {
     return false;
   }
@@ -136,53 +111,30 @@ export function validateResearchSchedule(
   }
 
   const scenarioStartHour = scenarioStartAbsoluteHour(scenario);
-  
-  // Check each level in sequence
+  const unlockedThroughDayAtStart = scenarioResearchUnlockedThroughDayAtStart(scenario);
+
   for (let i = 0; i < schedule.length; i++) {
     const entry = schedule[i];
     const levelData = unit.levels[String(entry.level)];
-    
+
     if (!levelData?.research) {
       return false;
     }
 
-    // Verify unlock day constraint
     const unlockDay = levelData.research.unlock_day ?? 1;
-    const unlockHour = scenarioStartHour + (unlockDay - 1) * 24;
+    const effectiveUnlockDay = Math.max(1, unlockDay - unlockedThroughDayAtStart);
+    const unlockHour = scenarioStartHour + (effectiveUnlockDay - 1) * 24;
     if (entry.startHour < unlockHour) {
       return false;
     }
 
-    // Verify deadline constraint
     if (entry.endHour > deadlineHour) {
       return false;
     }
 
-    // Verify sequential ordering (level N must complete before level N+1 starts)
-    if (i > 0 && entry.level > schedule[i - 1].level) {
-      if (entry.startHour < schedule[i - 1].endHour) {
-        return false;
-      }
-    }
-  }
-
-  // Verify research slot constraint (no more than N levels researching simultaneously)
-  const events: Array<{ hour: number; type: 'start' | 'end' }> = [];
-  for (const entry of schedule) {
-    events.push({ hour: entry.startHour, type: 'start' });
-    events.push({ hour: entry.endHour, type: 'end' });
-  }
-  events.sort((a, b) => a.hour - b.hour || (a.type === 'end' ? -1 : 1));
-
-  let activeResearch = 0;
-  for (const event of events) {
-    if (event.type === 'start') {
-      activeResearch++;
-      if (activeResearch > researchSlots) {
-        return false;
-      }
-    } else {
-      activeResearch--;
+    // Each level must start after the previous level completes
+    if (i > 0 && entry.startHour < schedule[i - 1].endHour) {
+      return false;
     }
   }
 

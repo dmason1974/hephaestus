@@ -1,6 +1,5 @@
 schema_version: 1
 domain: units
-
 resources:
   - supplies
   - components
@@ -9,14 +8,13 @@ resources:
   - electronics
   - cash
   - manpower
-
 units:
   mercenary:
     name: Mercenary
     category: Infantry
     doctrine: eastern
     levels:
-      1:
+      "1":
         requirements:
           - mercenary_outpost level 1
         research:
@@ -25,12 +23,8 @@ units:
             hours: 10
           cost:
             supplies: 1000
-            components: 0
-            fuel: 0
             rares: 800
-            electronics: 0
             cash: 5000
-            manpower: 0
         mobilisation:
           time:
             days: 0
@@ -38,23 +32,13 @@ units:
             minutes: 0
             seconds: 0
           cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 3000
             manpower: 1250
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 165
             manpower: 50
-      2:
+      "2":
         requirements:
           - mercenary_outpost level 1
           - mercenary level 1
@@ -64,34 +48,18 @@ units:
             hours: 12
           cost:
             supplies: 1100
-            components: 0
-            fuel: 0
             rares: 850
-            electronics: 0
             cash: 5500
-            manpower: 0
         mobilisation:
           time:
             hours: 6
             minutes: 30
-          cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
-            cash: 0
-            manpower: 0
+          cost: {}
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 200
             manpower: 60
-      3:
+      "3":
         requirements:
           - mercenary_outpost level 1
           - mercenary level 2
@@ -101,33 +69,17 @@ units:
             hours: 14
           cost:
             supplies: 1100
-            components: 0
-            fuel: 0
             rares: 850
-            electronics: 0
             cash: 6000
-            manpower: 0
         mobilisation:
           time:
             hours: 7
-          cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
-            cash: 0
-            manpower: 0
+          cost: {}
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 230
             manpower: 70
-      4:
+      "4":
         requirements:
           - mercenary_outpost level 2
           - mercenary level 3
@@ -137,33 +89,17 @@ units:
             hours: 16
           cost:
             supplies: 1200
-            components: 0
-            fuel: 0
             rares: 900
-            electronics: 0
             cash: 7500
-            manpower: 0
         mobilisation:
           time:
             hours: 8
-          cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
-            cash: 0
-            manpower: 0
+          cost: {}
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 300
             manpower: 80
-      5:
+      "5":
         requirements:
           - mercenary_outpost level 2
           - mercenary level 4
@@ -173,33 +109,17 @@ units:
             hours: 18
           cost:
             supplies: 1300
-            components: 0
-            fuel: 0
             rares: 950
-            electronics: 0
             cash: 10000
-            manpower: 0
         mobilisation:
           time:
             hours: 9
-          cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
-            cash: 0
-            manpower: 0
+          cost: {}
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 375
             manpower: 90
-      6:
+      "6":
         requirements:
           - mercenary_outpost level 3
           - mercenary level 5
@@ -209,33 +129,17 @@ units:
             hours: 20
           cost:
             supplies: 1400
-            components: 0
-            fuel: 0
             rares: 1000
-            electronics: 0
             cash: 15000
-            manpower: 0
         mobilisation:
           time:
             hours: 12
-          cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
-            cash: 0
-            manpower: 0
+          cost: {}
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 500
             manpower: 100
-      7:
+      "7":
         requirements:
           - mercenary_outpost level 3
           - mercenary level 6
@@ -245,30 +149,14 @@ units:
             hours: 22
           cost:
             supplies: 1500
-            components: 0
-            fuel: 0
             rares: 1100
-            electronics: 0
             cash: 17500
-            manpower: 0
         mobilisation:
           time:
             hours: 14
-          cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
-            cash: 0
-            manpower: 0
+          cost: {}
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 525
             manpower: 110
   special_forces:
@@ -276,7 +164,7 @@ units:
     category: Infantry
     doctrine: eastern
     levels:
-      1:
+      "1":
         requirements:
           - army_base level 3
           - air_base level 1
@@ -288,33 +176,23 @@ units:
             hours: 5
           cost:
             supplies: 1500
-            components: 0
-            fuel: 0
             rares: 1875
-            electronics: 0
             cash: 2000
-            manpower: 0
         mobilisation:
           time:
             days: 1
           cost:
-            supplies: 0
             components: 1100
-            fuel: 0
-            rares: 0
             electronics: 500
             cash: 1750
             manpower: 1000
         daily_upkeep:
           cost:
             supplies: 70
-            components: 0
             fuel: 20
-            rares: 0
-            electronics: 0
             cash: 90
             manpower: 20
-      2:
+      "2":
         requirements:
           - army_base level 3
           - air_base level 1
@@ -327,34 +205,24 @@ units:
             hours: 6
           cost:
             supplies: 1650
-            components: 0
-            fuel: 0
             rares: 2065
-            electronics: 0
             cash: 2200
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 1
           cost:
-            supplies: 0
             components: 1100
-            fuel: 0
-            rares: 0
             electronics: 500
             cash: 1750
             manpower: 1000
         daily_upkeep:
           cost:
             supplies: 75
-            components: 0
             fuel: 35
-            rares: 0
-            electronics: 0
             cash: 95
             manpower: 40
-      3:
+      "3":
         requirements:
           - army_base level 3
           - air_base level 1
@@ -367,34 +235,24 @@ units:
             hours: 11
           cost:
             supplies: 1800
-            components: 0
-            fuel: 0
             rares: 2250
-            electronics: 0
             cash: 2400
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 2
           cost:
-            supplies: 0
             components: 1350
-            fuel: 0
-            rares: 0
             electronics: 650
             cash: 2250
             manpower: 1250
         daily_upkeep:
           cost:
             supplies: 90
-            components: 0
             fuel: 50
-            rares: 0
-            electronics: 0
             cash: 105
             manpower: 65
-      4:
+      "4":
         requirements:
           - army_base level 3
           - air_base level 1
@@ -407,34 +265,24 @@ units:
             hours: 14
           cost:
             supplies: 1950
-            components: 0
-            fuel: 0
             rares: 2440
-            electronics: 0
             cash: 2600
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 3
           cost:
-            supplies: 0
             components: 1350
-            fuel: 0
-            rares: 0
             electronics: 650
             cash: 2250
             manpower: 1250
         daily_upkeep:
           cost:
             supplies: 95
-            components: 0
             fuel: 65
-            rares: 0
-            electronics: 0
             cash: 115
             manpower: 75
-      5:
+      "5":
         requirements:
           - army_base level 3
           - air_base level 1
@@ -447,31 +295,21 @@ units:
             hours: 18
           cost:
             supplies: 2100
-            components: 0
-            fuel: 0
             rares: 2625
-            electronics: 0
             cash: 2800
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 4
           cost:
-            supplies: 0
             components: 1600
-            fuel: 0
-            rares: 0
             electronics: 800
             cash: 2500
             manpower: 1500
         daily_upkeep:
           cost:
             supplies: 110
-            components: 0
             fuel: 80
-            rares: 0
-            electronics: 0
             cash: 125
             manpower: 90
   mechanized_infantry:
@@ -479,7 +317,7 @@ units:
     category: Infantry
     doctrine: european
     levels:
-      1:
+      "1":
         requirements:
           - army_base level 2
           - recruiting_office level 1
@@ -492,33 +330,23 @@ units:
             seconds: 0
           cost:
             supplies: 1200
-            components: 0
-            fuel: 0
             rares: 1450
-            electronics: 0
             cash: 1850
-            manpower: 0
         mobilisation:
           time:
             hours: 20
           cost:
             supplies: 500
             components: 950
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 1750
             manpower: 1000
         daily_upkeep:
           cost:
             supplies: 60
-            components: 0
             fuel: 25
-            rares: 0
-            electronics: 0
             cash: 80
             manpower: 20
-      2:
+      "2":
         requirements:
           - army_base level 2
           - recruiting_office level 1
@@ -532,33 +360,23 @@ units:
             seconds: 0
           cost:
             supplies: 1320
-            components: 0
-            fuel: 0
             rares: 1595
-            electronics: 0
             cash: 2035
-            manpower: 0
         mobilisation:
           time:
             hours: 21
           cost:
             supplies: 500
             components: 950
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 1750
             manpower: 1000
         daily_upkeep:
           cost:
             supplies: 65
-            components: 0
             fuel: 30
-            rares: 0
-            electronics: 0
             cash: 85
             manpower: 25
-      3:
+      "3":
         requirements:
           - army_base level 2
           - recruiting_office level 1
@@ -572,33 +390,23 @@ units:
             seconds: 0
           cost:
             supplies: 1440
-            components: 0
-            fuel: 0
             rares: 1740
-            electronics: 0
             cash: 2220
-            manpower: 0
         mobilisation:
           time:
             hours: 22
           cost:
             supplies: 550
             components: 1000
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 2000
             manpower: 1250
         daily_upkeep:
           cost:
             supplies: 75
-            components: 0
             fuel: 40
-            rares: 0
-            electronics: 0
             cash: 95
             manpower: 45
-      4:
+      "4":
         requirements:
           - army_base level 2
           - recruiting_office level 1
@@ -612,33 +420,23 @@ units:
             seconds: 0
           cost:
             supplies: 1560
-            components: 0
-            fuel: 0
             rares: 1885
-            electronics: 0
             cash: 2405
-            manpower: 0
         mobilisation:
           time:
             hours: 23
           cost:
             supplies: 550
             components: 1000
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 2000
             manpower: 1250
         daily_upkeep:
           cost:
             supplies: 80
-            components: 0
             fuel: 45
-            rares: 0
-            electronics: 0
             cash: 100
             manpower: 55
-      5:
+      "5":
         requirements:
           - army_base level 2
           - recruiting_office level 1
@@ -652,33 +450,23 @@ units:
             seconds: 0
           cost:
             supplies: 1680
-            components: 0
-            fuel: 0
             rares: 2030
-            electronics: 0
             cash: 2590
-            manpower: 0
         mobilisation:
           time:
             days: 1
           cost:
             supplies: 550
             components: 1000
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 2000
             manpower: 1250
         daily_upkeep:
           cost:
             supplies: 85
-            components: 0
             fuel: 50
-            rares: 0
-            electronics: 0
             cash: 105
             manpower: 65
-      6:
+      "6":
         requirements:
           - army_base level 2
           - recruiting_office level 1
@@ -692,12 +480,8 @@ units:
             seconds: 0
           cost:
             supplies: 1800
-            components: 0
-            fuel: 0
             rares: 2175
-            electronics: 0
             cash: 2775
-            manpower: 0
         mobilisation:
           time:
             days: 1
@@ -705,17 +489,11 @@ units:
           cost:
             supplies: 700
             components: 1150
-            fuel: 0
-            rares: 0
-            electronics: 0
             cash: 2250
             manpower: 1500
         daily_upkeep:
           cost:
             supplies: 95
-            components: 0
             fuel: 60
-            rares: 0
-            electronics: 0
             cash: 115
             manpower: 80

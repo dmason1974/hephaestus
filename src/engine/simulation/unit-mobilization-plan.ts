@@ -4,7 +4,7 @@ import type { ScenarioFile } from "../../schemas/scenario-schema.js";
 import { scenarioTruceLengthDays } from "../../schemas/scenario-schema.js";
 import { toAbsoluteHour } from "../../core/time.js";
 import { baselineHomelandMoraleOnDay } from "../economy/morale.js";
-import { effectiveDurationFromMorale } from "../timing/activity-duration.js";
+import { effectiveDurationFromMorale, durationToHours } from "../timing/activity-duration.js";
 import { simulateUnitResearchTargets, type UnitResearchSimulationResult, type UnitResearchTargets } from "./unit-research-sim.js";
 
 type QueueType = "air" | "naval" | "land" | "loadout";
@@ -68,12 +68,7 @@ function durationHours(time: {
   minutes?: number;
   seconds?: number;
 }) {
-  return (
-    ((time.days ?? 0) * 24) +
-    (time.hours ?? 0) +
-    ((time.minutes ?? 0) / 60) +
-    ((time.seconds ?? 0) / 3600)
-  );
+  return durationToHours(time);
 }
 
 function normalizeDurationHours(hours: number) {
@@ -370,6 +365,7 @@ export function planMobilizationBuild(args: {
   buildings: BuildingsFile;
   scenario: ScenarioFile;
   demands: MobilizationDemand[];
+  maxCitiesPerQueue?: number;
 }) : MobilizationPlanResult {
   const truceLengthDays = scenarioTruceLengthDays(args.scenario);
   if (truceLengthDays === undefined) {
@@ -418,7 +414,15 @@ export function planMobilizationBuild(args: {
     profiles: MobilizationCityProfile[]
   ): MobilizationPlanResult | null => {
     if (groupIndex >= queueGroupConfigs.length) {
-      const researchDeadlines = buildResearchDeadlineMap(scheduledGroups);
+      // Schedule research independently with JIT optimization
+      // Level 1 research completes as early as possible (on unlock_day)
+      // Higher levels are JIT to truce end
+      // By passing mobilizationStartHour = deadlineAbsoluteHour, we tell the scheduler
+      // that mobilization happens at the deadline, so level 1 can schedule early
+      
+      if (process.env.PLAN_DEBUG === "true") {
+        console.error(`[mobilization-plan] scheduling research independently (level 1 on unlock_day, higher levels JIT)`);
+      }
 
       try {
         const researchPlan = simulateUnitResearchTargets(
@@ -426,12 +430,23 @@ export function planMobilizationBuild(args: {
           researchTargets,
           args.scenario,
           {
-            latestCompletionByUnitLevel: researchDeadlines,
+            // No specific deadlines - research schedules with JIT
+            latestCompletionByUnitLevel: {},
             unitDemandCounts: Object.fromEntries(
               args.demands.map(demand => [demand.unitId, demand.count])
             ),
+            // Pass deadline as mobilization start so level 1 schedules early
+            mobilizationStartHour: deadlineAbsoluteHour,
+            enableJitScheduling: true,
           }
         );
+
+        if (process.env.PLAN_DEBUG === "true") {
+          console.error(`[mobilization-plan] research plan succeeded with ${researchPlan.segments.length} segments`);
+          for (const segment of researchPlan.segments) {
+            console.error(`  ${segment.unitId} L${segment.level}: slot ${segment.slot}, unlock day ${segment.unlockDay}, start ${segment.startAbsoluteHour}, end ${segment.endAbsoluteHourExclusive}`);
+          }
+        }
 
         return {
           researchTargets,
@@ -453,7 +468,10 @@ export function planMobilizationBuild(args: {
             })),
           cityProfiles: profiles,
         };
-      } catch {
+      } catch (error) {
+        if (process.env.PLAN_DEBUG === "true") {
+          console.error(`[mobilization-plan] research scheduling failed:`, error instanceof Error ? error.message : error);
+        }
         return null;
       }
     }
@@ -464,9 +482,14 @@ export function planMobilizationBuild(args: {
     }
 
     const minCities = Math.max(1, group.forcedCityCount ?? 1);
-    const maxCities = group.forcedCityCount ?? Math.max(1, group.jobs.length);
+    // Cap max cities to the number available in the country, or the number of jobs, whichever is smaller
+    const defaultMaxCities = args.maxCitiesPerQueue ?? 10;
+    const maxCities = group.forcedCityCount ?? Math.min(defaultMaxCities, Math.max(1, group.jobs.length));
 
     for (let cityCount = minCities; cityCount <= maxCities; cityCount++) {
+      if (process.env.PLAN_DEBUG === "true") {
+        console.error(`[mobilization-plan] trying ${group.queueKey}: ${cityCount} cities (${minCities}-${maxCities}), ${group.jobs.length} jobs`);
+      }
       const schedule = scheduleBackwardOnCities({
         buildings: args.buildings,
         deadlineAbsoluteHour,

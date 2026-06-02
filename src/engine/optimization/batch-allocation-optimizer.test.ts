@@ -334,17 +334,17 @@ test("generateAlternativeBatchAllocations creates multiple strategies", () => {
       { level: 2, startHour: 2, endHour: 6 },
       { level: 3, startHour: 6, endHour: 12 },
     ],
-    deadlineHour: 100,
+    deadlineHour: 200, // generous deadline so all three levels can complete mobilization
     unitCatalog: catalog,
     buildings,
   });
 
   // Should generate: all L1, all L3, even split, optimized
   assert.equal(alternatives.length, 4);
-  
-  // All should be feasible
+
+  // All should be feasible with a generous deadline
   assert.ok(alternatives.every(alt => alt.feasible));
-  
+
   // All should have correct total
   assert.ok(alternatives.every(alt => getTotalUnitsFromBatch(alt.allocation) === 10));
 });

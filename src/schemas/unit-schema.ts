@@ -12,13 +12,13 @@ const nonNegativeIntSchema = z.number().int().min(0);
 
 const completeResourceRecordSchema = z
   .object({
-    supplies: nonNegativeNumberSchema,
-    components: nonNegativeNumberSchema,
-    fuel: nonNegativeNumberSchema,
-    rares: nonNegativeNumberSchema,
-    electronics: nonNegativeNumberSchema,
-    cash: nonNegativeNumberSchema,
-    manpower: nonNegativeNumberSchema,
+    supplies: nonNegativeNumberSchema.optional(),
+    components: nonNegativeNumberSchema.optional(),
+    fuel: nonNegativeNumberSchema.optional(),
+    rares: nonNegativeNumberSchema.optional(),
+    electronics: nonNegativeNumberSchema.optional(),
+    cash: nonNegativeNumberSchema.optional(),
+    manpower: nonNegativeNumberSchema.optional(),
   })
   .strict();
 

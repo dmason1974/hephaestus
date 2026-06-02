@@ -1,7 +1,7 @@
 import type { BuildingsFile } from "../../schemas/building-schema.js";
 import type { UnitCatalog } from "../../schemas/unit-schema.js";
 import type { Resource } from "../../core/constants.js";
-import { effectiveDurationFromMorale } from "../timing/activity-duration.js";
+import { effectiveDurationFromMorale, durationToHours } from "../timing/activity-duration.js";
 import type {
   MobilizationConfig,
   BatchAllocation,
@@ -120,7 +120,7 @@ export function calculateMobilizationDuration(
   moralePct = 90
 ): number {
   const levelData = getUnitLevelData(unitId, level, unitCatalog);
-  const baseDurationHours = durationHours(levelData.mobilisation.time);
+  const baseDurationHours = durationToHours(levelData.mobilisation.time);
   const moraleAdjustedHours = effectiveDurationFromMorale(baseDurationHours, moralePct);
   const bonusPct = getRecruitingOfficeSpeedBonusPct(buildings, roLevel);
   const adjustedDurationHours = moraleAdjustedHours / (1 + bonusPct);
@@ -278,19 +278,6 @@ function scaleResourceCost(cost: ResourceCost, scale: number): ResourceCost {
   return scaled;
 }
 
-function durationHours(duration: {
-  days?: number;
-  hours?: number;
-  minutes?: number;
-  seconds?: number;
-}): number {
-  return (
-    (duration.days ?? 0) * 24 +
-    (duration.hours ?? 0) +
-    (duration.minutes ?? 0) / 60 +
-    (duration.seconds ?? 0) / 3600
-  );
-}
 
 function getRecruitingOfficeSpeedBonusPct(buildings: BuildingsFile, roLevel: number): number {
   if (roLevel <= 0) {
@@ -355,7 +342,7 @@ function estimateLevelMobilizationDuration(
   }
 
   const levelData = getUnitLevelData(unitId, level, unitCatalog);
-  const baseDurationHours = durationHours(levelData.mobilisation.time);
+  const baseDurationHours = durationToHours(levelData.mobilisation.time);
   const unitsPerCity = apportionUnits(count, config);
 
   return config.cities.reduce((maxDuration, city, index) => {

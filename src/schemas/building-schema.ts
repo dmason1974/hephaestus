@@ -13,18 +13,6 @@ export const resourceSchema = z.enum([
 const nonNegativeNumberSchema = z.number().min(0);
 const nonNegativeIntSchema = z.number().int().min(0);
 
-const completeResourceRecordSchema = z
-  .object({
-    supplies: nonNegativeNumberSchema,
-    components: nonNegativeNumberSchema,
-    fuel: nonNegativeNumberSchema,
-    rares: nonNegativeNumberSchema,
-    electronics: nonNegativeNumberSchema,
-    cash: nonNegativeNumberSchema,
-    manpower: nonNegativeNumberSchema,
-  })
-  .strict();
-
 const partialResourceRecordSchema = z
   .object({
     supplies: nonNegativeNumberSchema.optional(),
@@ -38,6 +26,7 @@ const partialResourceRecordSchema = z
   .strict();
 
 const percentSchema = z.number().min(0).max(1);
+const bonusPercentSchema = z.number().min(0); // Can exceed 100% for some bonuses like local_industry
 
 const buildTimeSchema = z
   .object({
@@ -55,14 +44,14 @@ const buildTimeSchema = z
 export const buildingLevelSchema = z
   .object({
     build_time: buildTimeSchema,
-    cost: completeResourceRecordSchema,
+    cost: partialResourceRecordSchema,
     city_status_pct: percentSchema.optional(),
     daily_upkeep: partialResourceRecordSchema.optional(),
     flat_bonus: partialResourceRecordSchema.optional(),
     hit_points: nonNegativeNumberSchema.optional(),
     manpower_bonus_pct: nonNegativeNumberSchema.optional(),
-    mobilisation_speed_bonus_pct: percentSchema.optional(),
-    production_bonus_pct: percentSchema.optional(),
+    mobilisation_speed_bonus_pct: bonusPercentSchema.optional(),
+    production_bonus_pct: bonusPercentSchema.optional(),
     garrison_damage_reduction_pct: percentSchema.optional(),
     morale_bonus_pct: percentSchema.optional(),
     population_bonus_pct: percentSchema.optional(),

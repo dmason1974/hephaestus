@@ -2,7 +2,7 @@ import type { UnitCatalog } from "../../schemas/unit-schema.js";
 import type { BuildingsFile } from "../../schemas/building-schema.js";
 import { getAvailableLevels, createEmptyBatchAllocation, getTotalUnitsFromBatch } from "./types.js";
 import type { BatchAllocation, MobilizationConfig, ResearchSchedule } from "./types.js";
-import { calculateMobilizationCost, calculateUpkeepCost, resourceCostToScalar } from "./cost-calculator.js";
+import { calculateMobilizationCost, calculateUpkeepCost, resourceCostToScalar, calculateCompletionHour } from "./cost-calculator.js";
 
 export type BatchAllocationInput = {
   unitId: string;
@@ -72,19 +72,24 @@ export function optimizeBatchAllocation(input: BatchAllocationInput): BatchAlloc
     };
   }
 
-  // Calculate cost per unit for each level (mobilization + upkeep until deadline)
+  // Calculate cost per unit for each level (mobilization + upkeep until deadline).
+  // Only include levels whose mobilization can complete before the deadline.
   const levelCosts: Array<{ level: number; costPerUnit: number; researchEndHour: number }> = [];
-  
+
   for (const level of researchedLevels) {
     const research = researchSchedule.find(r => r.level === level);
     if (!research) continue;
 
-    // Mobilization cost
+    // Upkeep starts after mobilization completes, not after research ends
+    const completionHour = calculateCompletionHour(
+      unitId, config, { [level]: 1 }, researchSchedule, unitCatalog, buildings, moralePct
+    );
+    if (completionHour > deadlineHour) continue;
+
     const mobCost = calculateMobilizationCost(unitId, level, 1, unitCatalog);
     const mobScalar = resourceCostToScalar(mobCost);
 
-    // Upkeep cost from research completion to deadline
-    const upkeepDuration = deadlineHour - research.endHour;
+    const upkeepDuration = deadlineHour - completionHour;
     const upkeepCost = calculateUpkeepCost(unitId, level, 1, upkeepDuration, unitCatalog);
     const upkeepScalar = resourceCostToScalar(upkeepCost);
 
@@ -122,13 +127,14 @@ export function optimizeBatchAllocation(input: BatchAllocationInput): BatchAlloc
     const research = researchSchedule.find(r => r.level === level);
     if (!research) continue;
 
-    // Mobilization cost
     const mobCost = calculateMobilizationCost(unitId, level, count, unitCatalog);
     const mobScalar = resourceCostToScalar(mobCost);
     mobilizationByLevel[level] = mobScalar;
 
-    // Upkeep cost
-    const upkeepDuration = deadlineHour - research.endHour;
+    const completionHour = calculateCompletionHour(
+      unitId, config, { [level]: count }, researchSchedule, unitCatalog, buildings, moralePct
+    );
+    const upkeepDuration = Math.max(0, deadlineHour - completionHour);
     const upkeepCost = calculateUpkeepCost(unitId, level, count, upkeepDuration, unitCatalog);
     const upkeepScalar = resourceCostToScalar(upkeepCost);
     upkeepByLevel[level] = upkeepScalar;
@@ -240,27 +246,41 @@ function evaluateAllocation(
   const {
     unitId,
     allocation,
+    config,
     researchSchedule,
     deadlineHour,
     unitCatalog,
+    buildings,
+    moralePct = 90,
   } = input;
 
   const mobilizationByLevel: Record<number, number> = {};
   const upkeepByLevel: Record<number, number> = {};
   let totalCost = 0;
+  let feasible = true;
 
   for (const [levelStr, count] of Object.entries(allocation)) {
     const level = Number(levelStr);
     if (count <= 0) continue;
 
     const research = researchSchedule.find(r => r.level === level);
-    if (!research) continue;
+    if (!research) {
+      feasible = false;
+      continue;
+    }
+
+    const completionHour = calculateCompletionHour(
+      unitId, config, { [level]: count }, researchSchedule, unitCatalog, buildings, moralePct
+    );
+    if (completionHour > deadlineHour) {
+      feasible = false;
+    }
 
     const mobCost = calculateMobilizationCost(unitId, level, count, unitCatalog);
     const mobScalar = resourceCostToScalar(mobCost);
     mobilizationByLevel[level] = mobScalar;
 
-    const upkeepDuration = deadlineHour - research.endHour;
+    const upkeepDuration = Math.max(0, deadlineHour - completionHour);
     const upkeepCost = calculateUpkeepCost(unitId, level, count, upkeepDuration, unitCatalog);
     const upkeepScalar = resourceCostToScalar(upkeepCost);
     upkeepByLevel[level] = upkeepScalar;
@@ -271,7 +291,7 @@ function evaluateAllocation(
   return {
     allocation,
     totalCost,
-    feasible: true,
+    feasible,
     costBreakdown: {
       mobilizationByLevel,
       upkeepByLevel,

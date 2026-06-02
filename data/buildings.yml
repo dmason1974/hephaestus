@@ -1,9 +1,8 @@
 schema_version: 1
 domain: buildings
 notes:
-  - "Build times are effective in-game times (including morale modifier), per project convention."
+  - Build times are effective in-game times (including morale modifier), per project convention.
   - "Resource keys align to Resource union: supplies|components|fuel|rares|electronics|cash|manpower"
-
 resources:
   - supplies
   - components
@@ -12,14 +11,12 @@ resources:
   - electronics
   - cash
   - manpower
-
 buildings:
-
   air_base:
-    name: "Air Base"
+    name: Air Base
     category: Buildings
     levels:
-      1:
+      "1":
         hit_points: 10
         production_bonus_pct: 0.05
         build_time:
@@ -28,14 +25,11 @@ buildings:
           supplies: 750
           components: 1000
           fuel: 1000
-          rares: 0
           electronics: 500
           cash: 2750
-          manpower: 0
-
-      2:
+      "2":
         hit_points: 15
-        production_bonus_pct: 0.10
+        production_bonus_pct: 0.1
         build_time:
           days: 1
           hours: 2
@@ -43,12 +37,9 @@ buildings:
           supplies: 1000
           components: 1250
           fuel: 1500
-          rares: 0
           electronics: 750
           cash: 4750
-          manpower: 0
-
-      3:
+      "3":
         hit_points: 20
         production_bonus_pct: 0.15
         build_time:
@@ -58,14 +49,11 @@ buildings:
           supplies: 1250
           components: 1500
           fuel: 2000
-          rares: 0
           electronics: 1000
           cash: 6750
-          manpower: 0
-
-      4:
+      "4":
         hit_points: 25
-        production_bonus_pct: 0.20
+        production_bonus_pct: 0.2
         build_time:
           days: 1
           hours: 6
@@ -76,9 +64,7 @@ buildings:
           rares: 500
           electronics: 1250
           cash: 8750
-          manpower: 0
-
-      5:
+      "5":
         hit_points: 30
         production_bonus_pct: 0.25
         build_time:
@@ -91,13 +77,11 @@ buildings:
           rares: 750
           electronics: 1500
           cash: 11000
-          manpower: 0
-
   army_base:
-    name: "Army Base"
+    name: Army Base
     category: Buildings
     levels:
-      1:
+      "1":
         daily_upkeep:
           cash: 100
         build_time:
@@ -107,12 +91,9 @@ buildings:
           supplies: 250
           components: 250
           fuel: 500
-          rares: 0
           electronics: 250
           cash: 2000
-          manpower: 0
-
-      2:
+      "2":
         daily_upkeep:
           cash: 110
         build_time:
@@ -122,12 +103,9 @@ buildings:
           supplies: 750
           components: 500
           fuel: 1000
-          rares: 0
           electronics: 375
           cash: 3500
-          manpower: 0
-
-      3:
+      "3":
         daily_upkeep:
           cash: 120
         build_time:
@@ -137,12 +115,9 @@ buildings:
           supplies: 1250
           components: 750
           fuel: 1500
-          rares: 0
           electronics: 500
           cash: 5500
-          manpower: 0
-
-      4:
+      "4":
         daily_upkeep:
           cash: 130
         build_time:
@@ -152,12 +127,9 @@ buildings:
           supplies: 2000
           components: 1000
           fuel: 2000
-          rares: 0
           electronics: 750
           cash: 7500
-          manpower: 0
-
-      5:
+      "5":
         daily_upkeep:
           cash: 140
         build_time:
@@ -170,15 +142,13 @@ buildings:
           rares: 2500
           electronics: 1000
           cash: 9500
-          manpower: 0
-
   arms_industry:
-    name: "Arms Industry"
+    name: Arms Industry
     category: Buildings
     levels:
-      1:
+      "1":
         hit_points: 10
-        production_bonus_pct: 0.10
+        production_bonus_pct: 0.1
         flat_bonus:
           cash: 100
         build_time:
@@ -190,11 +160,9 @@ buildings:
           fuel: 350
           electronics: 250
           cash: 1250
-          manpower: 0
-
-      2:
+      "2":
         hit_points: 15
-        production_bonus_pct: 0.20
+        production_bonus_pct: 0.2
         flat_bonus:
           cash: 135
         build_time:
@@ -206,11 +174,9 @@ buildings:
           fuel: 350
           electronics: 250
           cash: 2000
-          manpower: 0
-
-      3:
+      "3":
         hit_points: 20
-        production_bonus_pct: 0.30
+        production_bonus_pct: 0.3
         flat_bonus:
           cash: 165
         build_time:
@@ -223,11 +189,9 @@ buildings:
           fuel: 325
           electronics: 225
           cash: 3000
-          manpower: 0
-
-      4:
+      "4":
         hit_points: 25
-        production_bonus_pct: 0.40
+        production_bonus_pct: 0.4
         flat_bonus:
           cash: 185
         build_time:
@@ -240,11 +204,9 @@ buildings:
           fuel: 300
           electronics: 200
           cash: 4000
-          manpower: 0
-
-      5:
+      "5":
         hit_points: 30
-        production_bonus_pct: 0.50
+        production_bonus_pct: 0.5
         flat_bonus:
           cash: 200
         build_time:
@@ -257,13 +219,11 @@ buildings:
           fuel: 275
           electronics: 175
           cash: 5000
-          manpower: 0
-
   annex_city:
-    name: "Annex City"
+    name: Annex City
     category: Buildings
     levels:
-      1:
+      "1":
         build_time:
           hours: 18
         city_status_pct: 0.25
@@ -274,18 +234,16 @@ buildings:
           rares: 1500
           electronics: 1750
           cash: 10000
-          manpower: 0
-
   combat_outpost:
-    name: "Combat Outpost"
+    name: Combat Outpost
     category: Buildings
     is_secret: true
     levels:
-      1:
+      "1":
         hit_points: 15
-        mobilisation_speed_bonus_pct: 1.00
+        mobilisation_speed_bonus_pct: 1
         garrison_damage_reduction_pct: 0.33
-        morale_bonus_pct: 0.10
+        morale_bonus_pct: 0.1
         daily_upkeep:
           cash: 33
         build_time:
@@ -293,64 +251,43 @@ buildings:
         cost:
           supplies: 500
           components: 750
-          fuel: 0
-          rares: 0
-          electronics: 0
           cash: 2000
-          manpower: 0
-
   local_industry:
-    name: "Local Industry"
+    name: Local Industry
     category: Buildings
     levels:
-      1:
+      "1":
         hit_points: 10
-        production_bonus_pct: 0.50
+        production_bonus_pct: 0.5
         build_time:
-          hours: 9
+          hours: 12
         cost:
-          supplies: 750
-          components: 750
-          rares: 0
-          fuel: 0
-          electronics: 0
+          supplies: 400
+          components: 400
           cash: 1500
-          manpower: 0
-            
-      2:
+      "2":
         hit_points: 15
-        production_bonus_pct: 0.75
+        production_bonus_pct: 1
         build_time:
-          hours: 18
+          hours: 21
         cost:
-          supplies: 900
-          components: 900
-          rares: 0
-          fuel: 0
-          electronics: 0
+          supplies: 450
+          components: 450
           cash: 2000
-          manpower: 0
-
-      3:
+      "3":
         hit_points: 20
-        production_bonus_pct: 1.00
+        production_bonus_pct: 2
         build_time:
-          days: 1
-          hours: 3
+          hours: 30
         cost:
-          supplies: 1000
-          components: 1000
-          rares: 0
-          fuel: 0
-          electronics: 0
+          supplies: 500
+          components: 500
           cash: 2500
-          manpower: 0
-
   military_hospital:
-    name: "Military Hospital"
+    name: Military Hospital
     category: Buildings
     levels:
-      1:
+      "1":
         population_bonus_pct: 0.25
         daily_upkeep:
           cash: 100
@@ -361,29 +298,18 @@ buildings:
           supplies: 500
           components: 500
           fuel: 250
-          rares: 0
           electronics: 250
           cash: 1350
-          manpower: 0
-
   naval_base:
-    name: "Naval Base"
+    name: Naval Base
     category: Buildings
     levels:
-      1:
+      "1":
         hit_points: 5
         build_time:
           hours: 0
-        cost:
-          supplies: 0
-          components: 0
-          fuel: 0
-          rares: 0
-          electronics: 0
-          cash: 0
-          manpower: 0
-      
-      2:
+        cost: {}
+      "2":
         hit_points: 10
         production_bonus_pct: 0.05
         build_time:
@@ -392,14 +318,11 @@ buildings:
           supplies: 500
           components: 750
           fuel: 750
-          rares: 0
           electronics: 500
           cash: 2000
-          manpower: 0
-
-      3:
+      "3":
         hit_points: 15
-        production_bonus_pct: 0.10
+        production_bonus_pct: 0.1
         build_time:
           days: 1
           hours: 6
@@ -407,12 +330,9 @@ buildings:
           supplies: 750
           components: 1000
           fuel: 1250
-          rares: 0
           electronics: 750
           cash: 3000
-          manpower: 0
-
-      4:
+      "4":
         hit_points: 20
         production_bonus_pct: 0.15
         build_time:
@@ -422,14 +342,11 @@ buildings:
           supplies: 1000
           components: 1500
           fuel: 1750
-          rares: 0
           electronics: 1000
           cash: 5500
-          manpower: 0
-
-      5:
+      "5":
         hit_points: 25
-        production_bonus_pct: 0.20
+        production_bonus_pct: 0.2
         build_time:
           days: 1
           hours: 10
@@ -440,32 +357,27 @@ buildings:
           fuel: 2250
           electronics: 1250
           cash: 7500
-          manpower: 0
-
   recruiting_office:
-    name: "Recruiting Office"
+    name: Recruiting Office
     category: Buildings
     levels:
-      1:
+      "1":
         hit_points: 10
-        mobilisation_speed_bonus_pct: 0.10
-        manpower_bonus_pct: 0.50
+        mobilisation_speed_bonus_pct: 0.1
+        manpower_bonus_pct: 0.5
         flat_bonus:
           manpower: 50
         daily_upkeep:
           cash: 100
         build_time:
-          minutes: 30 
+          minutes: 30
         cost:
           supplies: 250
           components: 250
           fuel: 250
-          rares: 0
           electronics: 250
           cash: 1350
-          manpower: 0
-
-      2:
+      "2":
         hit_points: 15
         mobilisation_speed_bonus_pct: 0.25
         manpower_bonus_pct: 0.75
@@ -480,15 +392,12 @@ buildings:
           supplies: 750
           components: 500
           fuel: 500
-          rares: 0
           electronics: 500
           cash: 2000
-          manpower: 0
-
-      3:
+      "3":
         hit_points: 20
         mobilisation_speed_bonus_pct: 0.45
-        manpower_bonus_pct: 1.00
+        manpower_bonus_pct: 1
         flat_bonus:
           manpower: 100
         daily_upkeep:
@@ -500,15 +409,12 @@ buildings:
           supplies: 1500
           components: 750
           fuel: 750
-          rares: 0
           electronics: 750
           cash: 3375
-          manpower: 0
-
-      4:
+      "4":
         hit_points: 25
-        mobilisation_speed_bonus_pct: 0.70
-        manpower_bonus_pct: 1.50
+        mobilisation_speed_bonus_pct: 0.7
+        manpower_bonus_pct: 1.5
         flat_bonus:
           manpower: 150
         daily_upkeep:
@@ -520,38 +426,32 @@ buildings:
           supplies: 2000
           components: 1000
           fuel: 1000
-          rares: 0
           electronics: 1000
           cash: 5000
-          manpower: 0
-
-      5:
+      "5":
         hit_points: 30
-        mobilisation_speed_bonus_pct: 1.00
-        manpower_bonus_pct: 2.50
+        mobilisation_speed_bonus_pct: 1
+        manpower_bonus_pct: 2.5
         flat_bonus:
           manpower: 200
         daily_upkeep:
           cash: 140
         build_time:
           days: 1
-          hours: 8 
+          hours: 8
         cost:
           supplies: 2500
           components: 1500
           fuel: 1250
-          rares: 0
           electronics: 1250
           cash: 6570
-          manpower: 0
-
   mercenary_outpost:
-    name: "Mercenary Outpost"
+    name: Mercenary Outpost
     category: Buildings
     levels:
-      1:
+      "1":
         hit_points: 10
-        mobilisation_speed_bonus_pct: 1.00
+        mobilisation_speed_bonus_pct: 1
         daily_upkeep:
           cash: 165
         build_time:
@@ -560,13 +460,11 @@ buildings:
           supplies: 500
           components: 500
           fuel: 1000
-          rares: 0
           electronics: 250
           cash: 5000
-          manpower: 0
-      2:
+      "2":
         hit_points: 15
-        mobilisation_speed_bonus_pct: 1.00
+        mobilisation_speed_bonus_pct: 1
         daily_upkeep:
           cash: 330
         build_time:
@@ -575,13 +473,11 @@ buildings:
           supplies: 1500
           components: 1500
           fuel: 750
-          rares: 0
           electronics: 500
           cash: 7500
-          manpower: 0
-      3:
+      "3":
         hit_points: 20
-        mobilisation_speed_bonus_pct: 1.00
+        mobilisation_speed_bonus_pct: 1
         daily_upkeep:
           cash: 495
         build_time:
@@ -594,31 +490,23 @@ buildings:
           rares: 1000
           electronics: 750
           cash: 10000
-          manpower: 0
-
   relocate_headquarters:
-    name: "Relocate Headquarters"
+    name: Relocate Headquarters
     category: Buildings
     levels:
-      1:
+      "1":
         build_time:
           days: 1
           hours: 12
         morale_bonus_pct: 0.25
         cost:
-          supplies: 0
-          components: 0
-          fuel: 0
-          rares: 0
-          electronics: 0
           cash: 15000
           manpower: 2500
-
   secret_weapons_lab:
-    name: "Secret Weapons Lab"
+    name: Secret Weapons Lab
     category: Buildings
     levels:
-      1:
+      "1":
         daily_upkeep:
           cash: 100
         build_time:
@@ -631,14 +519,12 @@ buildings:
           fuel: 250
           electronics: 750
           cash: 3500
-          manpower: 0
-
   underground_bunkers:
-    name: "Underground Bunkers"
+    name: Underground Bunkers
     category: Buildings
     is_secret: true
     levels:
-      1:
+      "1":
         hit_points: 20
         garrison_damage_reduction_pct: 0.33
         morale_bonus_pct: 0.05
@@ -651,15 +537,11 @@ buildings:
           supplies: 500
           components: 750
           fuel: 750
-          rares: 0
-          electronics: 0
           cash: 2000
-          manpower: 0
-
-      2:
+      "2":
         hit_points: 40
         garrison_damage_reduction_pct: 0.43
-        morale_bonus_pct: 0.10
+        morale_bonus_pct: 0.1
         population_protection_level: 4
         daily_upkeep:
           cash: 110
@@ -669,15 +551,11 @@ buildings:
           supplies: 1000
           components: 1000
           fuel: 1250
-          rares: 0
-          electronics: 0
           cash: 3500
-          manpower: 0
-
-      3:
+      "3":
         hit_points: 75
         garrison_damage_reduction_pct: 0.56
-        morale_bonus_pct: 0.20
+        morale_bonus_pct: 0.2
         population_protection_level: 6
         daily_upkeep:
           cash: 120
@@ -687,12 +565,8 @@ buildings:
           supplies: 1500
           components: 1250
           fuel: 1500
-          rares: 0
-          electronics: 0
           cash: 5000
-          manpower: 0
-
-      4:
+      "4":
         hit_points: 100
         garrison_damage_reduction_pct: 0.68
         morale_bonus_pct: 0.35
@@ -704,15 +578,11 @@ buildings:
           supplies: 2000
           components: 1500
           fuel: 1750
-          rares: 0
-          electronics: 0
           cash: 6500
-          manpower: 0
-
-      5:
+      "5":
         hit_points: 125
         garrison_damage_reduction_pct: 0.73
-        morale_bonus_pct: 0.50
+        morale_bonus_pct: 0.5
         daily_upkeep:
           cash: 140
         build_time:
@@ -721,7 +591,4 @@ buildings:
           supplies: 2500
           components: 1750
           fuel: 2000
-          rares: 0
-          electronics: 0
           cash: 8000
-          manpower: 0

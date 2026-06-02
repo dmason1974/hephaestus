@@ -1,6 +1,5 @@
 schema_version: 1
 domain: units
-
 resources:
   - supplies
   - components
@@ -9,15 +8,13 @@ resources:
   - electronics
   - cash
   - manpower
-
 units:
-  
   air_superiority_fighter:
     name: Air Superiority Fighter
     category: Air
     doctrine: Western
-    levels: 
-      1:
+    levels:
+      "1":
         requirements:
           - air_base level 1
           - arms_industry level 1
@@ -29,76 +26,54 @@ units:
             minutes: 30
           cost:
             supplies: 1800
-            components: 0
-            fuel: 0
             rares: 1900
-            electronics: 0
             cash: 4000
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 0
           cost:
-            supplies: 0
             components: 900
-            fuel: 0
-            rares: 0
             electronics: 850
             cash: 3150
             manpower: 375
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 35
-            rares: 0
             electronics: 35
             cash: 100
             manpower: 35
-
-      2:
+      "2":
         requirements:
           - air_base level 1
           - arms_industry level 1
           - air_superiority_fighter level 1
         research:
-          unlock_day: 3        
+          unlock_day: 3
           time:
             days: 0
             hours: 18
             minutes: 45
           cost:
             supplies: 1980
-            components: 0
-            fuel: 0
             rares: 2090
-            electronics: 0
             cash: 4400
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 0
           cost:
-            supplies: 0
             components: 900
-            fuel: 0
-            rares: 0
             electronics: 850
             cash: 3150
             manpower: 375
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 40
-            rares: 0
             electronics: 40
             cash: 105
             manpower: 40
-
-      3:
+      "3":
         requirements:
           - air_base level 1
           - arms_industry level 1
@@ -111,35 +86,24 @@ units:
             minutes: 30
           cost:
             supplies: 2160
-            components: 0
-            fuel: 0
             rares: 2280
-            electronics: 0
             cash: 4800
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 1
           cost:
-            supplies: 0
             components: 900
-            fuel: 0
-            rares: 0
             electronics: 850
             cash: 3150
             manpower: 375
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 45
-            rares: 0
             electronics: 45
             cash: 110
             manpower: 45
-
-      4:
+      "4":
         requirements:
           - air_base level 1
           - arms_industry level 1
@@ -152,35 +116,24 @@ units:
             minutes: 15
           cost:
             supplies: 2340
-            components: 0
-            fuel: 0
             rares: 2470
-            electronics: 0
             cash: 5200
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 3
           cost:
-            supplies: 0
             components: 1050
-            fuel: 0
-            rares: 0
             electronics: 1000
             cash: 3600
             manpower: 550
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 55
-            rares: 0
             electronics: 50
             cash: 150
             manpower: 50
-
-      5:
+      "5":
         requirements:
           - air_base level 1
           - arms_industry level 1
@@ -193,35 +146,24 @@ units:
             minutes: 30
           cost:
             supplies: 2520
-            components: 0
-            fuel: 0
             rares: 2660
-            electronics: 0
             cash: 5600
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 4
           cost:
-            supplies: 0
             components: 1050
-            fuel: 0
-            rares: 0
             electronics: 1000
             cash: 3600
             manpower: 550
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 60
-            rares: 0
             electronics: 55
             cash: 160
             manpower: 55
-
-      6:
+      "6":
         requirements:
           - air_base level 1
           - arms_industry level 1
@@ -234,35 +176,24 @@ units:
             minutes: 15
           cost:
             supplies: 2700
-            components: 0
-            fuel: 0
             rares: 2850
-            electronics: 0
             cash: 6000
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 6
           cost:
-            supplies: 0
             components: 1250
-            fuel: 0
-            rares: 0
             electronics: 1125
             cash: 4500
             manpower: 725
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 70
-            rares: 0
             electronics: 60
             cash: 175
             manpower: 65
-
-      7:
+      "7":
         requirements:
           - air_base level 1
           - arms_industry level 1
@@ -275,40 +206,29 @@ units:
             minutes: 30
           cost:
             supplies: 2700
-            components: 0
-            fuel: 0
             rares: 2850
-            electronics: 0
             cash: 6000
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 4
           cost:
-            supplies: 0
             components: 1250
-            fuel: 0
-            rares: 0
             electronics: 1125
             cash: 4500
             manpower: 725
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 80
-            rares: 0
             electronics: 65
             cash: 190
             manpower: 70
-  
   fixed_wing_veteran:
     name: Fixed Wing Veteran
     category: Air
     doctrine: Western
-    levels: 
-      1:
+    levels:
+      "1":
         requirements:
           - air_base level 1
           - recruiting_office level 1
@@ -320,77 +240,55 @@ units:
             minutes: 0
           cost:
             supplies: 400
-            components: 0
-            fuel: 0
             rares: 350
-            electronics: 0
             cash: 1000
-            manpower: 0
         mobilisation:
           unit_limit: 1
           time:
             days: 1
             hours: 0
           cost:
-            supplies: 0
             components: 2000
-            fuel: 0
-            rares: 0
             electronics: 1400
             cash: 3500
             manpower: 950
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 70
-            rares: 0
             electronics: 60
             cash: 180
             manpower: 70
-
-      2:
+      "2":
         requirements:
           - air_base level 1
           - recruiting_office level 1
           - fixed_wing_veteran level 1
         research:
-          unlock_day: 5        
+          unlock_day: 5
           time:
             days: 0
             hours: 6
             minutes: 45
           cost:
             supplies: 500
-            components: 0
-            fuel: 0
             rares: 450
-            electronics: 0
             cash: 1250
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 2
           cost:
-            supplies: 0
             components: 2500
-            fuel: 0
-            rares: 0
             electronics: 1700
             cash: 4500
             manpower: 1100
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 80
-            rares: 0
             electronics: 70
             cash: 200
             manpower: 80
-
-      3:
+      "3":
         requirements:
           - air_base level 1
           - recruiting_office level 1
@@ -403,35 +301,24 @@ units:
             minutes: 30
           cost:
             supplies: 600
-            components: 0
-            fuel: 0
             rares: 550
-            electronics: 0
             cash: 1500
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 4
           cost:
-            supplies: 0
             components: 3000
-            fuel: 0
-            rares: 0
             electronics: 2000
             cash: 6000
             manpower: 1250
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 85
-            rares: 0
             electronics: 80
             cash: 220
             manpower: 90
-
-      4:
+      "4":
         requirements:
           - air_base level 3
           - recruiting_office level 2
@@ -444,35 +331,24 @@ units:
             minutes: 0
           cost:
             supplies: 750
-            components: 0
-            fuel: 0
             rares: 700
-            electronics: 0
             cash: 2000
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 8
           cost:
-            supplies: 0
             components: 3500
-            fuel: 0
-            rares: 0
             electronics: 2300
             cash: 7500
             manpower: 1400
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 95
-            rares: 0
             electronics: 90
             cash: 240
             manpower: 110
-
-      5:
+      "5":
         requirements:
           - air_base level 3
           - recruiting_office level 2
@@ -485,35 +361,24 @@ units:
             minutes: 45
           cost:
             supplies: 850
-            components: 0
-            fuel: 0
             rares: 800
-            electronics: 0
             cash: 2250
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 10
           cost:
-            supplies: 0
             components: 4000
-            fuel: 0
-            rares: 0
             electronics: 2600
             cash: 9500
             manpower: 1550
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 105
-            rares: 0
             electronics: 100
             cash: 260
             manpower: 120
-
-      6:
+      "6":
         requirements:
           - air_base level 3
           - recruiting_office level 2
@@ -526,35 +391,24 @@ units:
             minutes: 30
           cost:
             supplies: 950
-            components: 0
-            fuel: 0
             rares: 900
-            electronics: 0
             cash: 2500
-            manpower: 0
         mobilisation:
           time:
             days: 1
             hours: 13
           cost:
-            supplies: 0
             components: 4500
-            fuel: 0
-            rares: 0
             electronics: 2900
             cash: 11500
             manpower: 1700
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 110
-            rares: 0
             electronics: 110
             cash: 280
             manpower: 140
-
-      7:
+      "7":
         requirements:
           - air_base level 5
           - recruiting_office level 3
@@ -564,35 +418,23 @@ units:
           time:
             days: 0
             hours: 12
-            minutes: 00
+            minutes: 0
           cost:
             supplies: 1200
-            components: 0
-            fuel: 0
             rares: 1050
-            electronics: 0
             cash: 3000
-            manpower: 0
         mobilisation:
           time:
             days: 2
             hours: 12
           cost:
-            supplies: 0
             components: 5000
-            fuel: 0
-            rares: 0
             electronics: 3200
             cash: 15000
             manpower: 1850
         daily_upkeep:
           cost:
-            supplies: 0
-            components: 0
             fuel: 120
-            rares: 0
             electronics: 120
             cash: 300
             manpower: 150
-  
-

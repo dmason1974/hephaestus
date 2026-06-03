@@ -24,15 +24,16 @@ units:
         research:
           european:
             time:
-              hours: 22
-              minutes: 30
+              minutes: 22
+              seconds: 30
             cost:
               supplies: 1800
               rares: 1900
               cash: 4000
           western:
             time:
-              minutes: 30
+              minutes: 22
+              seconds: 30
             cost:
               supplies: 1800
               rares: 1900
@@ -74,6 +75,14 @@ units:
           - air_superiority_fighter level 1
         unlock_day: 3
         research:
+          european:
+            time:
+              hours: 18
+              minutes: 45
+            cost:
+              supplies: 1980
+              rares: 2090
+              cash: 4400
           western:
             time:
               hours: 18
@@ -83,6 +92,14 @@ units:
               rares: 2090
               cash: 4400
         mobilisation:
+          european:
+            time:
+              days: 1
+            cost:
+              components: 1000
+              manpower: 425
+              electronics: 950
+              cash: 3500
           western:
             time:
               days: 1
@@ -92,6 +109,12 @@ units:
               cash: 3150
               manpower: 375
         daily_upkeep:
+          european:
+            cost:
+              manpower: 40
+              fuel: 40
+              electronics: 40
+              cash: 105
           western:
             cost:
               fuel: 40

@@ -16,7 +16,7 @@ test("naval_units.yml validates against the unit catalog schema", () => {
 
   assert.equal(parsed.domain, "units");
   assert.ok(parsed.units.frigate);
-  assert.equal(parsed.units.naval_veteran.doctrine, "western");
+  assert.deepEqual(parsed.units.naval_veteran.doctrine, ["western"]);
 });
 
 test("seasonal_units.yml validates against the unit catalog schema", () => {
@@ -27,7 +27,7 @@ test("seasonal_units.yml validates against the unit catalog schema", () => {
 
   assert.equal(parsed.domain, "units");
   assert.ok(parsed.units.elite_frigate);
-  assert.equal(parsed.units.elite_drone_mothership.doctrine, "western");
+  assert.deepEqual(parsed.units.elite_drone_mothership.doctrine, ["western"]);
   assert.equal(parsed.units.elite_frigate.levels["1"]?.mobilisation.unit_limit, 5);
 });
 
@@ -41,45 +41,27 @@ test("unit catalog schema accepts mobilisation unit_limit", () => {
       elite_frigate: {
         name: "Elite Frigate",
         category: "Naval",
-        doctrine: "western",
+        doctrine: ["western"],
         levels: {
           1: {
             requirements: ["frigate level 1"],
+            unlock_day: 3,
             research: {
-              unlock_day: 3,
-              time: { hours: 21 },
-              cost: {
-                supplies: 1,
-                components: 1,
-                fuel: 1,
-                rares: 1,
-                electronics: 1,
-                cash: 1,
-                manpower: 0,
+              western: {
+                time: { hours: 21 },
+                cost: { supplies: 1, components: 1, fuel: 1, rares: 1, electronics: 1, cash: 1 },
               },
             },
             mobilisation: {
-              time: { hours: 24 },
-              cost: {
-                supplies: 1,
-                components: 1,
-                fuel: 1,
-                rares: 1,
-                electronics: 1,
-                cash: 1,
-                manpower: 1,
+              western: {
+                time: { hours: 24 },
+                cost: { supplies: 1, components: 1, fuel: 1, rares: 1, electronics: 1, cash: 1, manpower: 1 },
+                unit_limit: 5,
               },
-              unit_limit: 5,
             },
             daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 0,
-                manpower: 0,
+              western: {
+                cost: {},
               },
             },
           },
@@ -101,44 +83,26 @@ test("unit catalog schema rejects malformed resource cost values", () => {
       frigate: {
         name: "Frigate",
         category: "Naval",
-        doctrine: "western",
+        doctrine: ["western"],
         levels: {
           1: {
             requirements: ["naval_base level 2"],
+            unlock_day: 2,
             research: {
-              unlock_day: 2,
-              time: { hours: 1 },
-              cost: {
-                supplies: 1,
-                components: 1,
-                fuel: 1,
-                rares: 1,
-                electronics: 1,
-                cash: 1,
-                manpower: 0,
+              western: {
+                time: { hours: 1 },
+                cost: { supplies: 1, components: 1, fuel: 1, rares: 1, electronics: 1, cash: 1 },
               },
             },
             mobilisation: {
-              time: { hours: 1 },
-              cost: {
-                supplies: 1,
-                components: 1,
-                fuel: 1,
-                rares: 1,
-                electronics: 1,
-                cash: 1,
-                manpower: 1,
+              western: {
+                time: { hours: 1 },
+                cost: { supplies: 1, components: 1, fuel: 1, rares: 1, electronics: 1, cash: 1, manpower: 1 },
               },
             },
             daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 0,
-                manpower: { invalid: true },
+              western: {
+                cost: { manpower: { invalid: true } },
               },
             },
           },

@@ -35,15 +35,14 @@ const timeSchema = z
     "time must include at least one of days, hours, minutes, or seconds"
   );
 
-const researchSchema = z
+const doctrineResearchSchema = z
   .object({
-    unlock_day: nonNegativeIntSchema,
     time: timeSchema,
     cost: completeResourceRecordSchema,
   })
   .strict();
 
-const mobilisationSchema = z
+const doctrineMobilisationSchema = z
   .object({
     time: timeSchema,
     cost: completeResourceRecordSchema,
@@ -51,28 +50,40 @@ const mobilisationSchema = z
   })
   .strict();
 
-const upkeepSchema = z
+const doctrineUpkeepSchema = z
   .object({
     cost: completeResourceRecordSchema,
   })
   .strict();
 
-const unitLevelSchema = z
-  .object({
-    requirements: z.array(z.string().min(1)),
-    research: researchSchema,
-    mobilisation: mobilisationSchema,
-    daily_upkeep: upkeepSchema,
-  })
-  .strict();
-
-const levelsSchema = z
-  .record(z.string().regex(/^[1-9]\d*$/, "Expected positive integer level key"), unitLevelSchema)
-  .refine(levels => Object.keys(levels).length > 0, "levels must include at least one entry");
-
 export function buildUnitCatalogSchema(enums: Enumerations) {
   const ResourceEnum = z.enum(enums.resources as [string, ...string[]]);
   const DoctrineEnum = z.enum(enums.doctrines as [string, ...string[]]);
+  const validDoctrines = enums.doctrines as string[];
+
+  const doctrineKeySchema = z
+    .string()
+    .refine(k => validDoctrines.includes(k), `doctrine key must be one of: ${validDoctrines.join(", ")}`);
+
+  const unitLevelSchema = z
+    .object({
+      requirements: z.array(z.string().min(1)),
+      unlock_day: nonNegativeIntSchema,
+      research: z
+        .record(doctrineKeySchema, doctrineResearchSchema)
+        .refine(r => Object.keys(r).length > 0, "research must include at least one doctrine"),
+      mobilisation: z
+        .record(doctrineKeySchema, doctrineMobilisationSchema)
+        .refine(r => Object.keys(r).length > 0, "mobilisation must include at least one doctrine"),
+      daily_upkeep: z
+        .record(doctrineKeySchema, doctrineUpkeepSchema)
+        .refine(r => Object.keys(r).length > 0, "daily_upkeep must include at least one doctrine"),
+    })
+    .strict();
+
+  const levelsSchema = z
+    .record(z.string().regex(/^[1-9]\d*$/, "Expected positive integer level key"), unitLevelSchema)
+    .refine(levels => Object.keys(levels).length > 0, "levels must include at least one entry");
 
   return z
     .object({
@@ -85,7 +96,7 @@ export function buildUnitCatalogSchema(enums: Enumerations) {
           .object({
             name: z.string().min(1),
             category: z.string().min(1),
-            doctrine: DoctrineEnum,
+            doctrine: z.array(DoctrineEnum).min(1).max(3),
             levels: levelsSchema,
           })
           .strict()
@@ -96,27 +107,111 @@ export function buildUnitCatalogSchema(enums: Enumerations) {
 
 export type UnitCatalog = z.infer<ReturnType<typeof buildUnitCatalogSchema>>;
 
-function normalizeUnitCatalogInput(input: unknown): unknown {
-  if (!input || typeof input !== "object") {
-    return input;
+function normalizeLevelDoctrineBlock(
+  block: Record<string, unknown>,
+  doctrines: string[]
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(block).map(([k, v]) => [k.trim().toLowerCase(), v])
+  );
+  // If no doctrine keys exist yet the caller handles migration via doctrines param
+  void doctrines;
+}
+
+function normalizeLevel(
+  level: Record<string, unknown>,
+  doctrines: string[]
+): Record<string, unknown> {
+  const out = { ...level };
+
+  // research: old flat format has unlock_day + time + cost at the research root
+  if (out.research && typeof out.research === "object") {
+    const r = out.research as Record<string, unknown>;
+    if ("time" in r || "cost" in r || "unlock_day" in r) {
+      const { unlock_day, time, cost } = r as {
+        unlock_day?: number;
+        time?: unknown;
+        cost?: unknown;
+      };
+      if (unlock_day !== undefined && out.unlock_day === undefined) {
+        out.unlock_day = unlock_day;
+      }
+      const entry: Record<string, unknown> = {};
+      if (time !== undefined) entry.time = time;
+      if (cost !== undefined) entry.cost = cost;
+      out.research = Object.fromEntries(doctrines.map(d => [d, entry]));
+    } else {
+      out.research = normalizeLevelDoctrineBlock(r, doctrines);
+    }
   }
 
+  // mobilisation: old flat format has time + cost (+ unit_limit) at root
+  if (out.mobilisation && typeof out.mobilisation === "object") {
+    const m = out.mobilisation as Record<string, unknown>;
+    if ("time" in m || "cost" in m) {
+      const { time, cost, unit_limit } = m as {
+        time?: unknown;
+        cost?: unknown;
+        unit_limit?: number;
+      };
+      const entry: Record<string, unknown> = {};
+      if (time !== undefined) entry.time = time;
+      if (cost !== undefined) entry.cost = cost;
+      if (unit_limit !== undefined) entry.unit_limit = unit_limit;
+      out.mobilisation = Object.fromEntries(doctrines.map(d => [d, entry]));
+    } else {
+      out.mobilisation = normalizeLevelDoctrineBlock(m, doctrines);
+    }
+  }
+
+  // daily_upkeep: old flat format has cost at root
+  if (out.daily_upkeep && typeof out.daily_upkeep === "object") {
+    const u = out.daily_upkeep as Record<string, unknown>;
+    if ("cost" in u) {
+      const entry: Record<string, unknown> = { cost: u.cost };
+      out.daily_upkeep = Object.fromEntries(doctrines.map(d => [d, entry]));
+    } else {
+      out.daily_upkeep = normalizeLevelDoctrineBlock(u, doctrines);
+    }
+  }
+
+  return out;
+}
+
+function normalizeUnitCatalogInput(input: unknown): unknown {
+  if (!input || typeof input !== "object") return input;
+
   const parsed = { ...(input as Record<string, unknown>) };
-  const doctrines = parsed.units;
 
-  if (doctrines && typeof doctrines === "object") {
+  if (parsed.units && typeof parsed.units === "object") {
     parsed.units = Object.fromEntries(
-      Object.entries(doctrines as Record<string, unknown>).map(([unitId, unitValue]) => {
-        if (!unitValue || typeof unitValue !== "object") {
-          return [unitId, unitValue];
+      Object.entries(parsed.units as Record<string, unknown>).map(([unitId, unitValue]) => {
+        if (!unitValue || typeof unitValue !== "object") return [unitId, unitValue];
+
+        const unit = { ...(unitValue as Record<string, unknown>) };
+
+        // Normalise doctrine to lowercase array
+        if (typeof unit.doctrine === "string") {
+          unit.doctrine = [unit.doctrine.trim().toLowerCase()];
+        } else if (Array.isArray(unit.doctrine)) {
+          unit.doctrine = unit.doctrine.map((d: unknown) =>
+            typeof d === "string" ? d.trim().toLowerCase() : d
+          );
         }
 
-        const normalizedUnit = { ...(unitValue as Record<string, unknown>) };
-        if (typeof normalizedUnit.doctrine === "string") {
-          normalizedUnit.doctrine = normalizedUnit.doctrine.trim().toLowerCase();
+        const doctrines = (unit.doctrine as string[]) ?? [];
+
+        // Normalise each level
+        if (unit.levels && typeof unit.levels === "object") {
+          unit.levels = Object.fromEntries(
+            Object.entries(unit.levels as Record<string, unknown>).map(([lvlKey, lvlVal]) => {
+              if (!lvlVal || typeof lvlVal !== "object") return [lvlKey, lvlVal];
+              return [lvlKey, normalizeLevel(lvlVal as Record<string, unknown>, doctrines)];
+            })
+          );
         }
 
-        return [unitId, normalizedUnit];
+        return [unitId, unit];
       })
     );
   }

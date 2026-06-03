@@ -24,7 +24,7 @@ const RESOURCE_KEYS: Resource[] = [
   "manpower",
 ];
 
-const scenarioId = "elite_ww3_2026";
+const scenarioId = "elite/ww3";
 const scenario = loadScenarioFile(scenarioId);
 const buildings = loadBuildingsFile(path.resolve("data/buildings.yml"));
 const greece = loadScenarioCountry(scenarioId, "greece");

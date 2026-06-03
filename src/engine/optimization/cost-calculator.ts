@@ -25,18 +25,25 @@ export function calculateMobilizationCost(
   unitId: string,
   level: number,
   count: number,
-  unitCatalog: UnitCatalog
+  unitCatalog: UnitCatalog,
+  doctrine: string
 ): ResourceCost {
   const levelData = getUnitLevelData(unitId, level, unitCatalog);
-  return scaleResourceCost(levelData.mobilisation.cost, count);
+  const mobData = levelData.mobilisation[doctrine];
+  if (!mobData) throw new Error(`no mobilisation data for doctrine "${doctrine}" on unit ${unitId} level ${level}`);
+  return scaleResourceCost(mobData.cost, count);
 }
 
 export function calculateDailyUpkeep(
   unitId: string,
   level: number,
-  unitCatalog: UnitCatalog
+  unitCatalog: UnitCatalog,
+  doctrine: string
 ): ResourceCost {
-  return { ...getUnitLevelData(unitId, level, unitCatalog).daily_upkeep.cost };
+  const levelData = getUnitLevelData(unitId, level, unitCatalog);
+  const upkeepData = levelData.daily_upkeep[doctrine];
+  if (!upkeepData) throw new Error(`no daily_upkeep data for doctrine "${doctrine}" on unit ${unitId} level ${level}`);
+  return { ...upkeepData.cost };
 }
 
 export function calculateUpkeepCost(
@@ -44,9 +51,10 @@ export function calculateUpkeepCost(
   level: number,
   count: number,
   durationHours: number,
-  unitCatalog: UnitCatalog
+  unitCatalog: UnitCatalog,
+  doctrine: string
 ): ResourceCost {
-  return scaleResourceCost(calculateDailyUpkeep(unitId, level, unitCatalog), count * (durationHours / 24));
+  return scaleResourceCost(calculateDailyUpkeep(unitId, level, unitCatalog, doctrine), count * (durationHours / 24));
 }
 
 export function calculateBuildingCost(
@@ -117,10 +125,13 @@ export function calculateMobilizationDuration(
   roLevel: number,
   unitCatalog: UnitCatalog,
   buildings: BuildingsFile,
+  doctrine: string,
   moralePct = 90
 ): number {
   const levelData = getUnitLevelData(unitId, level, unitCatalog);
-  const baseDurationHours = durationToHours(levelData.mobilisation.time);
+  const mobData = levelData.mobilisation[doctrine];
+  if (!mobData) throw new Error(`no mobilisation data for doctrine "${doctrine}" on unit ${unitId} level ${level}`);
+  const baseDurationHours = durationToHours(mobData.time);
   const moraleAdjustedHours = effectiveDurationFromMorale(baseDurationHours, moralePct);
   const bonusPct = getRecruitingOfficeSpeedBonusPct(buildings, roLevel);
   const adjustedDurationHours = moraleAdjustedHours / (1 + bonusPct);
@@ -134,12 +145,13 @@ export function calculateCompletionHour(
   researchSchedule: ResearchSchedule,
   unitCatalog: UnitCatalog,
   buildings: BuildingsFile,
+  doctrine: string,
   moralePct = 90
 ): number {
   let latestCompletionHour = 0;
 
   const availableLevels = getAvailableLevels(unitId, unitCatalog);
-  
+
   for (const level of availableLevels) {
     const count = batchAllocation[level] ?? 0;
     if (count <= 0) {
@@ -158,6 +170,7 @@ export function calculateCompletionHour(
       config,
       unitCatalog,
       buildings,
+      doctrine,
       moralePct
     );
     latestCompletionHour = Math.max(latestCompletionHour, completionHour);
@@ -174,6 +187,7 @@ export function calculateTotalCost(
   deadlineHour: number,
   unitCatalog: UnitCatalog,
   buildings: BuildingsFile,
+  doctrine: string,
   moralePct = 90
 ): CostBreakdown {
   let mobilizationCost: ResourceCost = {};
@@ -182,7 +196,7 @@ export function calculateTotalCost(
   const upkeepByLevel: Record<number, number> = {};
 
   const availableLevels = getAvailableLevels(unitId, unitCatalog);
-  
+
   for (const level of availableLevels) {
     const count = batchAllocation[level] ?? 0;
     if (count <= 0) {
@@ -201,6 +215,7 @@ export function calculateTotalCost(
       config,
       unitCatalog,
       buildings,
+      doctrine,
       moralePct
     );
     const mobilizationEnd = research.endHour + mobilizationDuration;
@@ -208,12 +223,12 @@ export function calculateTotalCost(
       return infeasibleCostBreakdown(config);
     }
 
-    const mobCost = calculateMobilizationCost(unitId, level, count, unitCatalog);
+    const mobCost = calculateMobilizationCost(unitId, level, count, unitCatalog, doctrine);
     mobilizationCost = sumResourceCosts(mobilizationCost, mobCost);
     mobilizationByLevel[level] = resourceCostToScalar(mobCost);
 
     const upkeepDuration = deadlineHour - mobilizationEnd;
-    const upCost = calculateUpkeepCost(unitId, level, count, upkeepDuration, unitCatalog);
+    const upCost = calculateUpkeepCost(unitId, level, count, upkeepDuration, unitCatalog, doctrine);
     upkeepCost = sumResourceCosts(upkeepCost, upCost);
     upkeepByLevel[level] = resourceCostToScalar(upCost);
   }
@@ -335,6 +350,7 @@ function estimateLevelMobilizationDuration(
   config: MobilizationConfig,
   unitCatalog: UnitCatalog,
   buildings: BuildingsFile,
+  doctrine: string,
   moralePct: number
 ): number {
   if (config.cities.length === 0) {
@@ -342,7 +358,9 @@ function estimateLevelMobilizationDuration(
   }
 
   const levelData = getUnitLevelData(unitId, level, unitCatalog);
-  const baseDurationHours = durationToHours(levelData.mobilisation.time);
+  const mobData = levelData.mobilisation[doctrine];
+  if (!mobData) throw new Error(`no mobilisation data for doctrine "${doctrine}" on unit ${unitId} level ${level}`);
+  const baseDurationHours = durationToHours(mobData.time);
   const unitsPerCity = apportionUnits(count, config);
 
   return config.cities.reduce((maxDuration, city, index) => {

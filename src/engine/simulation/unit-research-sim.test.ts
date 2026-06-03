@@ -6,7 +6,7 @@ import { loadUnitCatalog } from "../../scenarios/io/load-unit-catalog.js";
 import { simulateUnitResearchQueue, simulateUnitResearchTargets } from "./unit-research-sim.js";
 
 test("unit research queue schedules chained levels on the earliest free slot", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -29,17 +29,17 @@ test("unit research queue schedules chained levels on the earliest free slot", (
         unitId: "air_superiority_fighter",
         level: 1,
         slot: 1,
-        startAbsoluteHour: 24,
-        endAbsoluteHourExclusive: 25,
+        startAbsoluteHour: 15,
+        endAbsoluteHourExclusive: 16,
         durationHours: 1,
       },
       {
         unitId: "air_superiority_fighter",
         level: 2,
         slot: 2,
-        startAbsoluteHour: 72,
-        endAbsoluteHourExclusive: 91,
-        durationHours: 19,
+        startAbsoluteHour: 48,
+        endAbsoluteHourExclusive: 49,
+        durationHours: 1,
       },
     ]
   );
@@ -48,7 +48,7 @@ test("unit research queue schedules chained levels on the earliest free slot", (
 });
 
 test("unit research queue respects unlock day when it is later than scenario start", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/naval_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -63,7 +63,7 @@ test("unit research queue respects unlock day when it is later than scenario sta
 });
 
 test("unit research queue uses two country research slots by default", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -102,7 +102,7 @@ test("unit research queue uses two country research slots by default", () => {
 });
 
 test("unit research queue aggregates spend by research start hour", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/seasonal_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -127,7 +127,7 @@ test("unit research queue aggregates spend by research start hour", () => {
 });
 
 test("unit research targets builds a two-slot plan automatically", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
 
   const result = simulateUnitResearchTargets(
     catalog,
@@ -173,8 +173,8 @@ test("unit research targets builds a two-slot plan automatically", () => {
 });
 
 test("unit research targets auto-includes cross-file unit prerequisites when catalogs are merged", () => {
-  const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
-  const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
+  const navalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/naval_units.yml"));
+  const seasonalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/seasonal_units.yml"));
   const catalog = {
     ...navalCatalog,
     units: {
@@ -216,8 +216,8 @@ test("unit research targets auto-includes cross-file unit prerequisites when cat
 });
 
 test("unit research targets waits for prerequisite unit completion", () => {
-  const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
-  const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
+  const navalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/naval_units.yml"));
+  const seasonalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/seasonal_units.yml"));
   const mergedCatalog = {
     ...navalCatalog,
     units: {
@@ -241,7 +241,7 @@ test("unit research targets waits for prerequisite unit completion", () => {
 });
 
 test("unit research queue treats unlock days through the scenario offset as available at start", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -257,7 +257,7 @@ test("unit research queue treats unlock days through the scenario offset as avai
 });
 
 test("unit research queue shifts later unlock days forward by the scenario offset", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/units/infantry_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/infantry_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -269,12 +269,12 @@ test("unit research queue shifts later unlock days forward by the scenario offse
   );
 
   assert.equal(result.segments[4]?.level, 5);
-  assert.equal(result.segments[4]?.startAbsoluteHour, 480);
+  assert.equal(result.segments[4]?.startAbsoluteHour, 312);
 });
 
 test("determineMaximumFeasibleLevel finds max level achievable before deadline", async () => {
   const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
 
   // Scenario: 28 day truce, starting day 1
   const scenario = {
@@ -299,7 +299,7 @@ test("determineMaximumFeasibleLevel finds max level achievable before deadline",
 
 test("determineMaximumFeasibleLevel respects unlock day constraints", async () => {
   const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/infantry_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/infantry_units.yml"));
 
   // Scenario: only 5 days available
   const scenario = {
@@ -323,7 +323,7 @@ test("determineMaximumFeasibleLevel respects unlock day constraints", async () =
 
 test("determineMaximumFeasibleLevel handles mobilization start constraint", async () => {
   const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
 
   const scenario = {
     start: { day: 1, hour: 0 },
@@ -352,7 +352,7 @@ test("determineMaximumFeasibleLevel handles mobilization start constraint", asyn
 
 test("determineMaximumFeasibleLevel returns infeasible when no time available", async () => {
   const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
 
   const scenario = {
     start: { day: 1, hour: 0 },
@@ -376,7 +376,7 @@ test("determineMaximumFeasibleLevel returns infeasible when no time available", 
 
 test("simulateUnitResearchTargets with JIT scheduling ensures level 1 before mobilization", async () => {
   const { simulateUnitResearchTargets } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
 
   const scenario = {
     start: { day: 1, hour: 0 },
@@ -426,7 +426,7 @@ test("simulateUnitResearchTargets with JIT scheduling ensures level 1 before mob
 
 test("simulateUnitResearchTargets with JIT disabled uses standard scheduling", async () => {
   const { simulateUnitResearchTargets } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/ww3_2026/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
 
   const scenario = {
     start: { day: 1, hour: 0 },

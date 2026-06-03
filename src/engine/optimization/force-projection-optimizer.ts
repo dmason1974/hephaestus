@@ -69,8 +69,9 @@ export function optimizeForceProjection(input: ForceProjectionInput): ForceProje
     moralePct = 90,
   } = input;
 
-  // Extract city IDs from country
+  // Extract city IDs and doctrine from country
   const cityIds = country.cities.map(city => city.id);
+  const doctrine = country.country.doctrine;
   
   if (cityIds.length === 0) {
     return {
@@ -103,6 +104,7 @@ export function optimizeForceProjection(input: ForceProjectionInput): ForceProje
     unitCatalog,
     scenario,
     deadlineHour,
+    doctrine,
   });
 
   if (!researchResult.feasible || researchResult.maxLevelAchievable === 0) {
@@ -130,6 +132,7 @@ export function optimizeForceProjection(input: ForceProjectionInput): ForceProje
       deadlineHour,
       unitCatalog,
       buildings,
+      doctrine,
       moralePct,
     });
 
@@ -146,6 +149,7 @@ export function optimizeForceProjection(input: ForceProjectionInput): ForceProje
       deadlineHour,
       unitCatalog,
       buildings,
+      doctrine,
       moralePct
     );
 

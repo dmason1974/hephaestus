@@ -4,7 +4,7 @@ import path from "node:path";
 import YAML from "yaml";
 
 import { parseUnitCatalog, type UnitCatalog } from "../../schemas/unit-schema.js";
-import { getDefaultUnitsDir, getScenarioUnitsDir } from "../paths.js";
+import { getScenarioTierUnitsDir, getScenarioUnitsDir } from "../paths.js";
 import { loadEnumerations } from "./load-enums.js";
 
 export function loadUnitCatalog(filePath: string): UnitCatalog {
@@ -34,7 +34,10 @@ export function loadMergedUnitCatalogFromDir(dirPath: string): UnitCatalog {
 
 export function resolveUnitCatalogDirForScenario(scenarioId: string): string {
   const scenarioUnitsDir = getScenarioUnitsDir(scenarioId);
-  return fs.existsSync(scenarioUnitsDir) ? scenarioUnitsDir : getDefaultUnitsDir();
+  if (fs.existsSync(scenarioUnitsDir)) return scenarioUnitsDir;
+  const tierUnitsDir = getScenarioTierUnitsDir(scenarioId);
+  if (tierUnitsDir && fs.existsSync(tierUnitsDir)) return tierUnitsDir;
+  throw new Error(`No units directory found for scenario "${scenarioId}"`);
 }
 
 export function resolveUnitCatalogPathForScenario(scenarioId: string, fileName: string): string {

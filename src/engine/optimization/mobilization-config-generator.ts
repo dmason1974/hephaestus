@@ -16,6 +16,7 @@ type FilterFeasibleConfigsArgs = {
   deadlineHour: number;
   unitCatalog: UnitCatalog;
   buildings: BuildingsFile;
+  doctrine: string;
   moralePct?: number;
 };
 
@@ -77,6 +78,7 @@ export function filterFeasibleConfigs(
         args.researchSchedule,
         args.unitCatalog,
         args.buildings,
+        args.doctrine,
         args.moralePct
       ) <= args.deadlineHour
   );

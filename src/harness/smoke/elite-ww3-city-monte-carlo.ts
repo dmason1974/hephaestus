@@ -52,7 +52,7 @@ type RankedSequence = {
   endManpower: number;
 };
 
-const scenarioId = process.env.MC_SCENARIO ?? "elite_ww3_2026";
+const scenarioId = process.env.MC_SCENARIO ?? "elite/ww3";
 const countryId = process.env.MC_COUNTRY ?? "indonesia";
 const cityFilter = process.env.MC_CITY ?? "all";
 const iterations = parsePositiveInt(process.env.MC_ITERATIONS, 10000);

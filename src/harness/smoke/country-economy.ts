@@ -40,7 +40,7 @@ function htmlTable(rows: Array<Record<string, unknown>>) {
   return `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 
-const scenarioId = process.env.CE_SCENARIO?.trim() || "elite_ava_feb_2026";
+const scenarioId = process.env.CE_SCENARIO?.trim() || "elite/antarctica";
 const countryId = process.env.CE_COUNTRY?.trim() || "ukraine";
 const daysToSimulate = parsePositiveInt(process.env.CE_DAYS, 28);
 const cityStatus = parseCityStatus(process.env.CE_CITY_STATUS);

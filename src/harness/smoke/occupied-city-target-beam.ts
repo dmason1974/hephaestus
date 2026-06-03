@@ -56,7 +56,7 @@ type CandidatePlan = {
   ranked: RankedSequence;
 };
 
-const scenarioId = process.env.OCB_SCENARIO?.trim() || "elite_ww3_2026";
+const scenarioId = process.env.OCB_SCENARIO?.trim() || "elite/ww3";
 const ownerCountryId = process.env.OCB_OWNER_COUNTRY?.trim() || "indonesia";
 const occupiedCountryId = process.env.OCB_OCCUPIED_COUNTRY?.trim() || "philippines";
 const cityFilter = process.env.OCB_CITY_IDS?.trim() || "davao,cebu";

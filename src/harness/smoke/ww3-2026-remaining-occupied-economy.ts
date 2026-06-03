@@ -100,7 +100,7 @@ function htmlTable(rows: Array<Record<string, unknown>>) {
   return `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 
-const scenarioId = process.env.WROE_SCENARIO?.trim() || "ww3_2026";
+const scenarioId = process.env.WROE_SCENARIO?.trim() || "standard/ww3";
 const homelandCountries = parseCountryList(process.env.WROE_HOMELAND_COUNTRIES, [
   "france",
   "germany",

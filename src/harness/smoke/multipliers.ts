@@ -3,7 +3,7 @@ import { DEFAULT_MORALE_DECAY_D, HOMELAND_TARGET_MORALE, STARTING_MORALE_DAY1 } 
 import { buildDailyMultipliersTable } from "../../engine/economy/city-production.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 
-const scenarioId = "elite_ava_feb_2026";
+const scenarioId = "elite/antarctica";
 const scenario = loadScenarioFile(scenarioId);
 
 const t = buildDailyMultipliersTable(28, {

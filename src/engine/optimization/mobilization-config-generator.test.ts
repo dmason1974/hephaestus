@@ -14,207 +14,47 @@ function buildTestUnitCatalog(): UnitCatalog {
       strike_fighter: {
         name: "Strike Fighter",
         category: "Fighter",
-        doctrine: "western",
+        doctrine: ["western"],
         levels: {
           "1": {
             requirements: ["air_base level 1", "recruiting_office level 1"],
-            research: {
-              unlock_day: 1,
-              time: { hours: 1 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 0,
-                manpower: 0,
-              },
-            },
-            mobilisation: {
-              time: { hours: 10 },
-              cost: {
-                supplies: 100,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 100,
-                manpower: 0,
-              },
-            },
-            daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 24,
-                manpower: 0,
-              },
-            },
+            unlock_day: 1,
+            research: { western: { time: { hours: 1 }, cost: {} } },
+            mobilisation: { western: { time: { hours: 10 }, cost: { supplies: 100, cash: 100 } } },
+            daily_upkeep: { western: { cost: { cash: 24 } } },
           },
           "2": {
             requirements: ["air_base level 1", "recruiting_office level 2", "strike_fighter level 1"],
-            research: {
-              unlock_day: 1,
-              time: { hours: 2 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 0,
-                manpower: 0,
-              },
-            },
-            mobilisation: {
-              time: { hours: 12 },
-              cost: {
-                supplies: 120,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 120,
-                manpower: 0,
-              },
-            },
-            daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 36,
-                manpower: 0,
-              },
-            },
+            unlock_day: 1,
+            research: { western: { time: { hours: 2 }, cost: {} } },
+            mobilisation: { western: { time: { hours: 12 }, cost: { supplies: 120, cash: 120 } } },
+            daily_upkeep: { western: { cost: { cash: 36 } } },
           },
           "3": {
             requirements: ["air_base level 2", "recruiting_office level 2", "strike_fighter level 2"],
-            research: {
-              unlock_day: 1,
-              time: { hours: 3 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 0,
-                manpower: 0,
-              },
-            },
-            mobilisation: {
-              time: { hours: 13 },
-              cost: {
-                supplies: 130,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 130,
-                manpower: 0,
-              },
-            },
-            daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 40,
-                manpower: 0,
-              },
-            },
+            unlock_day: 1,
+            research: { western: { time: { hours: 3 }, cost: {} } },
+            mobilisation: { western: { time: { hours: 13 }, cost: { supplies: 130, cash: 130 } } },
+            daily_upkeep: { western: { cost: { cash: 40 } } },
           },
           "4": {
             requirements: ["air_base level 2", "recruiting_office level 3", "strike_fighter level 3"],
-            research: {
-              unlock_day: 1,
-              time: { hours: 4 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 0,
-                manpower: 0,
-              },
-            },
-            mobilisation: {
-              time: { hours: 14 },
-              cost: {
-                supplies: 140,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 140,
-                manpower: 0,
-              },
-            },
-            daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 42,
-                manpower: 0,
-              },
-            },
+            unlock_day: 1,
+            research: { western: { time: { hours: 4 }, cost: {} } },
+            mobilisation: { western: { time: { hours: 14 }, cost: { supplies: 140, cash: 140 } } },
+            daily_upkeep: { western: { cost: { cash: 42 } } },
           },
           "5": {
             requirements: ["air_base level 3", "recruiting_office level 3", "strike_fighter level 4"],
-            research: {
-              unlock_day: 1,
-              time: { hours: 5 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 0,
-                manpower: 0,
-              },
-            },
-            mobilisation: {
-              time: { hours: 15 },
-              cost: {
-                supplies: 150,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 150,
-                manpower: 0,
-              },
-            },
-            daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 44,
-                manpower: 0,
-              },
-            },
+            unlock_day: 1,
+            research: { western: { time: { hours: 5 }, cost: {} } },
+            mobilisation: { western: { time: { hours: 15 }, cost: { supplies: 150, cash: 150 } } },
+            daily_upkeep: { western: { cost: { cash: 44 } } },
           },
         },
       },
     },
-  };
+  } as unknown as UnitCatalog;
 }
 
 function buildTestBuildings(): BuildingsFile {
@@ -326,6 +166,7 @@ test("filterFeasibleConfigs removes configs that miss the deadline", () => {
     deadlineHour: 25,
     unitCatalog: catalog,
     buildings,
+    doctrine: "western",
   });
 
   assert.deepEqual(

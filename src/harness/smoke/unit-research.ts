@@ -8,7 +8,7 @@ import {
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { loadUnitCatalog } from "../../scenarios/io/load-unit-catalog.js";
 
-const scenarioId = "elite_ww3_2026";
+const scenarioId = "elite/ww3";
 const scenario = loadScenarioFile(scenarioId);
 
 const fighterCatalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));

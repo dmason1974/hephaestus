@@ -82,7 +82,7 @@ function htmlTable(rows: Array<Record<string, unknown>>) {
 }
 
 const planFilePath = path.resolve(
-  process.env.BPB_PLAN_FILE?.trim() || "data/scenarios/elite_ww3_2026/plans/indonesia_beam_city_build.yml"
+  process.env.BPB_PLAN_FILE?.trim() || "data/scenarios/elite/ww3/plans/indonesia_beam_city_build.yml"
 );
 const daysToSimulate = parsePositiveInt(process.env.BPB_DAYS, 28);
 const cityStatus = parseCityStatus(process.env.BPB_CITY_STATUS);

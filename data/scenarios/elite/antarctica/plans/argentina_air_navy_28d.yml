@@ -2,7 +2,7 @@ schema_version: 1
 domain: force_plan
 name: Argentina Air and Navy 28d
 
-scenario: elite_ava_feb_2026
+scenario: elite/antarctica
 country: argentina
 truce_days: 28
 

@@ -24,7 +24,7 @@ const RESOURCE_KEYS: Resource[] = [
   "manpower",
 ];
 
-const scenarioId = process.env.HQ_SCENARIO ?? "elite_ww3_2026";
+const scenarioId = process.env.HQ_SCENARIO ?? "elite/ww3";
 const countryId = process.env.HQ_COUNTRY ?? "indonesia";
 const destinationCityId = process.env.HQ_DEST_CITY ?? "medan";
 const daysToSimulate = parsePositiveInt(process.env.HQ_DAYS, 28);

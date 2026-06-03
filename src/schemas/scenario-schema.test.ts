@@ -11,7 +11,7 @@ test("scenario schema accepts elite ww3 4x1.4 speed", () => {
   const scenario = parseScenarioFile({
     schema_version: 1,
     domain: "scenario",
-    id: "elite_ww3_2026",
+    id: "elite/ww3",
     name: "Elite WW3 2026",
     start: {
       day: 1,
@@ -38,7 +38,7 @@ test("scenario schema accepts research unlock day offset", () => {
   const scenario = parseScenarioFile({
     schema_version: 1,
     domain: "scenario",
-    id: "elite_ww3_2026",
+    id: "elite/ww3",
     name: "Elite WW3 2026",
     start: {
       day: 1,

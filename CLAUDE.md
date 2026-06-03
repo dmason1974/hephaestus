@@ -27,7 +27,7 @@ src/
     optimization/
       types.ts                Shared types (ResourceCost, BatchAllocation, etc.)
       cost-calculator.ts      Mobilisation cost, upkeep cost, completion hour
-      research-schedule-optimizer.ts   Greedy research schedule for a single unit
+      research-schedule-optimizer.ts   Research schedule for a single unit (L1 ASAP, L2+ JIT)
       batch-allocation-optimizer.ts    Distributes units across levels to minimise cost
       mobilization-config-generator.ts Enumerates city/RO configurations to evaluate
       force-projection-optimizer.ts    Top-level: finds best config for a unit+deadline
@@ -57,18 +57,20 @@ data/
 
 ## Key Domain Rules
 
-- **Research slots**: the game allows 2 parallel research slots, but they apply across different units — levels of a single unit are always sequential (level N requires level N-1)
+- **Research slots**: the game allows 2 parallel research slots shared across all units. Levels of a single unit are always sequential (level N requires level N-1), but there are natural gaps between levels (unlock day windows) where other units' research can interleave. A level uses whichever slot is free first when it becomes ready — it is not sticky to the slot that ran the previous level.
+- **Both slots are free at game start**: there is no slot contention at the beginning of a scenario.
+- **Optimal research strategy**: research level 1 ASAP to unlock mobilisation, then defer levels 2+ as late as possible (JIT to the truce deadline). This minimises upkeep because higher-level units are mobilised close to the deadline and pay less upkeep before the game ends.
 - **`unlocked_through_day_at_start`**: shifts all unlock gates back by N days. Formula: `effectiveUnlockDay = Math.max(1, unlockDay - unlockedThroughDayAtStart)`. So with value 10: unlock_day 1–11 all become available on day 1, unlock_day 12 becomes day 2, etc.
-- **Prerequisite research is still required**: unlock day shifting does not bypass the research chain
-- **Resource costs are sparse**: YAML cost blocks only list non-zero resources. Zero means the resource is not involved. The schema makes all resource fields optional.
-- **`ResourceCost` type** is `Partial<Record<Resource, number>>` — absent key means zero, not unknown
-- **Country doctrine**: each country has a doctrine (e.g. `european`, `western`). Research times, research costs, mobilisation times, mobilisation costs, and daily upkeep all vary by doctrine. The `doctrine` field on a unit is an array (1–3 values) listing which doctrines can use it.
+- **Prerequisite research is still required**: unlock day shifting does not bypass the research chain.
+- **Resource costs are sparse**: YAML cost blocks only list non-zero resources. The schema makes all resource fields optional.
+- **`ResourceCost` type** is `Partial<Record<Resource, number>>` — absent key means zero, not unknown.
+- **Country doctrine**: each country has a single doctrine (e.g. `european`, `western`). Research times, research costs, mobilisation times, mobilisation costs, and daily upkeep all vary by doctrine. The `doctrine` field on a unit is an array (1–3 values) listing which doctrines can use it.
 
 ---
 
 ## Unit YAML Schema — Per-Doctrine Level Structure
 
-Unit levels now store costs and timings keyed by doctrine. `unlock_day` and `requirements` are shared across all doctrines. Example:
+Unit levels store costs and timings keyed by doctrine. `unlock_day` and `requirements` are shared across all doctrines and live at the level root. Example:
 
 ```yaml
 air_superiority_fighter:
@@ -110,12 +112,32 @@ air_superiority_fighter:
 
 ---
 
+## Engine Layer — Doctrine Parameter
+
+All engine functions that read per-level costs or timings accept a `doctrine: string` parameter. The doctrine is sourced from `country.country.doctrine` at the top level and threaded down:
+
+- `ResearchScheduleInput.doctrine` → `optimizeResearchSchedule`
+- `BatchAllocationInput.doctrine` → `optimizeBatchAllocation`
+- `FilterFeasibleConfigsArgs.doctrine` → `filterFeasibleConfigs`
+- `calculateTotalCost`, `calculateMobilizationCost`, `calculateUpkeepCost`, `calculateMobilizationDuration`, `calculateCompletionHour` — all take `doctrine: string` as an explicit parameter
+- `simulateUnitResearchQueue`, `simulateUnitResearchTargets`, `determineMaximumFeasibleLevel` — accept `doctrine?` in opts; fall back to `unit.doctrine[0]` per unit when not provided
+- `planMobilizationBuild` — accepts `doctrine?` in args; falls back per unit
+
+---
+
+## Research Scheduling Strategy
+
+`optimizeResearchSchedule` uses a two-pass approach:
+
+1. **ASAP feasibility pass** — determines which levels can be achieved before the deadline (sequential ASAP scheduling, same as before).
+2. **Scheduling pass** — level 1 is placed ASAP to unlock mobilisation as early as possible; levels 2+ are placed JIT by working backwards from the deadline. Each level is pushed as close to the deadline as its unlock day and sequential dependency allow.
+
+`simulateUnitResearchTargets` (used by `planMobilizationBuild`) also implements JIT scheduling with the same intent, handling multi-unit plans across both research slots.
+
+---
+
 ## Immediate Next Steps
 
-1. **Update engine layer for per-doctrine costs** — `cost-calculator.ts`, `research-schedule-optimizer.ts`, `batch-allocation-optimizer.ts`, and `force-projection-optimizer.ts` all read `unit.levels[n].research.time` / `.cost` / `.mobilisation` directly. These need a `doctrine` parameter threaded through so they look up `research[doctrine]`, `mobilisation[doctrine]`, etc. This is the primary blocker for the optimizer working correctly with the new schema. 13 engine tests currently fail because of this.
+1. **Populate missing unit YAML data** — `standard/units/` and `elite/units/` are missing several units referenced in tests (`naval_veteran`, `fixed_wing_veteran`, `deployable_gear`, `frigate`, `elite_frigate` in standard; corresponding elite variants). 11 tests currently fail because of missing unit definitions.
 
-2. **Populate missing unit YAML data** — `standard/units/` and `elite/units/` are missing many units that exist in tests (e.g. `naval_veteran`, `fixed_wing_veteran`, `deployable_gear`, `elite_frigate` in standard). These will be added from screenshots. 13 pre-existing test failures are due to missing unit definitions.
-
-3. **Update the Gemini gem** — re-upload `unit-schema.ts` and `elite/units/fighter_units.yml` as the exemplar so future AI-generated unit YAMLs use the new per-doctrine level structure.
-
-4. **Slot-aware research scheduling** — the optimizer currently treats research as single-threaded per unit (correct, since levels are sequential). To account for a country's second slot being occupied by another unit, `optimizeResearchSchedule` would need an `occupiedUntilHour` parameter.
+2. **Update the Gemini gem** — re-upload `unit-schema.ts` and `elite/units/fighter_units.yml` as the exemplar so future AI-generated unit YAMLs use the per-doctrine level structure with `unlock_day` at the level root.

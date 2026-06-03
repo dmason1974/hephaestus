@@ -29,17 +29,17 @@ test("unit research queue schedules chained levels on the earliest free slot", (
         unitId: "air_superiority_fighter",
         level: 1,
         slot: 1,
-        startAbsoluteHour: 24,
-        endAbsoluteHourExclusive: 25,
+        startAbsoluteHour: 15,
+        endAbsoluteHourExclusive: 16,
         durationHours: 1,
       },
       {
         unitId: "air_superiority_fighter",
         level: 2,
         slot: 2,
-        startAbsoluteHour: 72,
-        endAbsoluteHourExclusive: 91,
-        durationHours: 19,
+        startAbsoluteHour: 48,
+        endAbsoluteHourExclusive: 49,
+        durationHours: 1,
       },
     ]
   );
@@ -269,7 +269,7 @@ test("unit research queue shifts later unlock days forward by the scenario offse
   );
 
   assert.equal(result.segments[4]?.level, 5);
-  assert.equal(result.segments[4]?.startAbsoluteHour, 480);
+  assert.equal(result.segments[4]?.startAbsoluteHour, 312);
 });
 
 test("determineMaximumFeasibleLevel finds max level achievable before deadline", async () => {

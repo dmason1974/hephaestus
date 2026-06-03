@@ -19,129 +19,75 @@ function buildTestUnitCatalog(): UnitCatalog {
       test_unit: {
         name: "Test Unit",
         category: "Fighter",
-        doctrine: "western",
+        doctrine: ["western"],
         levels: {
           "1": {
             requirements: ["air_base level 1"],
+            unlock_day: 1,
             research: {
-              unlock_day: 1,
-              time: { hours: 2 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 100,
-                manpower: 0,
+              western: {
+                time: { hours: 2 },
+                cost: { cash: 100 },
               },
             },
             mobilisation: {
-              time: { hours: 10 },
-              cost: {
-                supplies: 100,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 100,
-                manpower: 0,
+              western: {
+                time: { hours: 10 },
+                cost: { supplies: 100, cash: 100 },
               },
             },
             daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 10,
-                manpower: 0,
+              western: {
+                cost: { cash: 10 },
               },
             },
           },
           "2": {
             requirements: ["air_base level 1", "test_unit level 1"],
+            unlock_day: 1,
             research: {
-              unlock_day: 1,
-              time: { hours: 4 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 200,
-                manpower: 0,
+              western: {
+                time: { hours: 4 },
+                cost: { cash: 200 },
               },
             },
             mobilisation: {
-              time: { hours: 12 },
-              cost: {
-                supplies: 150,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 150,
-                manpower: 0,
+              western: {
+                time: { hours: 12 },
+                cost: { supplies: 150, cash: 150 },
               },
             },
             daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 15,
-                manpower: 0,
+              western: {
+                cost: { cash: 15 },
               },
             },
           },
           "3": {
             requirements: ["air_base level 2", "test_unit level 2"],
+            unlock_day: 1,
             research: {
-              unlock_day: 1,
-              time: { hours: 6 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 300,
-                manpower: 0,
+              western: {
+                time: { hours: 6 },
+                cost: { cash: 300 },
               },
             },
             mobilisation: {
-              time: { hours: 14 },
-              cost: {
-                supplies: 200,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 200,
-                manpower: 0,
+              western: {
+                time: { hours: 14 },
+                cost: { supplies: 200, cash: 200 },
               },
             },
             daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 20,
-                manpower: 0,
+              western: {
+                cost: { cash: 20 },
               },
             },
           },
         },
       },
     },
-  };
+  } as unknown as UnitCatalog;
 }
 
 function buildTestBuildings(): BuildingsFile {
@@ -157,15 +103,7 @@ function buildTestBuildings(): BuildingsFile {
           "1": {
             build_time: { hours: 1 },
             mobilisation_speed_bonus_pct: 0.1,
-            cost: {
-              supplies: 100,
-              components: 50,
-              fuel: 0,
-              rares: 0,
-              electronics: 25,
-              cash: 200,
-              manpower: 0,
-            },
+            cost: { supplies: 100, components: 50, electronics: 25, cash: 200 },
           },
           "2": undefined,
           "3": undefined,
@@ -196,11 +134,12 @@ test("optimizeBatchAllocation allocates all units to cheapest level", () => {
     deadlineHour: 100,
     unitCatalog: catalog,
     buildings,
+    doctrine: "western",
   });
 
   assert.equal(result.feasible, true);
   assert.equal(getTotalUnitsFromBatch(result.allocation), 10);
-  
+
   // Level 1 should be cheapest (lower mobilization cost + longer upkeep is still cheaper)
   assert.equal(result.allocation[1], 10);
   assert.equal(result.allocation[2] ?? 0, 0);
@@ -222,6 +161,7 @@ test("optimizeBatchAllocation handles single level", () => {
     deadlineHour: 50,
     unitCatalog: catalog,
     buildings,
+    doctrine: "western",
   });
 
   assert.equal(result.feasible, true);
@@ -244,6 +184,7 @@ test("optimizeBatchAllocation returns infeasible when no research", () => {
     deadlineHour: 100,
     unitCatalog: catalog,
     buildings,
+    doctrine: "western",
   });
 
   assert.equal(result.feasible, false);
@@ -268,11 +209,12 @@ test("optimizeBatchAllocation includes cost breakdown", () => {
     deadlineHour: 100,
     unitCatalog: catalog,
     buildings,
+    doctrine: "western",
   });
 
   assert.ok(result.costBreakdown.mobilizationByLevel[1] > 0);
   assert.ok(result.costBreakdown.upkeepByLevel[1] > 0);
-  
+
   // Total cost should equal sum of mobilization + upkeep
   const totalMob = Object.values(result.costBreakdown.mobilizationByLevel).reduce((a, b) => a + b, 0);
   const totalUpkeep = Object.values(result.costBreakdown.upkeepByLevel).reduce((a, b) => a + b, 0);
@@ -337,6 +279,7 @@ test("generateAlternativeBatchAllocations creates multiple strategies", () => {
     deadlineHour: 200, // generous deadline so all three levels can complete mobilization
     unitCatalog: catalog,
     buildings,
+    doctrine: "western",
   });
 
   // Should generate: all L1, all L3, even split, optimized
@@ -364,6 +307,7 @@ test("generateAlternativeBatchAllocations handles single level", () => {
     deadlineHour: 100,
     unitCatalog: catalog,
     buildings,
+    doctrine: "western",
   });
 
   // Should generate: all L1 (lowest), all L1 (highest), optimized (same as all L1)

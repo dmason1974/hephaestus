@@ -14,129 +14,33 @@ function buildTestUnitCatalog(): UnitCatalog {
       test_unit: {
         name: "Test Unit",
         category: "Fighter",
-        doctrine: "western",
+        doctrine: ["western"],
         levels: {
           "1": {
             requirements: ["air_base level 1"],
-            research: {
-              unlock_day: 1,
-              time: { hours: 2 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 100,
-                manpower: 0,
-              },
-            },
-            mobilisation: {
-              time: { hours: 10 },
-              cost: {
-                supplies: 100,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 100,
-                manpower: 0,
-              },
-            },
-            daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 10,
-                manpower: 0,
-              },
-            },
+            unlock_day: 1,
+            research: { western: { time: { hours: 2 }, cost: { cash: 100 } } },
+            mobilisation: { western: { time: { hours: 10 }, cost: { supplies: 100, cash: 100 } } },
+            daily_upkeep: { western: { cost: { cash: 10 } } },
           },
           "2": {
             requirements: ["air_base level 1", "test_unit level 1"],
-            research: {
-              unlock_day: 1,
-              time: { hours: 4 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 200,
-                manpower: 0,
-              },
-            },
-            mobilisation: {
-              time: { hours: 12 },
-              cost: {
-                supplies: 120,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 120,
-                manpower: 0,
-              },
-            },
-            daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 15,
-                manpower: 0,
-              },
-            },
+            unlock_day: 1,
+            research: { western: { time: { hours: 4 }, cost: { cash: 200 } } },
+            mobilisation: { western: { time: { hours: 12 }, cost: { supplies: 120, cash: 120 } } },
+            daily_upkeep: { western: { cost: { cash: 15 } } },
           },
           "3": {
             requirements: ["air_base level 2", "test_unit level 2"],
-            research: {
-              unlock_day: 5,
-              time: { hours: 6 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 300,
-                manpower: 0,
-              },
-            },
-            mobilisation: {
-              time: { hours: 14 },
-              cost: {
-                supplies: 140,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 140,
-                manpower: 0,
-              },
-            },
-            daily_upkeep: {
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 20,
-                manpower: 0,
-              },
-            },
+            unlock_day: 5,
+            research: { western: { time: { hours: 6 }, cost: { cash: 300 } } },
+            mobilisation: { western: { time: { hours: 14 }, cost: { supplies: 140, cash: 140 } } },
+            daily_upkeep: { western: { cost: { cash: 20 } } },
           },
         },
       },
     },
-  };
+  } as unknown as UnitCatalog;
 }
 
 function buildTestScenario(): ScenarioFile {
@@ -171,32 +75,32 @@ test("optimizeResearchSchedule researches all levels when deadline allows", () =
     unitCatalog: catalog,
     scenario,
     deadlineHour: 200, // Plenty of time
-    researchSlots: 2,
+    doctrine: "western",
   });
 
   assert.equal(result.maxLevelAchievable, 3);
   assert.equal(result.feasible, true);
   assert.equal(result.schedule.length, 3);
   
-  // Level 1: starts at hour 0, takes 2 hours
+  // Level 1: ASAP — starts at hour 0, takes 2 hours
   assert.deepEqual(result.schedule[0], {
     level: 1,
     startHour: 0,
     endHour: 2,
   });
-  
-  // Level 2: starts at hour 2 (after L1), takes 4 hours
+
+  // Level 2: JIT — pushed back as far as possible before level 3 starts
   assert.deepEqual(result.schedule[1], {
     level: 2,
-    startHour: 2,
-    endHour: 6,
+    startHour: 190,
+    endHour: 194,
   });
-  
-  // Level 3: starts at hour 96 (day 5), takes 6 hours
+
+  // Level 3: JIT — ends exactly at deadline (200)
   assert.deepEqual(result.schedule[2], {
     level: 3,
-    startHour: 96, // Day 5 = (5-1)*24 = 96
-    endHour: 102,
+    startHour: 194,
+    endHour: 200,
   });
 });
 
@@ -209,7 +113,7 @@ test("optimizeResearchSchedule stops when deadline is tight", () => {
     unitCatalog: catalog,
     scenario,
     deadlineHour: 10, // Only enough time for L1 and L2
-    researchSlots: 2,
+    doctrine: "western",
   });
 
   assert.equal(result.maxLevelAchievable, 2);
@@ -226,7 +130,7 @@ test("optimizeResearchSchedule respects unlock day constraints", () => {
     unitCatalog: catalog,
     scenario,
     deadlineHour: 100, // Before L3 unlock day + research time
-    researchSlots: 2,
+    doctrine: "western",
   });
 
   // Can research L1 and L2, but L3 unlocks at day 5 (hour 96) and takes 6 hours (ends at 102)
@@ -243,25 +147,14 @@ test("optimizeResearchSchedule uses multiple research slots in parallel", () => 
       unit_a: {
         name: "Unit A",
         category: "Fighter",
-        doctrine: "western",
+        doctrine: ["western"],
         levels: {
           "1": {
             requirements: [],
-            research: {
-              unlock_day: 1,
-              time: { hours: 10 },
-              cost: {
-                supplies: 0,
-                components: 0,
-                fuel: 0,
-                rares: 0,
-                electronics: 0,
-                cash: 100,
-                manpower: 0,
-              },
-            },
-            mobilisation: { time: { hours: 1 }, cost: { supplies: 0, components: 0, fuel: 0, rares: 0, electronics: 0, cash: 0, manpower: 0 } },
-            daily_upkeep: { cost: { supplies: 0, components: 0, fuel: 0, rares: 0, electronics: 0, cash: 0, manpower: 0 } },
+            unlock_day: 1,
+            research: { western: { time: { hours: 10 }, cost: { cash: 100 } } },
+            mobilisation: { western: { time: { hours: 1 }, cost: {} } },
+            daily_upkeep: { western: { cost: {} } },
           },
         },
       },
@@ -275,7 +168,7 @@ test("optimizeResearchSchedule uses multiple research slots in parallel", () => 
     unitCatalog: catalog,
     scenario,
     deadlineHour: 100,
-    researchSlots: 2,
+    doctrine: "western",
   });
 
   assert.equal(result.maxLevelAchievable, 1);
@@ -296,7 +189,7 @@ test("validateResearchSchedule accepts valid schedules", () => {
     unitCatalog: catalog,
     scenario,
     deadlineHour: 100,
-    researchSlots: 2,
+    doctrine: "western",
   });
 
   assert.equal(valid, true);
@@ -317,7 +210,7 @@ test("validateResearchSchedule rejects schedules that violate unlock day", () =>
     unitCatalog: catalog,
     scenario,
     deadlineHour: 200,
-    researchSlots: 2,
+    doctrine: "western",
   });
 
   assert.equal(valid, false);
@@ -338,7 +231,7 @@ test("validateResearchSchedule rejects schedules that exceed deadline", () => {
     unitCatalog: catalog,
     scenario,
     deadlineHour: 100, // L3 ends at 102
-    researchSlots: 2,
+    doctrine: "western",
   });
 
   assert.equal(valid, false);
@@ -359,7 +252,7 @@ test("validateResearchSchedule rejects schedules with too many parallel research
     unitCatalog: catalog,
     scenario,
     deadlineHour: 200,
-    researchSlots: 2,
+    doctrine: "western",
   });
 
   assert.equal(valid, false);

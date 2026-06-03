@@ -17,6 +17,7 @@ export type MobilizationDemand = {
   queueGroup?: string;
   forcedCityCount?: number;
   forcedRecruitingOfficeLevel?: number;
+  doctrine?: string;
 };
 
 export type MobilizationTranche = {
@@ -123,7 +124,7 @@ function parseLevelRequirement(requirement: string) {
   };
 }
 
-function cumulativeUnitLimitForLevel(catalog: UnitCatalog, unitId: string, level: number) {
+function cumulativeUnitLimitForLevel(catalog: UnitCatalog, unitId: string, level: number, doctrine: string) {
   const unit = catalog.units[unitId];
   if (!unit) {
     throw new Error(`unknown unit "${unitId}"`);
@@ -131,7 +132,8 @@ function cumulativeUnitLimitForLevel(catalog: UnitCatalog, unitId: string, level
 
   let lastDefined: number | undefined;
   for (let current = 1; current <= level; current++) {
-    const unitLimit = unit.levels[String(current)]?.mobilisation.unit_limit;
+    const levelData = unit.levels[String(current)];
+    const unitLimit = levelData?.mobilisation[doctrine]?.unit_limit;
     if (unitLimit !== undefined) {
       lastDefined = unitLimit;
     }
@@ -160,6 +162,7 @@ function mobilizationTranchesForDemand(
   if (!unit) {
     throw new Error(`unknown unit "${demand.unitId}"`);
   }
+  const unitDoctrine = demand.doctrine ?? unit.doctrine[0];
   const queueType = queueTypeForUnit(catalog, demand.unitId);
   const queueKey = `${queueType}:${demand.queueGroup ?? demand.unitId}`;
 
@@ -175,7 +178,7 @@ function mobilizationTranchesForDemand(
       throw new Error(`missing unit level ${level} for ${demand.unitId}`);
     }
 
-    const cumulativeLimit = cumulativeUnitLimitForLevel(catalog, demand.unitId, level);
+    const cumulativeLimit = cumulativeUnitLimitForLevel(catalog, demand.unitId, level, unitDoctrine);
     const trancheCapacity = Number.isFinite(cumulativeLimit)
       ? Math.max(0, cumulativeLimit - previousCap)
       : remaining;
@@ -210,7 +213,7 @@ function mobilizationTranchesForDemand(
       requiredBaseLevel,
       requiredArmyBaseLevel,
       requiredRecruitingOfficeLevel,
-      baseMobilizationHours: durationHours(levelData.mobilisation.time),
+      baseMobilizationHours: durationHours(levelData.mobilisation[unitDoctrine]?.time ?? { hours: 0 }),
     });
     remaining -= trancheCount;
   }
@@ -366,6 +369,7 @@ export function planMobilizationBuild(args: {
   scenario: ScenarioFile;
   demands: MobilizationDemand[];
   maxCitiesPerQueue?: number;
+  doctrine?: string;
 }) : MobilizationPlanResult {
   const truceLengthDays = scenarioTruceLengthDays(args.scenario);
   if (truceLengthDays === undefined) {
@@ -438,6 +442,7 @@ export function planMobilizationBuild(args: {
             // Pass deadline as mobilization start so level 1 schedules early
             mobilizationStartHour: deadlineAbsoluteHour,
             enableJitScheduling: true,
+            doctrine: args.doctrine,
           }
         );
 

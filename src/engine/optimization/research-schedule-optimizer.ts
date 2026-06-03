@@ -11,6 +11,7 @@ export type ResearchScheduleInput = {
   unitCatalog: UnitCatalog;
   scenario: ScenarioFile;
   deadlineHour: number;
+  doctrine: string;
 };
 
 export type ResearchScheduleResult = {
@@ -20,20 +21,21 @@ export type ResearchScheduleResult = {
   feasible: boolean;
 };
 
+type LevelInfo = { level: number; unlockHour: number; durationHours: number };
+
 /**
- * Generates a greedy research schedule that maximizes the unit level achievable before the deadline.
- * 
- * Strategy:
- * - Research levels sequentially from 1 to max
- * - Respect unlock_day constraints
- * - Use all available research slots in parallel
- * - Stop when next level would exceed deadline
- * 
+ * Generates a research schedule that maximises the unit level achievable before the
+ * deadline while minimising upkeep cost:
+ *
+ *   - Level 1 is scheduled ASAP so mobilisation can begin as early as possible.
+ *   - Levels 2+ are scheduled JIT (as late as possible before the deadline) so units
+ *     at higher levels are mobilised close to the truce end and pay minimum upkeep.
+ *
  * @param input Research schedule parameters
  * @returns Research schedule with max achievable level
  */
 export function optimizeResearchSchedule(input: ResearchScheduleInput): ResearchScheduleResult {
-  const { unitId, unitCatalog, scenario, deadlineHour } = input;
+  const { unitId, unitCatalog, scenario, deadlineHour, doctrine } = input;
 
   const unit = unitCatalog.units[unitId];
   if (!unit) {
@@ -45,52 +47,90 @@ export function optimizeResearchSchedule(input: ResearchScheduleInput): Research
     throw new Error(`Unit ${unitId} has no levels defined`);
   }
 
-  const schedule: ResearchSchedule = [];
   const scenarioStartHour = scenarioStartAbsoluteHour(scenario);
   const unlockedThroughDayAtStart = scenarioResearchUnlockedThroughDayAtStart(scenario);
 
-  let maxLevelAchievable = 0;
-  let totalResearchHours = 0;
-  let previousLevelEndHour = scenarioStartHour;
+  // Forward ASAP pass — determines which levels can be achieved before the deadline.
+  const achievableLevels: LevelInfo[] = [];
+  let previousEndHour = scenarioStartHour;
 
   for (const level of availableLevels) {
     const levelData = unit.levels[String(level)];
-    if (!levelData?.research) {
-      throw new Error(`Unit ${unitId} level ${level} has no research data`);
+    const researchData = levelData?.research[doctrine];
+    if (!researchData) {
+      throw new Error(`Unit ${unitId} level ${level} has no research data for doctrine "${doctrine}"`);
     }
 
-    const unlockDay = levelData.research.unlock_day ?? 1;
+    const unlockDay = levelData.unlock_day ?? 1;
     const effectiveUnlockDay = Math.max(1, unlockDay - unlockedThroughDayAtStart);
     const unlockHour = scenarioStartHour + (effectiveUnlockDay - 1) * 24;
+    const durationHours = durationToHours(researchData.time);
 
-    // Each level must wait for the previous level to complete and its own unlock gate
-    const startHour = Math.max(unlockHour, previousLevelEndHour);
+    const asapStart = Math.max(unlockHour, previousEndHour);
+    const asapEnd = asapStart + durationHours;
 
-    const durationHours = durationToHours(levelData.research.time);
-    const endHour = startHour + durationHours;
-
-    if (endHour > deadlineHour) {
+    if (asapEnd > deadlineHour) {
       break;
     }
 
-    schedule.push({ level, startHour, endHour });
-
-    previousLevelEndHour = endHour;
-    maxLevelAchievable = level;
-    totalResearchHours += durationHours;
+    achievableLevels.push({ level, unlockHour, durationHours });
+    previousEndHour = asapEnd;
   }
+
+  if (achievableLevels.length === 0) {
+    return { schedule: [], maxLevelAchievable: 0, totalResearchHours: 0, feasible: false };
+  }
+
+  // Level 1: schedule ASAP to unlock mobilisation as early as possible.
+  const first = achievableLevels[0];
+  const start1 = Math.max(first.unlockHour, scenarioStartHour);
+  const end1 = start1 + first.durationHours;
+  const schedule: ResearchSchedule = [{ level: first.level, startHour: start1, endHour: end1 }];
+  let totalResearchHours = first.durationHours;
+
+  if (achievableLevels.length > 1) {
+    // Levels 2+: JIT backward pass — push each level as late as possible so units
+    // at higher levels are mobilised close to the truce end and pay minimum upkeep.
+    const rest = achievableLevels.slice(1);
+    const jitEntries: Array<{ level: number; startHour: number; endHour: number; durationHours: number }> = [];
+
+    let upperBound = deadlineHour;
+    for (let i = rest.length - 1; i >= 0; i--) {
+      const info = rest[i];
+      let startHour = upperBound - info.durationHours;
+      startHour = Math.max(startHour, info.unlockHour);
+      const endHour = startHour + info.durationHours;
+      jitEntries.unshift({ level: info.level, startHour, endHour, durationHours: info.durationHours });
+      upperBound = startHour;
+    }
+
+    // Forward adjustment: each level must start after the previous level ends.
+    // (Occurs when the JIT gap between level 1 and level 2 is smaller than level 1's duration.)
+    let prevEnd = end1;
+    for (const entry of jitEntries) {
+      if (entry.startHour < prevEnd) {
+        entry.startHour = prevEnd;
+        entry.endHour = prevEnd + entry.durationHours;
+      }
+      prevEnd = entry.endHour;
+      schedule.push({ level: entry.level, startHour: entry.startHour, endHour: entry.endHour });
+      totalResearchHours += entry.durationHours;
+    }
+  }
+
+  const maxLevelAchievable = achievableLevels[achievableLevels.length - 1].level;
 
   return {
     schedule,
     maxLevelAchievable,
     totalResearchHours,
-    feasible: maxLevelAchievable > 0,
+    feasible: true,
   };
 }
 
 /**
  * Validates that a research schedule is feasible given the constraints.
- * 
+ *
  * @param schedule Research schedule to validate
  * @param input Research parameters
  * @returns True if schedule is valid
@@ -99,7 +139,7 @@ export function validateResearchSchedule(
   schedule: ResearchSchedule,
   input: ResearchScheduleInput
 ): boolean {
-  const { unitId, unitCatalog, scenario, deadlineHour } = input;
+  const { unitId, unitCatalog, scenario, deadlineHour, doctrine } = input;
 
   if (schedule.length === 0) {
     return false;
@@ -117,11 +157,11 @@ export function validateResearchSchedule(
     const entry = schedule[i];
     const levelData = unit.levels[String(entry.level)];
 
-    if (!levelData?.research) {
+    if (!levelData?.research[doctrine]) {
       return false;
     }
 
-    const unlockDay = levelData.research.unlock_day ?? 1;
+    const unlockDay = levelData.unlock_day ?? 1;
     const effectiveUnlockDay = Math.max(1, unlockDay - unlockedThroughDayAtStart);
     const unlockHour = scenarioStartHour + (effectiveUnlockDay - 1) * 24;
     if (entry.startHour < unlockHour) {

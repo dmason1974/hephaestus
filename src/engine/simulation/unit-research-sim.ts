@@ -140,6 +140,7 @@ export function determineMaximumFeasibleLevel(
     deadlineAbsoluteHour?: number;
     mobilizationStartHour?: number;
     slots?: number;
+    doctrine?: string;
   }
 ): {
   maxLevel: number;
@@ -180,14 +181,16 @@ export function determineMaximumFeasibleLevel(
 
   for (const level of availableLevels) {
     const levelData = unit.levels[String(level)];
-    if (!levelData?.research) continue;
+    const unitDoctrine = opts?.doctrine ?? unit.doctrine[0];
+    const researchData = levelData?.research[unitDoctrine];
+    if (!researchData) continue;
 
-    const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, levelData.research.unlock_day);
-    
+    const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, levelData.unlock_day);
+
     // Find earliest available slot
     const earliestSlot = Math.min(...slotAvailableAt);
     const slotIndex = slotAvailableAt.indexOf(earliestSlot);
-    
+
     // Must wait for previous level to complete (sequential dependency)
     const startAbsoluteHour = Math.max(
       earliestSlot,
@@ -196,7 +199,7 @@ export function determineMaximumFeasibleLevel(
       scenarioStartHour
     );
 
-    const projectDurationHours = normalizeDurationHours(durationHours(levelData.research.time));
+    const projectDurationHours = normalizeDurationHours(durationHours(researchData.time));
     const endAbsoluteHourExclusive = startAbsoluteHour + projectDurationHours;
 
     // Check if this level can complete before deadline
@@ -262,7 +265,8 @@ function requiredUnitLevelsForResearchLevel(
 function unitLevelImpactScore(
   catalog: UnitCatalog,
   unitId: string,
-  level: number
+  level: number,
+  doctrine: string
 ) {
   const unit = catalog.units[unitId];
   const current = unit?.levels[String(level)];
@@ -271,15 +275,15 @@ function unitLevelImpactScore(
   }
 
   const previous = level > 1 ? unit.levels[String(level - 1)] : undefined;
-  const mobilisationResources = Object.values(current.mobilisation.cost).reduce((sum, value) => sum + value, 0);
-  const upkeepResources = Object.values(current.daily_upkeep.cost).reduce((sum, value) => sum + value, 0);
+  const mobilisationResources = Object.values(current.mobilisation[doctrine]?.cost ?? {}).reduce((sum, value) => sum + value, 0);
+  const upkeepResources = Object.values(current.daily_upkeep[doctrine]?.cost ?? {}).reduce((sum, value) => sum + value, 0);
 
   if (!previous) {
     return mobilisationResources + (upkeepResources * 24);
   }
 
-  const previousMobilisation = Object.values(previous.mobilisation.cost).reduce((sum, value) => sum + value, 0);
-  const previousUpkeep = Object.values(previous.daily_upkeep.cost).reduce((sum, value) => sum + value, 0);
+  const previousMobilisation = Object.values(previous.mobilisation[doctrine]?.cost ?? {}).reduce((sum, value) => sum + value, 0);
+  const previousUpkeep = Object.values(previous.daily_upkeep[doctrine]?.cost ?? {}).reduce((sum, value) => sum + value, 0);
 
   const deltaMobilisation = mobilisationResources - previousMobilisation;
   const deltaUpkeep = (upkeepResources - previousUpkeep) * 24;
@@ -350,6 +354,7 @@ export function simulateUnitResearchQueue(
   scenario: ResearchScenarioLike,
   opts?: {
     slots?: number;
+    doctrine?: string;
   }
 ): UnitResearchSimulationResult {
   const segments: UnitResearchSegment[] = [];
@@ -379,7 +384,12 @@ export function simulateUnitResearchQueue(
         throw new Error(`missing research data for ${action.unitId} level ${level}`);
       }
 
-      const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, levelData.research.unlock_day);
+      const unitDoctrine = opts?.doctrine ?? unit.doctrine[0];
+      const researchData = levelData.research[unitDoctrine];
+      if (!researchData) {
+        throw new Error(`missing research data for doctrine "${unitDoctrine}" on ${action.unitId} level ${level}`);
+      }
+      const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, levelData.unlock_day);
       let selectedSlot = 0;
       for (let slot = 1; slot < slotAvailableAt.length; slot++) {
         if (slotAvailableAt[slot] < slotAvailableAt[selectedSlot]) {
@@ -392,21 +402,21 @@ export function simulateUnitResearchQueue(
         unlockAbsoluteHour,
         scenarioStartHour
       );
-      const projectDurationHours = normalizeDurationHours(durationHours(levelData.research.time));
+      const projectDurationHours = normalizeDurationHours(durationHours(researchData.time));
       const endAbsoluteHourExclusive = startAbsoluteHour + projectDurationHours;
 
       segments.push({
         unitId: action.unitId,
         level,
         slot: selectedSlot + 1,
-        unlockDay: levelData.research.unlock_day,
+        unlockDay: levelData.unlock_day,
         startAbsoluteHour,
         endAbsoluteHourExclusive,
         durationHours: projectDurationHours,
-        cost: { ...levelData.research.cost },
+        cost: { ...researchData.cost },
       });
 
-      accumulateResearchCost(totals, spendingByHour, startAbsoluteHour, levelData.research.cost);
+      accumulateResearchCost(totals, spendingByHour, startAbsoluteHour, researchData.cost);
 
       slotAvailableAt[selectedSlot] = endAbsoluteHourExclusive;
       currentLevelByUnit.set(action.unitId, level);
@@ -468,6 +478,7 @@ export function simulateUnitResearchTargets(
     unitDemandCounts?: Record<string, number>;
     mobilizationStartHour?: number;
     enableJitScheduling?: boolean;
+    doctrine?: string;
   }
 ): UnitResearchSimulationResult {
   const scenarioStartHour = toAbsoluteHour(scenario.start.day, scenario.start.hour);
@@ -510,7 +521,7 @@ export function simulateUnitResearchTargets(
           throw new Error(`missing research data for ${unitId} level ${level}`);
         }
 
-        const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, levelData.research.unlock_day);
+        const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, levelData.unlock_day);
         const requiredUnits = requiredUnitLevelsForResearchLevel(catalog, unitId, level);
         let prerequisiteReadyHour = scenarioStartHour;
         let missingRequirement = false;
@@ -564,21 +575,26 @@ export function simulateUnitResearchTargets(
         throw new Error(`missing research data for ${selectedUnitId} level ${selectedLevel}`);
       }
 
-      const duration = normalizeDurationHours(durationHours(selectedLevelData.research.time));
+      const selectedDoc = opts?.doctrine ?? selectedUnit.doctrine[0];
+      const selectedResearchData = selectedLevelData.research[selectedDoc];
+      if (!selectedResearchData) {
+        throw new Error(`missing research data for doctrine "${selectedDoc}" on ${selectedUnitId} level ${selectedLevel}`);
+      }
+      const duration = normalizeDurationHours(durationHours(selectedResearchData.time));
       const endAbsoluteHourExclusive = selectedStartHour + duration;
 
       segments.push({
         unitId: selectedUnitId,
         level: selectedLevel,
         slot: selectedSlot + 1,
-        unlockDay: selectedLevelData.research.unlock_day,
+        unlockDay: selectedLevelData.unlock_day,
         startAbsoluteHour: selectedStartHour,
         endAbsoluteHourExclusive,
         durationHours: duration,
-        cost: { ...selectedLevelData.research.cost },
+        cost: { ...selectedResearchData.cost },
       });
 
-      accumulateResearchCost(totals, spendingByHour, selectedStartHour, selectedLevelData.research.cost);
+      accumulateResearchCost(totals, spendingByHour, selectedStartHour, selectedResearchData.cost);
       slotAvailableAt[selectedSlot] = endAbsoluteHourExclusive;
       completedAtByUnitLevel.set(`${selectedUnitId}:${selectedLevel}`, endAbsoluteHourExclusive);
 
@@ -642,19 +658,24 @@ export function simulateUnitResearchTargets(
         dependencyIds.push(`${requiredUnitId}:${requiredLevel}`);
       }
 
+      const unitDoctrine = opts?.doctrine ?? unit.doctrine[0];
+      const researchData = levelData.research[unitDoctrine];
+      if (!researchData) {
+        throw new Error(`missing research data for doctrine "${unitDoctrine}" on ${unitId} level ${level}`);
+      }
       const taskId = `${unitId}:${level}`;
       plannedTasks.set(taskId, {
         taskId,
         unitId,
         level,
-        unlockDay: levelData.research.unlock_day,
-        releaseHour: researchUnlockAbsoluteHour(scenario, levelData.research.unlock_day),
-        durationHours: normalizeDurationHours(durationHours(levelData.research.time)),
-        cost: { ...levelData.research.cost },
+        unlockDay: levelData.unlock_day,
+        releaseHour: researchUnlockAbsoluteHour(scenario, levelData.unlock_day),
+        durationHours: normalizeDurationHours(durationHours(researchData.time)),
+        cost: { ...researchData.cost },
         dependencyIds,
         successorIds: [],
         demandCount: opts?.unitDemandCounts?.[unitId] ?? 0,
-        impactScore: unitLevelImpactScore(catalog, unitId, level),
+        impactScore: unitLevelImpactScore(catalog, unitId, level, unitDoctrine),
         isLevel1: level === 1,
       });
     }

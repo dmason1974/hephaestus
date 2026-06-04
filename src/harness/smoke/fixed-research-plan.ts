@@ -63,6 +63,7 @@ function accumulateResearchCost(
 export function buildFixedResearchPlan(args: {
   catalog: UnitCatalog;
   scenario: ScenarioFile;
+  doctrine: string;
   lanes: UnitResearchAction[][];
   latestEndByAction?: Record<string, number>;
 }): UnitResearchSimulationResult {
@@ -84,8 +85,12 @@ export function buildFixedResearchPlan(args: {
         throw new Error(`missing research data for ${action.unitId} level ${action.targetLevel}`);
       }
 
-      const releaseHour = researchUnlockAbsoluteHour(args.scenario, levelData.research.unlock_day);
-      const duration = normalizeDurationHours(durationToHours(levelData.research.time));
+      const researchData = levelData.research[args.doctrine];
+      if (!researchData) {
+        throw new Error(`missing research data for doctrine "${args.doctrine}" on ${action.unitId} level ${action.targetLevel}`);
+      }
+      const releaseHour = researchUnlockAbsoluteHour(args.scenario, researchData.unlock_day);
+      const duration = normalizeDurationHours(durationToHours(researchData.time));
       const actionKey = `${action.unitId}@${action.targetLevel}`;
       const actionLatestEnd = args.latestEndByAction?.[actionKey];
       const endAbsoluteHourExclusive = actionLatestEnd === undefined
@@ -100,14 +105,14 @@ export function buildFixedResearchPlan(args: {
         unitId: action.unitId,
         level: action.targetLevel,
         slot: laneIndex + 1,
-        unlockDay: levelData.research.unlock_day,
+        unlockDay: researchData.unlock_day,
         startAbsoluteHour,
         endAbsoluteHourExclusive,
         durationHours: duration,
-        cost: { ...levelData.research.cost },
+        cost: { ...researchData.cost },
       });
 
-      accumulateResearchCost(totals, spendingByHour, startAbsoluteHour, levelData.research.cost);
+      accumulateResearchCost(totals, spendingByHour, startAbsoluteHour, researchData.cost);
       freeBefore = startAbsoluteHour;
     }
   });

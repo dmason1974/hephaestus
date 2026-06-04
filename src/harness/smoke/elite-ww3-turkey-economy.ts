@@ -250,6 +250,7 @@ function hourlyUnitAdjustments() {
   const researchPlan = buildFixedResearchPlan({
     catalog: mergedCatalog,
     scenario,
+    doctrine: turkey.country.doctrine,
     lanes: [
       [
         { unitId: "fixed_wing_veteran", targetLevel: 1 },

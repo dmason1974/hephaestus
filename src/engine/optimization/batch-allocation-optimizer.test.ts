@@ -23,9 +23,9 @@ function buildTestUnitCatalog(): UnitCatalog {
         levels: {
           "1": {
             requirements: ["air_base level 1"],
-            unlock_day: 1,
             research: {
               western: {
+                unlock_day: 1,
                 time: { hours: 2 },
                 cost: { cash: 100 },
               },
@@ -44,9 +44,9 @@ function buildTestUnitCatalog(): UnitCatalog {
           },
           "2": {
             requirements: ["air_base level 1", "test_unit level 1"],
-            unlock_day: 1,
             research: {
               western: {
+                unlock_day: 1,
                 time: { hours: 4 },
                 cost: { cash: 200 },
               },
@@ -65,9 +65,9 @@ function buildTestUnitCatalog(): UnitCatalog {
           },
           "3": {
             requirements: ["air_base level 2", "test_unit level 2"],
-            unlock_day: 1,
             research: {
               western: {
+                unlock_day: 1,
                 time: { hours: 6 },
                 cost: { cash: 300 },
               },

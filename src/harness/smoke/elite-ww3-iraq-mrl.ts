@@ -73,6 +73,7 @@ const firstMobilizationStartByUnit = Object.fromEntries(
 const researchPlan = buildFixedResearchPlan({
   catalog: mergedCatalog,
   scenario,
+  doctrine: iraq.country.doctrine,
   lanes: [
     [
       { unitId: "uncommon_infantry_officer", targetLevel: 1 },

@@ -61,7 +61,7 @@ export function optimizeResearchSchedule(input: ResearchScheduleInput): Research
       throw new Error(`Unit ${unitId} level ${level} has no research data for doctrine "${doctrine}"`);
     }
 
-    const unlockDay = levelData.unlock_day ?? 1;
+    const unlockDay = researchData.unlock_day;
     const effectiveUnlockDay = Math.max(1, unlockDay - unlockedThroughDayAtStart);
     const unlockHour = scenarioStartHour + (effectiveUnlockDay - 1) * 24;
     const durationHours = durationToHours(researchData.time);
@@ -157,11 +157,12 @@ export function validateResearchSchedule(
     const entry = schedule[i];
     const levelData = unit.levels[String(entry.level)];
 
-    if (!levelData?.research[doctrine]) {
+    const researchData = levelData?.research[doctrine];
+    if (!researchData) {
       return false;
     }
 
-    const unlockDay = levelData.unlock_day ?? 1;
+    const unlockDay = researchData.unlock_day;
     const effectiveUnlockDay = Math.max(1, unlockDay - unlockedThroughDayAtStart);
     const unlockHour = scenarioStartHour + (effectiveUnlockDay - 1) * 24;
     if (entry.startHour < unlockHour) {

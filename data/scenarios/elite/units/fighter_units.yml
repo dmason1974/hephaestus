@@ -20,9 +20,9 @@ units:
         requirements:
           - air_base level 1
           - arms_industry level 1
-        unlock_day: 1
         research:
           european:
+            unlock_day: 1
             time:
               minutes: 22
               seconds: 30
@@ -31,6 +31,7 @@ units:
               rares: 1900
               cash: 4000
           western:
+            unlock_day: 1
             time:
               minutes: 22
               seconds: 30
@@ -73,9 +74,9 @@ units:
           - air_base level 1
           - arms_industry level 1
           - air_superiority_fighter level 1
-        unlock_day: 3
         research:
           european:
+            unlock_day: 3
             time:
               hours: 18
               minutes: 45
@@ -84,6 +85,7 @@ units:
               rares: 2090
               cash: 4400
           western:
+            unlock_day: 3
             time:
               hours: 18
               minutes: 45
@@ -126,9 +128,18 @@ units:
           - air_base level 1
           - arms_industry level 1
           - air_superiority_fighter level 2
-        unlock_day: 4
         research:
+          european:
+            unlock_day: 6
+            time:
+              hours: 19
+              minutes: 30
+            cost:
+              supplies: 2160
+              rares: 2280
+              cash: 4800
           western:
+            unlock_day: 4
             time:
               hours: 19
               minutes: 30
@@ -137,6 +148,15 @@ units:
               rares: 2280
               cash: 4800
         mobilisation:
+          european:
+            time:
+              days: 1
+              hours: 1
+            cost:
+              components: 1000
+              manpower: 425
+              electronics: 950
+              cash: 3500
           western:
             time:
               days: 1
@@ -147,6 +167,12 @@ units:
               cash: 3150
               manpower: 375
         daily_upkeep:
+          european:
+            cost:
+              fuel: 45
+              electronics: 45
+              cash: 110
+              manpower: 45
           western:
             cost:
               fuel: 45
@@ -158,9 +184,18 @@ units:
           - air_base level 1
           - arms_industry level 1
           - air_superiority_fighter level 3
-        unlock_day: 9
         research:
+          european:
+            unlock_day: 11
+            time:
+              hours: 23
+              minutes: 15
+            cost:
+              supplies: 2340
+              rares: 2470
+              cash: 5200
           western:
+            unlock_day: 9
             time:
               hours: 23
               minutes: 15
@@ -169,6 +204,15 @@ units:
               rares: 2470
               cash: 5200
         mobilisation:
+          european:
+            time:
+              days: 1
+              hours: 3
+            cost:
+              components: 1175
+              manpower: 600
+              electronics: 1100
+              cash: 4000
           western:
             time:
               days: 1
@@ -179,6 +223,12 @@ units:
               cash: 3600
               manpower: 550
         daily_upkeep:
+          european:
+            cost:
+              fuel: 55
+              electronics: 50
+              cash: 150
+              manpower: 50
           western:
             cost:
               fuel: 55
@@ -190,9 +240,19 @@ units:
           - air_base level 1
           - arms_industry level 1
           - air_superiority_fighter level 4
-        unlock_day: 14
         research:
+          european:
+            unlock_day: 16
+            time:
+              days: 1
+              hours: 1
+              minutes: 30
+            cost:
+              supplies: 2520
+              rares: 2660
+              cash: 5600
           western:
+            unlock_day: 14
             time:
               days: 1
               hours: 1
@@ -202,6 +262,15 @@ units:
               rares: 2660
               cash: 5600
         mobilisation:
+          european:
+            time:
+              days: 1
+              hours: 4
+            cost:
+              components: 1175
+              manpower: 600
+              electronics: 1100
+              cash: 4000
           western:
             time:
               days: 1
@@ -212,6 +281,12 @@ units:
               cash: 3600
               manpower: 550
         daily_upkeep:
+          european:
+            cost:
+              fuel: 60
+              electronics: 55
+              cash: 160
+              manpower: 55
           western:
             cost:
               fuel: 60
@@ -223,9 +298,19 @@ units:
           - air_base level 1
           - arms_industry level 1
           - air_superiority_fighter level 5
-        unlock_day: 20
         research:
+          european:
+            unlock_day: 22
+            time:
+              days: 1
+              hours: 5
+              minutes: 15
+            cost:
+              supplies: 2700
+              rares: 2850
+              cash: 6000
           western:
+            unlock_day: 20
             time:
               days: 1
               hours: 5
@@ -235,6 +320,15 @@ units:
               rares: 2850
               cash: 6000
         mobilisation:
+          european:
+            time:
+              days: 1
+              hours: 6
+            cost:
+              components: 1400
+              manpower: 800
+              electronics: 1250
+              cash: 5000
           western:
             time:
               days: 1
@@ -245,6 +339,12 @@ units:
               cash: 4500
               manpower: 725
         daily_upkeep:
+          european:
+            cost:
+              fuel: 70
+              electronics: 60
+              cash: 175
+              manpower: 65
           western:
             cost:
               fuel: 70
@@ -256,9 +356,19 @@ units:
           - air_base level 1
           - arms_industry level 1
           - air_superiority_fighter level 6
-        unlock_day: 22
         research:
+          european:
+            unlock_day: 24
+            time:
+              days: 1
+              hours: 7
+              minutes: 30
+            cost:
+              supplies: 2700
+              rares: 2850
+              cash: 6000
           western:
+            unlock_day: 22
             time:
               days: 1
               hours: 7
@@ -268,16 +378,31 @@ units:
               rares: 2850
               cash: 6000
         mobilisation:
+          european:
+            time:
+              days: 1
+              hours: 2
+            cost:
+              components: 1400
+              manpower: 800
+              electronics: 1250
+              cash: 5000
           western:
             time:
               days: 1
-              hours: 4
+              hours: 2
             cost:
               components: 1250
               electronics: 1125
               cash: 4500
               manpower: 725
         daily_upkeep:
+          european:
+            cost:
+              fuel: 80
+              electronics: 65
+              cash: 190
+              manpower: 70
           western:
             cost:
               fuel: 80
@@ -288,15 +413,24 @@ units:
     name: Fixed Wing Veteran
     category: Air
     doctrine:
+      - european
       - western
     levels:
       "1":
         requirements:
           - air_base level 1
           - recruiting_office level 1
-        unlock_day: 1
         research:
+          european:
+            unlock_day: 2
+            time:
+              hours: 6
+            cost:
+              supplies: 400
+              rares: 350
+              cash: 1000
           western:
+            unlock_day: 1
             time:
               hours: 6
             cost:
@@ -304,6 +438,15 @@ units:
               rares: 350
               cash: 1000
         mobilisation:
+          european:
+            time:
+              days: 1
+            cost:
+              components: 2000
+              manpower: 950
+              electronics: 1400
+              cash: 3500
+            unit_limit: 1
           western:
             time:
               days: 1
@@ -314,6 +457,12 @@ units:
               manpower: 950
             unit_limit: 1
         daily_upkeep:
+          european:
+            cost:
+              manpower: 70
+              fuel: 70
+              electronics: 60
+              cash: 180
           western:
             cost:
               fuel: 70
@@ -325,9 +474,18 @@ units:
           - air_base level 1
           - recruiting_office level 1
           - fixed_wing_veteran level 1
-        unlock_day: 5
         research:
+          european:
+            unlock_day: 4
+            time:
+              hours: 6
+              minutes: 45
+            cost:
+              supplies: 500
+              rares: 450
+              cash: 1250
           western:
+            unlock_day: 5
             time:
               hours: 6
               minutes: 45
@@ -336,6 +494,15 @@ units:
               rares: 450
               cash: 1250
         mobilisation:
+          european:
+            time:
+              days: 1
+              hours: 2
+            cost:
+              components: 2500
+              manpower: 1100
+              electronics: 1700
+              cash: 4500
           western:
             time:
               days: 1
@@ -346,6 +513,12 @@ units:
               cash: 4500
               manpower: 1100
         daily_upkeep:
+          european:
+            cost:
+              manpower: 80
+              fuel: 80
+              electronics: 70
+              cash: 200
           western:
             cost:
               fuel: 80
@@ -357,9 +530,18 @@ units:
           - air_base level 1
           - recruiting_office level 1
           - fixed_wing_veteran level 2
-        unlock_day: 7
         research:
+          european:
+            unlock_day: 8
+            time:
+              hours: 7
+              minutes: 30
+            cost:
+              supplies: 600
+              rares: 550
+              cash: 1500
           western:
+            unlock_day: 7
             time:
               hours: 7
               minutes: 30
@@ -368,6 +550,15 @@ units:
               rares: 550
               cash: 1500
         mobilisation:
+          european:
+            time:
+              days: 1
+              hours: 4
+            cost:
+              components: 3000
+              manpower: 1250
+              electronics: 2000
+              cash: 6000
           western:
             time:
               days: 1
@@ -378,6 +569,12 @@ units:
               cash: 6000
               manpower: 1250
         daily_upkeep:
+          european:
+            cost:
+              manpower: 90
+              fuel: 85
+              electronics: 80
+              cash: 220
           western:
             cost:
               fuel: 85
@@ -389,9 +586,17 @@ units:
           - air_base level 3
           - recruiting_office level 2
           - fixed_wing_veteran level 3
-        unlock_day: 9
         research:
+          european:
+            unlock_day: 11
+            time:
+              hours: 9
+            cost:
+              supplies: 750
+              rares: 700
+              cash: 2000
           western:
+            unlock_day: 9
             time:
               hours: 9
             cost:
@@ -399,6 +604,15 @@ units:
               rares: 700
               cash: 2000
         mobilisation:
+          european:
+            time:
+              days: 1
+              hours: 8
+            cost:
+              components: 3500
+              manpower: 1400
+              electronics: 2300
+              cash: 7500
           western:
             time:
               days: 1
@@ -409,6 +623,12 @@ units:
               cash: 7500
               manpower: 1400
         daily_upkeep:
+          european:
+            cost:
+              manpower: 110
+              fuel: 95
+              electronics: 90
+              cash: 240
           western:
             cost:
               fuel: 95
@@ -420,9 +640,18 @@ units:
           - air_base level 3
           - recruiting_office level 2
           - fixed_wing_veteran level 4
-        unlock_day: 13
         research:
+          european:
+            unlock_day: 15
+            time:
+              hours: 9
+              minutes: 45
+            cost:
+              supplies: 850
+              rares: 800
+              cash: 2250
           western:
+            unlock_day: 13
             time:
               hours: 9
               minutes: 45
@@ -431,6 +660,15 @@ units:
               rares: 800
               cash: 2250
         mobilisation:
+          european:
+            time:
+              days: 1
+              hours: 10
+            cost:
+              components: 4000
+              manpower: 1550
+              electronics: 2600
+              cash: 9500
           western:
             time:
               days: 1
@@ -441,6 +679,12 @@ units:
               cash: 9500
               manpower: 1550
         daily_upkeep:
+          european:
+            cost:
+              manpower: 120
+              fuel: 105
+              electronics: 100
+              cash: 260
           western:
             cost:
               fuel: 105
@@ -452,9 +696,18 @@ units:
           - air_base level 3
           - recruiting_office level 2
           - fixed_wing_veteran level 5
-        unlock_day: 17
         research:
+          european:
+            unlock_day: 19
+            time:
+              hours: 10
+              minutes: 30
+            cost:
+              supplies: 950
+              rares: 900
+              cash: 2500
           western:
+            unlock_day: 17
             time:
               hours: 10
               minutes: 30
@@ -463,6 +716,15 @@ units:
               rares: 900
               cash: 2500
         mobilisation:
+          european:
+            time:
+              days: 1
+              hours: 13
+            cost:
+              components: 4500
+              manpower: 1700
+              electronics: 2900
+              cash: 11500
           western:
             time:
               days: 1
@@ -473,6 +735,12 @@ units:
               cash: 11500
               manpower: 1700
         daily_upkeep:
+          european:
+            cost:
+              manpower: 140
+              fuel: 110
+              electronics: 110
+              cash: 280
           western:
             cost:
               fuel: 110
@@ -484,9 +752,17 @@ units:
           - air_base level 5
           - recruiting_office level 3
           - fixed_wing_veteran level 6
-        unlock_day: 20
         research:
+          european:
+            unlock_day: 22
+            time:
+              hours: 12
+            cost:
+              supplies: 1200
+              rares: 1050
+              cash: 3000
           western:
+            unlock_day: 20
             time:
               hours: 12
             cost:
@@ -494,6 +770,15 @@ units:
               rares: 1050
               cash: 3000
         mobilisation:
+          european:
+            time:
+              days: 2
+              hours: 12
+            cost:
+              components: 5000
+              manpower: 1850
+              electronics: 3200
+              cash: 15000
           western:
             time:
               days: 2
@@ -504,6 +789,12 @@ units:
               cash: 15000
               manpower: 1850
         daily_upkeep:
+          european:
+            cost:
+              manpower: 150
+              fuel: 120
+              electronics: 120
+              cash: 300
           western:
             cost:
               fuel: 120

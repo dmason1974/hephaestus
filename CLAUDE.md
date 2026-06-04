@@ -70,7 +70,7 @@ data/
 
 ## Unit YAML Schema — Per-Doctrine Level Structure
 
-Unit levels store costs and timings keyed by doctrine. `unlock_day` and `requirements` are shared across all doctrines and live at the level root. Example:
+Unit levels store costs and timings keyed by doctrine. `unlock_day` lives **inside each doctrine's research block** (it is per-doctrine). `requirements` is shared and lives at the level root. Example:
 
 ```yaml
 air_superiority_fighter:
@@ -84,12 +84,13 @@ air_superiority_fighter:
       requirements:
         - air_base level 1
         - arms_industry level 1
-      unlock_day: 1
       research:
         european:
+          unlock_day: 1
           time: { hours: 22, minutes: 30 }
           cost: { supplies: 1800, rares: 1900, cash: 4000 }
         western:
+          unlock_day: 1
           time: { minutes: 30 }
           cost: { supplies: 1800, rares: 1900, cash: 4000 }
       mobilisation:
@@ -106,7 +107,10 @@ air_superiority_fighter:
           cost: { fuel: 35, electronics: 35, cash: 100, manpower: 35 }
 ```
 
-**Backwards compatibility**: old flat-format YAMLs (research/mobilisation/upkeep not keyed by doctrine) are auto-normalised on parse using the unit's `doctrine` array. Existing files do not need to be rewritten.
+**Backwards compatibility**: three YAML formats are auto-normalised on parse:
+1. Old flat format (`research: { unlock_day, time, cost }` at root) — spread into per-doctrine blocks
+2. Transitional format (`unlock_day` at level root, per-doctrine research without it) — `unlock_day` injected into each doctrine's research block
+3. Current format (`unlock_day` inside each doctrine's research block) — no transformation needed
 
 **Partial doctrine data is valid**: a unit may have data for only some of its doctrines at some levels (e.g. levels 2–7 may only have `western` data while `european` screenshots are pending).
 
@@ -140,4 +144,8 @@ All engine functions that read per-level costs or timings accept a `doctrine: st
 
 1. **Populate missing unit YAML data** — `standard/units/` and `elite/units/` are missing several units referenced in tests (`naval_veteran`, `fixed_wing_veteran`, `deployable_gear`, `frigate`, `elite_frigate` in standard; corresponding elite variants). 11 tests currently fail because of missing unit definitions.
 
-2. **Update the Gemini gem** — re-upload `unit-schema.ts` and `elite/units/fighter_units.yml` as the exemplar so future AI-generated unit YAMLs use the per-doctrine level structure with `unlock_day` at the level root.
+2. **Continue adding European doctrine data to elite unit YAMLs** — `elite/units/fighter_units.yml` is complete (ASF and Fixed Wing Veteran done). Remaining elite unit files still need european doctrine entries for mobilisation, upkeep, and per-doctrine unlock days. Eastern doctrine is out of scope for now.
+
+3. **Update the Gemini gem** — re-upload `unit-schema.ts` and `elite/units/fighter_units.yml` as the exemplar so future AI-generated unit YAMLs use the current per-doctrine level structure with `unlock_day` inside each doctrine's research block.
+
+See `docs/doctrine-comparison.md` for a reference chart of per-doctrine research unlock day deltas (sourced from an older TH patch — verify against screenshots).

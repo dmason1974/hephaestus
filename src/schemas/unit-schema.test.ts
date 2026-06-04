@@ -45,9 +45,9 @@ test("unit catalog schema accepts mobilisation unit_limit", () => {
         levels: {
           1: {
             requirements: ["frigate level 1"],
-            unlock_day: 3,
             research: {
               western: {
+                unlock_day: 3,
                 time: { hours: 21 },
                 cost: { supplies: 1, components: 1, fuel: 1, rares: 1, electronics: 1, cash: 1 },
               },
@@ -87,9 +87,9 @@ test("unit catalog schema rejects malformed resource cost values", () => {
         levels: {
           1: {
             requirements: ["naval_base level 2"],
-            unlock_day: 2,
             research: {
               western: {
+                unlock_day: 2,
                 time: { hours: 1 },
                 cost: { supplies: 1, components: 1, fuel: 1, rares: 1, electronics: 1, cash: 1 },
               },

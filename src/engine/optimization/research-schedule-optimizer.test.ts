@@ -18,22 +18,19 @@ function buildTestUnitCatalog(): UnitCatalog {
         levels: {
           "1": {
             requirements: ["air_base level 1"],
-            unlock_day: 1,
-            research: { western: { time: { hours: 2 }, cost: { cash: 100 } } },
+            research: { western: { unlock_day: 1, time: { hours: 2 }, cost: { cash: 100 } } },
             mobilisation: { western: { time: { hours: 10 }, cost: { supplies: 100, cash: 100 } } },
             daily_upkeep: { western: { cost: { cash: 10 } } },
           },
           "2": {
             requirements: ["air_base level 1", "test_unit level 1"],
-            unlock_day: 1,
-            research: { western: { time: { hours: 4 }, cost: { cash: 200 } } },
+            research: { western: { unlock_day: 1, time: { hours: 4 }, cost: { cash: 200 } } },
             mobilisation: { western: { time: { hours: 12 }, cost: { supplies: 120, cash: 120 } } },
             daily_upkeep: { western: { cost: { cash: 15 } } },
           },
           "3": {
             requirements: ["air_base level 2", "test_unit level 2"],
-            unlock_day: 5,
-            research: { western: { time: { hours: 6 }, cost: { cash: 300 } } },
+            research: { western: { unlock_day: 5, time: { hours: 6 }, cost: { cash: 300 } } },
             mobilisation: { western: { time: { hours: 14 }, cost: { supplies: 140, cash: 140 } } },
             daily_upkeep: { western: { cost: { cash: 20 } } },
           },
@@ -151,8 +148,7 @@ test("optimizeResearchSchedule uses multiple research slots in parallel", () => 
         levels: {
           "1": {
             requirements: [],
-            unlock_day: 1,
-            research: { western: { time: { hours: 10 }, cost: { cash: 100 } } },
+            research: { western: { unlock_day: 1, time: { hours: 10 }, cost: { cash: 100 } } },
             mobilisation: { western: { time: { hours: 1 }, cost: {} } },
             daily_upkeep: { western: { cost: {} } },
           },

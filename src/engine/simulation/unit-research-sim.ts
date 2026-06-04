@@ -185,7 +185,7 @@ export function determineMaximumFeasibleLevel(
     const researchData = levelData?.research[unitDoctrine];
     if (!researchData) continue;
 
-    const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, levelData.unlock_day);
+    const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, researchData.unlock_day);
 
     // Find earliest available slot
     const earliestSlot = Math.min(...slotAvailableAt);
@@ -389,7 +389,7 @@ export function simulateUnitResearchQueue(
       if (!researchData) {
         throw new Error(`missing research data for doctrine "${unitDoctrine}" on ${action.unitId} level ${level}`);
       }
-      const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, levelData.unlock_day);
+      const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, researchData.unlock_day);
       let selectedSlot = 0;
       for (let slot = 1; slot < slotAvailableAt.length; slot++) {
         if (slotAvailableAt[slot] < slotAvailableAt[selectedSlot]) {
@@ -409,7 +409,7 @@ export function simulateUnitResearchQueue(
         unitId: action.unitId,
         level,
         slot: selectedSlot + 1,
-        unlockDay: levelData.unlock_day,
+        unlockDay: researchData.unlock_day,
         startAbsoluteHour,
         endAbsoluteHourExclusive,
         durationHours: projectDurationHours,
@@ -521,7 +521,9 @@ export function simulateUnitResearchTargets(
           throw new Error(`missing research data for ${unitId} level ${level}`);
         }
 
-        const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, levelData.unlock_day);
+        const unitDoc = opts?.doctrine ?? unit.doctrine[0];
+        const unitResearch = levelData.research[unitDoc];
+        const unlockAbsoluteHour = researchUnlockAbsoluteHour(scenario, unitResearch?.unlock_day ?? 1);
         const requiredUnits = requiredUnitLevelsForResearchLevel(catalog, unitId, level);
         let prerequisiteReadyHour = scenarioStartHour;
         let missingRequirement = false;
@@ -587,7 +589,7 @@ export function simulateUnitResearchTargets(
         unitId: selectedUnitId,
         level: selectedLevel,
         slot: selectedSlot + 1,
-        unlockDay: selectedLevelData.unlock_day,
+        unlockDay: selectedResearchData.unlock_day,
         startAbsoluteHour: selectedStartHour,
         endAbsoluteHourExclusive,
         durationHours: duration,
@@ -668,8 +670,8 @@ export function simulateUnitResearchTargets(
         taskId,
         unitId,
         level,
-        unlockDay: levelData.unlock_day,
-        releaseHour: researchUnlockAbsoluteHour(scenario, levelData.unlock_day),
+        unlockDay: researchData.unlock_day,
+        releaseHour: researchUnlockAbsoluteHour(scenario, researchData.unlock_day),
         durationHours: normalizeDurationHours(durationHours(researchData.time)),
         cost: { ...researchData.cost },
         dependencyIds,

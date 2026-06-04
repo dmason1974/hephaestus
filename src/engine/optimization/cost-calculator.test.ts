@@ -26,9 +26,9 @@ function buildTestUnitCatalog(): UnitCatalog {
         levels: {
           "1": {
             requirements: ["air_base level 1", "recruiting_office level 1"],
-            unlock_day: 1,
             research: {
               western: {
+                unlock_day: 1,
                 time: { hours: 1 },
                 cost: {
                   supplies: 10,
@@ -63,9 +63,9 @@ function buildTestUnitCatalog(): UnitCatalog {
           },
           "2": {
             requirements: ["air_base level 1", "recruiting_office level 2", "strike_fighter level 1"],
-            unlock_day: 1,
             research: {
               western: {
+                unlock_day: 1,
                 time: { hours: 2 },
                 cost: {
                   supplies: 10,
@@ -100,9 +100,9 @@ function buildTestUnitCatalog(): UnitCatalog {
           },
           "3": {
             requirements: ["air_base level 2", "recruiting_office level 2", "strike_fighter level 2"],
-            unlock_day: 1,
             research: {
               western: {
+                unlock_day: 1,
                 time: { hours: 3 },
                 cost: {
                   supplies: 10,
@@ -137,9 +137,9 @@ function buildTestUnitCatalog(): UnitCatalog {
           },
           "4": {
             requirements: ["air_base level 2", "recruiting_office level 3", "strike_fighter level 3"],
-            unlock_day: 1,
             research: {
               western: {
+                unlock_day: 1,
                 time: { hours: 4 },
                 cost: {
                   supplies: 10,
@@ -174,9 +174,9 @@ function buildTestUnitCatalog(): UnitCatalog {
           },
           "5": {
             requirements: ["air_base level 3", "recruiting_office level 3", "strike_fighter level 4"],
-            unlock_day: 1,
             research: {
               western: {
+                unlock_day: 1,
                 time: { hours: 5 },
                 cost: {
                   supplies: 10,

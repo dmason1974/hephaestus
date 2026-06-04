@@ -37,6 +37,7 @@ const timeSchema = z
 
 const doctrineResearchSchema = z
   .object({
+    unlock_day: nonNegativeIntSchema,
     time: timeSchema,
     cost: completeResourceRecordSchema,
   })
@@ -68,7 +69,6 @@ export function buildUnitCatalogSchema(enums: Enumerations) {
   const unitLevelSchema = z
     .object({
       requirements: z.array(z.string().min(1)),
-      unlock_day: nonNegativeIntSchema,
       research: z
         .record(doctrineKeySchema, doctrineResearchSchema)
         .refine(r => Object.keys(r).length > 0, "research must include at least one doctrine"),
@@ -107,43 +107,54 @@ export function buildUnitCatalogSchema(enums: Enumerations) {
 
 export type UnitCatalog = z.infer<ReturnType<typeof buildUnitCatalogSchema>>;
 
-function normalizeLevelDoctrineBlock(
-  block: Record<string, unknown>,
-  doctrines: string[]
-): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(block).map(([k, v]) => [k.trim().toLowerCase(), v])
-  );
-  // If no doctrine keys exist yet the caller handles migration via doctrines param
-  void doctrines;
-}
-
 function normalizeLevel(
   level: Record<string, unknown>,
   doctrines: string[]
 ): Record<string, unknown> {
   const out = { ...level };
+  const levelUnlockDay = out.unlock_day as number | undefined;
 
-  // research: old flat format has unlock_day + time + cost at the research root
+  // research normalization — three formats supported:
+  // 1. Old flat: research has unlock_day/time/cost at root → spread into per-doctrine blocks
+  // 2. Transitional: unlock_day at level root, research already per-doctrine → inject into each doctrine
+  // 3. New: unlock_day inside each per-doctrine research block → leave alone
   if (out.research && typeof out.research === "object") {
     const r = out.research as Record<string, unknown>;
     if ("time" in r || "cost" in r || "unlock_day" in r) {
+      // Case 1: old flat format
       const { unlock_day, time, cost } = r as {
         unlock_day?: number;
         time?: unknown;
         cost?: unknown;
       };
-      if (unlock_day !== undefined && out.unlock_day === undefined) {
-        out.unlock_day = unlock_day;
-      }
+      const resolvedUnlockDay = unlock_day ?? levelUnlockDay;
       const entry: Record<string, unknown> = {};
+      if (resolvedUnlockDay !== undefined) entry.unlock_day = resolvedUnlockDay;
       if (time !== undefined) entry.time = time;
       if (cost !== undefined) entry.cost = cost;
       out.research = Object.fromEntries(doctrines.map(d => [d, entry]));
     } else {
-      out.research = normalizeLevelDoctrineBlock(r, doctrines);
+      // Cases 2 & 3: per-doctrine format — inject level-root unlock_day into doctrine blocks that lack one
+      const normalized: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(r)) {
+        const normKey = k.trim().toLowerCase();
+        if (typeof v === "object" && v !== null) {
+          const vObj = v as Record<string, unknown>;
+          if (!("unlock_day" in vObj) && levelUnlockDay !== undefined) {
+            normalized[normKey] = { unlock_day: levelUnlockDay, ...vObj };
+          } else {
+            normalized[normKey] = vObj;
+          }
+        } else {
+          normalized[normKey] = v;
+        }
+      }
+      out.research = normalized;
     }
   }
+
+  // unlock_day no longer lives at the level root — remove it after normalization
+  delete out.unlock_day;
 
   // mobilisation: old flat format has time + cost (+ unit_limit) at root
   if (out.mobilisation && typeof out.mobilisation === "object") {

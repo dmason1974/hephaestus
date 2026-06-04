@@ -1,4 +1,4 @@
-# WW3 Build Plan — Project Context
+# Hephaestus — Project Context
 
 ## What This Project Is
 

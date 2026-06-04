@@ -1,4 +1,4 @@
-# ww3-builld-plan
+# Hephaestus
 
 A TypeScript planning engine for a strategy game. It simulates and optimises how a country researches and mobilises military units before a truce deadline, finding the cheapest city/recruiting-office configuration to field a target force in time.
 

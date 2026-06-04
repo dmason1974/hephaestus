@@ -1,125 +1,130 @@
 # ww3-builld-plan
 
+A TypeScript planning engine for a strategy game. It simulates and optimises how a country researches and mobilises military units before a truce deadline, finding the cheapest city/recruiting-office configuration to field a target force in time.
+
 ## Structure
 
-- `src/engine/` contains pure simulation, economy, orchestration, and reporting logic.
-- `src/schemas/` contains Zod schemas and object-level parsing/validation.
-- `src/scenarios/io/` contains filesystem and YAML loaders for buildings, scenarios, enumerations, and countries.
-- `src/harness/smoke/` contains scenario-driven smoke scripts.
-- `src/cli/` contains validation entrypoints.
+```
+src/
+  core/                   Shared constants and time utilities
+  schemas/                Zod validators for all YAML data files
+  scenarios/io/           Filesystem and YAML loaders (buildings, scenarios, countries)
+  engine/
+    economy/              Morale, population, city/province production, building modifiers
+    optimization/         Force projection, batch allocation, research scheduling, cost calculator
+    orchestration/        Build order timeline
+    provinces/            Province cohorts
+    reporting/            Country resource balance, scenario reporting
+    simulation/           Unit research, mobilisation, and build-order simulations
+    timing/               Shared timing helpers
+  cli/                    Entry point scripts
+  harness/smoke/          Ad-hoc runner scripts (not tests)
+  test-support/           Shared test helpers
 
-## Smoke Tests
-
-The repo includes a set of smoke scripts for checking the economy, morale, and build-order models from the command line.
-The smoke entrypoints now live under `src/harness/smoke/`, separate from the engine code in `src/engine/`.
-
-Run them with:
-
-```bash
-npm run smoke:morale
-npm run smoke:multipliers
-npm run smoke:resource
-npm run smoke:resource:hourly
-npm run smoke:argentina:hourly
-npm run smoke:build-order
-npm run smoke:build-order:compare
-npm run smoke:beam:city
-npm run smoke:beam:country
+data/
+  buildings.yml
+  enums.yml
+  scenarios/
+    standard/
+      units/              Unit catalog shared across standard scenarios
+      ww3/                Standard WW3 scenario + country configs
+    elite/
+      units/              Unit catalog shared across elite scenarios
+      ww3/                Elite WW3 scenario + country configs
+      antarctica/         Elite Antarctica scenario + country configs
 ```
 
-The Beam scripts are scenario-driven and take their main inputs from environment variables:
+## CLI
+
+```bash
+# Run the force planner for a country
+npm run plan
+
+# Validate a single country YAML
+npm run validate:country
+
+# Validate all country YAMLs
+npm run validate:countries
+
+# Convert Beam City HTML export to a build plan YAML
+npm run convert:beam-city:build-plan
+```
+
+## Smoke Scripts
+
+Ad-hoc scripts for spot-checking models from the command line.
+
+### Economy
+
+```bash
+npm run smoke:morale                        # Homeland morale curve
+npm run smoke:morale:occupied               # Occupied city morale curve
+npm run smoke:multipliers                   # Daily morale and population multipliers
+npm run smoke:resource                      # Daily city resource production
+npm run smoke:resource:hourly               # Hourly city production and running balances
+npm run smoke:argentina:hourly              # Hourly country-level balances (Argentina)
+npm run smoke:country:economy               # Country economy summary
+```
+
+### Build Orders
+
+```bash
+npm run smoke:build-order                   # Single-city AI1→AI5 build order
+npm run smoke:build-order:compare           # Compare AI5→B3 vs B3→AI5 over 28 days
+npm run smoke:build-plan:balance            # Build plan resource balance
+npm run smoke:greece:electro                # Greece electronics city benefit
+```
+
+### Research and Force Planning
+
+```bash
+npm run smoke:research                      # Unit research schedule
+npm run smoke:research:elite-ww3            # Elite WW3 unit research schedule
+npm run smoke:force-plan                    # Force build plan
+npm run smoke:force:elite-ww3              # Elite WW3 force validator
+npm run smoke:mobilization:elite-ww3       # Elite WW3 unit mobilisation
+```
+
+### Country-Specific (Elite WW3)
+
+```bash
+npm run smoke:turkey:plan:elite-ww3
+npm run smoke:turkey:elite-ww3
+npm run smoke:turkey:economy:elite-ww3
+npm run smoke:iraq:elite-ww3
+npm run smoke:iraq:economy:elite-ww3
+npm run smoke:iraq:plan:elite-ww3
+npm run smoke:greece:occupied:elite-ww3
+npm run smoke:indonesia:philippines:elite-ww3
+npm run smoke:hq:timing:elite-ww3
+```
+
+### Coalition / Multi-Country
+
+```bash
+npm run smoke:coalition:elite-ww3
+npm run smoke:coalition:ww3-2026
+npm run smoke:city-builds:elite-ww3
+```
+
+### Beam Search and Optimisation
+
+```bash
+npm run smoke:beam:city                     # City-level beam search
+npm run smoke:beam:country                  # Country-level beam search
+npm run smoke:beam:occupied-target          # Occupied city target beam
+npm run smoke:beam:portfolio                # Portfolio balance beam
+npm run smoke:mc:city:elite-ww3            # City Monte Carlo (Elite WW3)
+```
+
+The Beam scripts accept environment variables to select scenario and country:
 
 ```bash
 BS_SCENARIO=elite/antarctica BS_COUNTRY=argentina npm run smoke:beam:city
 BSC_SCENARIO=elite/antarctica BSC_COUNTRY=argentina npm run smoke:beam:country
 ```
 
-### Scenario Ground Truth
-
-Smoke scripts use `data/scenarios/elite/antarctica/scenario.yml` as the source of truth for:
-
-- `start.day`
-- `start.hour`
-- `speed`
-- `starting_balance` where the model being exercised includes balances
-
-The scenario loader normalizes `starting_balance.rare` from YAML to the internal resource key `rares`.
-
-Hourly and daily reporting now use map time, not "24 hours since scenario start":
-
-- absolute hour = `(mapDay - 1) * 24 + hour`
-- map day boundaries are fixed calendar windows `[0,24)`, `[24,48)`, ...
-- a scenario that starts mid-day reports a partial first map day
-- hourly morale ticks at calendar midnight (absolute hour multiples of `24`)
-
-### Scripts
-
-`smoke:morale`
-
-- Prints the baseline homeland morale as a map-time table.
-- Uses scenario start time for display context.
-- Prints `day`, `hourOfDay`, and `morale`.
-- Does not use starting balances.
-
-`smoke:multipliers`
-
-- Prints daily morale and population multipliers.
-- Uses scenario start time for display context.
-- Prints `day`, `morale`, `moraleMul`, `popDecimal`, and `popMul`.
-- Rounds `popDecimal` to 1 decimal place and `popMul` to 2 decimal places.
-- Does not use starting balances.
-
-`smoke:resource`
-
-- Loads Argentina's Buenos Aires city from scenario country YAML.
-- Prints daily production for that city's resource plus `manpower` and `cash`.
-- Uses scenario `speed`.
-- Uses hourly-to-daily rollup over fixed map-day windows.
-- Prints a partial first day when the scenario starts mid-day.
-- Prints `hoursCounted` for each map day.
-- Uses the city's `resource` value as the dynamic resource column label.
-- Prints scenario start time and starting balances for context.
-
-`smoke:resource:hourly`
-
-- Prints hourly production and running balances for a single example city resource plus `manpower` and `cash`.
-- Uses scenario `speed`.
-- Uses scenario `starting_balance` for the displayed resource, `cash`, and `manpower`.
-- Uses calendar day for morale ticks, so morale changes at absolute hours `24`, `48`, `72`, ...
-- Prints `day`, `hourOfDay`, and `morale` alongside hourly production and balances.
-
-`smoke:argentina:hourly`
-
-- Loads `data/scenarios/elite/antarctica/countries/argentina.yml`.
-- Aggregates hourly country balances for `supplies`, `components`, `fuel`, `electronics`, `rare`, `manpower`, and `cash`.
-- Uses scenario `speed`.
-- Uses scenario `starting_balance`.
-- Uses fixed map-day/hour labels derived from absolute time.
-- Prints `day` and `hourOfDay` alongside the country balance columns.
-- Starts on the scenario start hour and truncates output at the end of the requested map-day window.
-
-`smoke:build-order`
-
-- Runs a single-city Arms Industry build order from AI1 through AI5.
-- Uses scenario start day/hour as the base clock for all completion and activation timing.
-- Prints:
-  - scenario start and absolute `t0`
-  - per-build `start_rel_hour`, `duration_hours`, `completion_abs`, `activationDay`
-  - per-day `dayStart_abs` and bunker level at day start
-  - hourly production table with absolute hours, morale, and multiplier
-
-`smoke:build-order:compare`
-
-- Compares two single-city build orders over the first 28 map days:
-  - `AI5 -> B3`
-  - `B3 -> AI5`
-- Uses Argentina's Buenos Aires city as the exemplar input.
-- Uses the shared city economic inputs directly from the city's starting population, produced resource, and scenario speed.
-- Prints per-build timings, final cumulative output, and day-by-day cumulative deltas for the city resource and cash.
-
 ## Tests
-
-Run the automated tests with:
 
 ```bash
 npm test

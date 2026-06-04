@@ -138,14 +138,3 @@ All engine functions that read per-level costs or timings accept a `doctrine: st
 
 `simulateUnitResearchTargets` (used by `planMobilizationBuild`) also implements JIT scheduling with the same intent, handling multi-unit plans across both research slots.
 
----
-
-## Immediate Next Steps
-
-1. **Populate missing unit YAML data** — `standard/units/` and `elite/units/` are missing several units referenced in tests (`naval_veteran`, `fixed_wing_veteran`, `deployable_gear`, `frigate`, `elite_frigate` in standard; corresponding elite variants). 11 tests currently fail because of missing unit definitions.
-
-2. **Continue adding European doctrine data to elite unit YAMLs** — `elite/units/fighter_units.yml` is complete (ASF and Fixed Wing Veteran done). Remaining elite unit files still need european doctrine entries for mobilisation, upkeep, and per-doctrine unlock days. Eastern doctrine is out of scope for now.
-
-3. **Update the Gemini gem** — re-upload `unit-schema.ts` and `elite/units/fighter_units.yml` as the exemplar so future AI-generated unit YAMLs use the current per-doctrine level structure with `unlock_day` inside each doctrine's research block.
-
-See `docs/doctrine-comparison.md` for a reference chart of per-doctrine research unlock day deltas (sourced from an older TH patch — verify against screenshots).

@@ -12,184 +12,478 @@ units:
   awacs:
     name: AWACS
     category: Air
-    doctrine: Western
+    doctrine:
+      - european
+      - eastern
+      - western
     levels:
       "1":
         requirements:
           - air_base level 4
           - arms_industry level 1
         research:
-          unlock_day: 5
-          time:
-            days: 0
-            hours: 21
-            minutes: 45
-          cost:
-            supplies: 1000
-            rares: 1275
-            cash: 2250
+          european:
+            unlock_day: 5
+            time:
+              hours: 21
+              minutes: 45
+            cost:
+              supplies: 1000
+              rares: 1275
+              cash: 2250
+          eastern:
+            unlock_day: 5
+            time:
+              hours: 21
+              minutes: 45
+            cost:
+              supplies: 1000
+              rares: 1275
+              cash: 2250
+          western:
+            unlock_day: 5
+            time:
+              hours: 21
+              minutes: 45
+            cost:
+              supplies: 1000
+              rares: 1275
+              cash: 2250
         mobilisation:
-          time:
-            days: 0
-            hours: 20
-          cost:
-            components: 750
-            electronics: 700
-            cash: 2500
-            manpower: 400
+          european:
+            time:
+              hours: 20
+            cost:
+              components: 750
+              electronics: 700
+              cash: 2500
+              manpower: 400
+          eastern:
+            time:
+              hours: 20
+            cost:
+              components: 750
+              electronics: 700
+              cash: 2500
+              manpower: 400
+          western:
+            time:
+              hours: 20
+            cost:
+              components: 750
+              electronics: 700
+              cash: 2500
+              manpower: 400
         daily_upkeep:
-          cost:
-            fuel: 25
-            electronics: 25
-            cash: 70
-            manpower: 25
+          european:
+            cost:
+              fuel: 25
+              electronics: 25
+              cash: 70
+              manpower: 25
+          eastern:
+            cost:
+              fuel: 25
+              electronics: 25
+              cash: 70
+              manpower: 25
+          western:
+            cost:
+              fuel: 25
+              electronics: 25
+              cash: 70
+              manpower: 25
       "2":
         requirements:
           - air_base level 4
           - arms_industry level 1
           - awacs level 1
         research:
-          unlock_day: 8
-          time:
-            days: 0
-            hours: 22
-            minutes: 30
-          cost:
-            supplies: 1100
-            rares: 1405
-            cash: 2475
+          european:
+            unlock_day: 8
+            time:
+              hours: 22
+              minutes: 30
+            cost:
+              supplies: 1100
+              rares: 1405
+              cash: 2475
+          eastern:
+            unlock_day: 8
+            time:
+              hours: 22
+              minutes: 30
+            cost:
+              supplies: 1100
+              rares: 1405
+              cash: 2475
+          western:
+            unlock_day: 8
+            time:
+              hours: 22
+              minutes: 30
+            cost:
+              supplies: 1100
+              rares: 1405
+              cash: 2475
         mobilisation:
-          time:
-            days: 0
-            hours: 21
-          cost:
-            components: 750
-            electronics: 700
-            cash: 2500
-            manpower: 400
+          european:
+            time:
+              hours: 21
+            cost:
+              components: 750
+              electronics: 700
+              cash: 2500
+              manpower: 400
+          eastern:
+            time:
+              hours: 21
+            cost:
+              components: 750
+              electronics: 700
+              cash: 2500
+              manpower: 400
+          western:
+            time:
+              hours: 21
+            cost:
+              components: 750
+              electronics: 700
+              cash: 2500
+              manpower: 400
         daily_upkeep:
-          cost:
-            fuel: 30
-            electronics: 30
-            cash: 80
-            manpower: 30
+          european:
+            cost:
+              fuel: 30
+              electronics: 30
+              cash: 80
+              manpower: 30
+          eastern:
+            cost:
+              fuel: 30
+              electronics: 30
+              cash: 80
+              manpower: 30
+          western:
+            cost:
+              fuel: 30
+              electronics: 30
+              cash: 80
+              manpower: 30
       "3":
         requirements:
           - air_base level 4
           - arms_industry level 1
           - awacs level 2
         research:
-          unlock_day: 11
-          time:
-            days: 0
-            hours: 23
-            minutes: 15
-          cost:
-            supplies: 1200
-            rares: 1530
-            cash: 2700
+          european:
+            unlock_day: 11
+            time:
+              hours: 23
+              minutes: 15
+            cost:
+              supplies: 1200
+              rares: 1530
+              cash: 2700
+          eastern:
+            unlock_day: 11
+            time:
+              hours: 23
+              minutes: 15
+            cost:
+              supplies: 1200
+              rares: 1530
+              cash: 2700
+          western:
+            unlock_day: 11
+            time:
+              hours: 23
+              minutes: 15
+            cost:
+              supplies: 1200
+              rares: 1530
+              cash: 2700
         mobilisation:
-          time:
-            days: 0
-            hours: 22
-          cost:
-            components: 750
-            electronics: 700
-            cash: 2500
-            manpower: 400
+          european:
+            time:
+              hours: 22
+            cost:
+              components: 750
+              electronics: 700
+              cash: 2500
+              manpower: 400
+          eastern:
+            time:
+              hours: 22
+            cost:
+              components: 750
+              electronics: 700
+              cash: 2500
+              manpower: 400
+          western:
+            time:
+              hours: 22
+            cost:
+              components: 750
+              electronics: 700
+              cash: 2500
+              manpower: 400
         daily_upkeep:
-          cost:
-            fuel: 35
-            electronics: 35
-            cash: 90
-            manpower: 35
+          european:
+            cost:
+              fuel: 35
+              electronics: 35
+              cash: 90
+              manpower: 35
+          eastern:
+            cost:
+              fuel: 35
+              electronics: 35
+              cash: 90
+              manpower: 35
+          western:
+            cost:
+              fuel: 35
+              electronics: 35
+              cash: 90
+              manpower: 35
       "4":
         requirements:
           - air_base level 4
           - arms_industry level 1
           - awacs level 3
         research:
-          unlock_day: 15
-          time:
-            days: 1
-            hours: 3
-            minutes: 0
-          cost:
-            supplies: 1300
-            rares: 1660
-            cash: 2925
+          european:
+            unlock_day: 15
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 1300
+              rares: 1660
+              cash: 2925
+          eastern:
+            unlock_day: 15
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 1300
+              rares: 1660
+              cash: 2925
+          western:
+            unlock_day: 15
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 1300
+              rares: 1660
+              cash: 2925
         mobilisation:
-          time:
-            days: 1
-            hours: 0
-          cost:
-            components: 850
-            electronics: 950
-            cash: 3000
-            manpower: 575
+          european:
+            time:
+              days: 1
+            cost:
+              components: 850
+              electronics: 950
+              cash: 3000
+              manpower: 575
+          eastern:
+            time:
+              days: 1
+            cost:
+              components: 850
+              electronics: 950
+              cash: 3000
+              manpower: 575
+          western:
+            time:
+              days: 1
+            cost:
+              components: 850
+              electronics: 950
+              cash: 3000
+              manpower: 575
         daily_upkeep:
-          cost:
-            fuel: 45
-            electronics: 40
-            cash: 130
-            manpower: 40
+          european:
+            cost:
+              fuel: 45
+              electronics: 40
+              cash: 130
+              manpower: 40
+          eastern:
+            cost:
+              fuel: 45
+              electronics: 40
+              cash: 130
+              manpower: 40
+          western:
+            cost:
+              fuel: 45
+              electronics: 40
+              cash: 130
+              manpower: 40
       "5":
         requirements:
           - air_base level 4
           - arms_industry level 1
           - awacs level 4
         research:
-          unlock_day: 19
-          time:
-            days: 1
-            hours: 6
-            minutes: 15
-          cost:
-            supplies: 1400
-            rares: 1785
-            cash: 3150
+          european:
+            unlock_day: 23
+            time:
+              days: 1
+              hours: 5
+              minutes: 15
+            cost:
+              supplies: 1400
+              rares: 1785
+              cash: 3150
+          eastern:
+            unlock_day: 23
+            time:
+              days: 1
+              hours: 5
+              minutes: 15
+            cost:
+              supplies: 1400
+              rares: 1785
+              cash: 3150
+          western:
+            unlock_day: 23
+            time:
+              days: 1
+              hours: 5
+              minutes: 15
+            cost:
+              supplies: 1400
+              rares: 1785
+              cash: 3150
         mobilisation:
-          time:
-            days: 1
-            hours: 1
-          cost:
-            components: 850
-            electronics: 950
-            cash: 3000
-            manpower: 575
+          european:
+            time:
+              days: 1
+              hours: 1
+            cost:
+              components: 850
+              electronics: 950
+              cash: 3000
+              manpower: 575
+          eastern:
+            time:
+              days: 1
+              hours: 1
+            cost:
+              components: 850
+              electronics: 950
+              cash: 3000
+              manpower: 575
+          western:
+            time:
+              days: 1
+              hours: 1
+            cost:
+              components: 850
+              electronics: 950
+              cash: 3000
+              manpower: 575
         daily_upkeep:
-          cost:
-            fuel: 55
-            electronics: 45
-            cash: 140
-            manpower: 45
+          european:
+            cost:
+              fuel: 55
+              electronics: 45
+              cash: 140
+              manpower: 45
+          eastern:
+            cost:
+              fuel: 55
+              electronics: 45
+              cash: 140
+              manpower: 45
+          western:
+            cost:
+              fuel: 55
+              electronics: 45
+              cash: 140
+              manpower: 45
       "6":
         requirements:
           - air_base level 4
           - arms_industry level 1
           - awacs level 5
         research:
-          unlock_day: 23
-          time:
-            days: 1
-            hours: 9
-            minutes: 0
-          cost:
-            supplies: 1500
-            rares: 1915
-            cash: 3375
+          european:
+            unlock_day: 27
+            time:
+              days: 1
+              hours: 9
+            cost:
+              supplies: 1500
+              rares: 1915
+              cash: 3375
+          eastern:
+            unlock_day: 27
+            time:
+              days: 1
+              hours: 9
+            cost:
+              supplies: 1500
+              rares: 1915
+              cash: 3375
+          western:
+            unlock_day: 27
+            time:
+              days: 1
+              hours: 9
+            cost:
+              supplies: 1500
+              rares: 1915
+              cash: 3375
         mobilisation:
-          time:
-            days: 1
-            hours: 3
-          cost:
-            components: 1000
-            electronics: 1250
-            cash: 3750
-            manpower: 750
+          european:
+            time:
+              days: 1
+              hours: 3
+            cost:
+              components: 1000
+              electronics: 1250
+              cash: 3750
+              manpower: 750
+          eastern:
+            time:
+              days: 1
+              hours: 3
+            cost:
+              components: 1000
+              electronics: 1250
+              cash: 3750
+              manpower: 750
+          western:
+            time:
+              days: 1
+              hours: 3
+            cost:
+              components: 1000
+              electronics: 1250
+              cash: 3750
+              manpower: 750
         daily_upkeep:
-          cost:
-            fuel: 70
-            electronics: 55
-            cash: 155
-            manpower: 55
+          european:
+            cost:
+              fuel: 70
+              electronics: 55
+              cash: 155
+              manpower: 55
+          eastern:
+            cost:
+              fuel: 70
+              electronics: 55
+              cash: 155
+              manpower: 55
+          western:
+            cost:
+              fuel: 70
+              electronics: 55
+              cash: 155
+              manpower: 55

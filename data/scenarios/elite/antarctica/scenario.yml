@@ -9,6 +9,20 @@ start:
 
 speed: "4x"
 
+coalition:
+  - argentina
+  - australia
+  - indonesia
+  - italy
+  - japan
+  - new_zealand
+  - norway
+  - pakistan
+  - russia
+  - south_africa
+  - ukraine
+  - united_kingdom
+
 starting_balance:
   supplies: 35748
   components: 26810

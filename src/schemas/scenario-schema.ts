@@ -40,6 +40,7 @@ export const scenarioFileSchema = z
     research: z.object({
       unlocked_through_day_at_start: z.number().int().min(0).optional(),
     }).strict().optional(),
+    coalition: z.array(z.string().min(1)).optional(),
     city_statuses: z.record(z.string().min(1), z.record(z.string().min(1), cityStatusSchema)).optional(),
     headquarters_city_by_country: z.record(z.string().min(1), z.string().min(1)).optional(),
   })

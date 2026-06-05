@@ -1,0 +1,17 @@
+version: 1
+
+country:
+  id: madagascar
+  name: Madagascar
+  doctrine: european
+
+cities:
+  - id: antananarivo
+    name: Antananarivo
+    capital: true
+    resource: rares
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

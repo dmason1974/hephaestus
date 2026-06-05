@@ -1,0 +1,17 @@
+version: 1
+
+country:
+  id: mozambique
+  name: Mozambique
+  doctrine: eastern
+
+cities:
+  - id: maputo
+    name: Maputo
+    capital: true
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

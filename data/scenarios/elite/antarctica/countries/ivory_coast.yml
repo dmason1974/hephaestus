@@ -1,0 +1,17 @@
+version: 1
+
+country:
+  id: ivory_coast
+  name: Ivory Coast
+  doctrine: european
+
+cities:
+  - id: yamoussoukro
+    name: Yamoussoukro
+    capital: true
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

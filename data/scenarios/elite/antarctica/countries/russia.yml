@@ -1,53 +1,53 @@
 version: 1
 
 country:
-  id: ukraine
-  name: Ukraine
+  id: russia
+  name: Russia
   doctrine: eastern
 
 cities:
-  - id: dnipro
-    name: Dnipro
-    capital: false
-    resource: components
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: donetsk
-    name: Donetsk
-    capital: false
-    resource: supplies
-    population: 5
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: kharkiv
-    name: Kharkiv
-    capital: false
-    resource: electronics
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 0
-      underground_bunkers: 0
-
-  - id: kyiv
-    name: Kyiv
+  - id: moscow
+    name: Moscow
     capital: true
-    resource: rares
+    resource: components
     population: 6
     starting:
       air_base: 1
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: saint_petersburg
+    name: Saint Petersburg
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: novosibirsk
+    name: Novosibirsk
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
       naval_base: 0
       underground_bunkers: 0
 
-  - id: lviv
-    name: Lviv
+  - id: yekaterinburg
+    name: Yekaterinburg
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: nizhniy_novgorod
+    name: Nizhniy Novgorod
     capital: false
     resource: fuel
     population: 5
@@ -56,20 +56,20 @@ cities:
       naval_base: 0
       underground_bunkers: 0
 
-  - id: odessa
-    name: Odessa
+  - id: samara
+    name: Samara
     capital: false
-    resource: supplies
+    resource: electronics
     population: 5
     starting:
       air_base: 0
       naval_base: 0
       underground_bunkers: 0
 
-  - id: zaporizhia
-    name: Zaporizhia
+  - id: omsk
+    name: Omsk
     capital: false
-    resource: components
+    resource: rares
     population: 5
     starting:
       air_base: 0

@@ -1,33 +1,23 @@
 version: 1
 
 country:
-  id: argentina
-  name: Argentina
-  doctrine: western
+  id: new_zealand
+  name: New Zealand
+  doctrine: european
 
 cities:
-  - id: buenos_aires
-    name: Buenos Aires
+  - id: wellington
+    name: Wellington
     capital: true
-    resource: components
+    resource: supplies
     population: 6
     starting:
       air_base: 1
       naval_base: 1
       underground_bunkers: 0
 
-  - id: cordoba
-    name: Cordoba
-    capital: false
-    resource: fuel
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 0
-      underground_bunkers: 0
-
-  - id: rosario
-    name: Rosario
+  - id: auckland
+    name: Auckland
     capital: false
     resource: supplies
     population: 4
@@ -36,28 +26,18 @@ cities:
       naval_base: 0
       underground_bunkers: 0
 
-  - id: mendoza
-    name: Mendoza
+  - id: christchurch
+    name: Christchurch
     capital: false
-    resource: rares
-    population: 5
+    resource: components
+    population: 4
     starting:
       air_base: 0
       naval_base: 1
       underground_bunkers: 0
 
-  - id: san_miguel
-    name: San Miguel
-    capital: false
-    resource: supplies
-    population: 5
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: la_plata
-    name: La Plata
+  - id: manukau_city
+    name: Manukau City
     capital: false
     resource: components
     population: 5
@@ -66,8 +46,28 @@ cities:
       naval_base: 1
       underground_bunkers: 0
 
-  - id: mar_del_plata
-    name: Mar del Plata
+  - id: waitakere
+    name: Waitakere
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: north_shore
+    name: North Shore
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: hamilton
+    name: Hamilton
     capital: false
     resource: electronics
     population: 5

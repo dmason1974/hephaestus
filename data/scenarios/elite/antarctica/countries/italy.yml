@@ -1,13 +1,23 @@
 version: 1
 
 country:
-  id: ukraine
-  name: Ukraine
-  doctrine: eastern
+  id: italy
+  name: Italy
+  doctrine: european
 
 cities:
-  - id: dnipro
-    name: Dnipro
+  - id: rome
+    name: Rome
+    capital: true
+    resource: supplies
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: milan
+    name: Milan
     capital: false
     resource: components
     population: 4
@@ -16,38 +26,28 @@ cities:
       naval_base: 1
       underground_bunkers: 0
 
-  - id: donetsk
-    name: Donetsk
+  - id: naples
+    name: Naples
     capital: false
-    resource: supplies
-    population: 5
+    resource: rares
+    population: 4
     starting:
       air_base: 0
       naval_base: 1
       underground_bunkers: 0
 
-  - id: kharkiv
-    name: Kharkiv
+  - id: turin
+    name: Turin
     capital: false
-    resource: electronics
-    population: 4
+    resource: components
+    population: 5
     starting:
       air_base: 0
       naval_base: 0
       underground_bunkers: 0
 
-  - id: kyiv
-    name: Kyiv
-    capital: true
-    resource: rares
-    population: 6
-    starting:
-      air_base: 1
-      naval_base: 0
-      underground_bunkers: 0
-
-  - id: lviv
-    name: Lviv
+  - id: palermo
+    name: Palermo
     capital: false
     resource: fuel
     population: 5
@@ -56,8 +56,8 @@ cities:
       naval_base: 0
       underground_bunkers: 0
 
-  - id: odessa
-    name: Odessa
+  - id: bari
+    name: Bari
     capital: false
     resource: supplies
     population: 5
@@ -66,10 +66,10 @@ cities:
       naval_base: 0
       underground_bunkers: 0
 
-  - id: zaporizhia
-    name: Zaporizhia
+  - id: messina
+    name: Messina
     capital: false
-    resource: components
+    resource: electronics
     population: 5
     starting:
       air_base: 0

@@ -1,0 +1,17 @@
+version: 1
+
+country:
+  id: oman
+  name: Oman
+  doctrine: western
+
+cities:
+  - id: muscat
+    name: Muscat
+    capital: true
+    resource: rares
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

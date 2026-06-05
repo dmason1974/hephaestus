@@ -46,6 +46,7 @@ data/
       units/                  Shared unit catalog for all elite scenarios (8 files)
       ww3/                    Elite WW3 scenario (unlocked_through_day_at_start: 10)
       antarctica/             Elite Antarctica scenario
+        countries/            One YAML per country (coalition + AI nations)
 ```
 
 **Unit catalog resolution order** (per scenario): scenario-local `units/` → tier-shared `units/` (e.g. `elite/units/`) → error if neither exists.
@@ -65,6 +66,53 @@ data/
 - **Resource costs are sparse**: YAML cost blocks only list non-zero resources. The schema makes all resource fields optional.
 - **`ResourceCost` type** is `Partial<Record<Resource, number>>` — absent key means zero, not unknown.
 - **Country doctrine**: each country has a single doctrine (e.g. `european`, `western`). Research times, research costs, mobilisation times, mobilisation costs, and daily upkeep all vary by doctrine. The `doctrine` field on a unit is an array (1–3 values) listing which doctrines can use it.
+
+---
+
+## Country YAML Schema
+
+One file per country under `data/scenarios/<tier>/<scenario>/countries/<id>.yml`. Fields:
+
+```yaml
+version: 1
+
+country:
+  id: norway               # snake_case, matches filename
+  name: Norway             # display name
+  doctrine: western        # western | eastern | european
+
+cities:
+  - id: oslo
+    name: Oslo
+    capital: true          # exactly one city per country must be capital: true
+    resource: fuel         # supplies | components | fuel | rares | electronics
+    population: 6          # 4 | 5 | 6
+    starting:
+      air_base: 1          # 1 if the city has an Air Base, else 0
+      naval_base: 0        # 1 if the city has a Harbor, else 0
+      underground_bunkers: 0  # always 0 at scenario start
+```
+
+**Key rules:**
+- `underground_bunkers` is always `0` at scenario start — no country begins with bunkers.
+- The capital city is the one with the HQ building in-game (`capital: true`). Capital cities also tend to have `air_base: 1` but this is not universal (e.g. South Africa's Cape Town has no naval base).
+- Resource amounts in-game vary by resource type and population tier but are not stored in the YAML — only the resource type is recorded.
+- Single-city "AI nations" (e.g. Solomon Islands, Oman) follow the same schema with one city entry.
+
+---
+
+## Scenario YAML — `coalition` Field
+
+The scenario file supports an optional `coalition` list of country IDs identifying which countries are on our team:
+
+```yaml
+coalition:
+  - argentina
+  - australia
+  - ...
+```
+
+This is currently a flat list. Role distinctions (active player vs captured vs AI ally) are deferred — the field exists to record membership.
 
 ---
 

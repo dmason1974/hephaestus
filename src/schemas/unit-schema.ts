@@ -107,6 +107,15 @@ export function buildUnitCatalogSchema(enums: Enumerations) {
 
 export type UnitCatalog = z.infer<ReturnType<typeof buildUnitCatalogSchema>>;
 
+function normalizeLevelDoctrineBlock(
+  block: Record<string, unknown>,
+  _doctrines: string[]
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(block).map(([k, v]) => [k.trim().toLowerCase(), v])
+  );
+}
+
 function normalizeLevel(
   level: Record<string, unknown>,
   doctrines: string[]

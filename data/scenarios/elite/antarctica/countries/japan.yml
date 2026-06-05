@@ -1,75 +1,75 @@
 version: 1
 
 country:
-  id: ukraine
-  name: Ukraine
-  doctrine: eastern
+  id: japan
+  name: Japan
+  doctrine: western
 
 cities:
-  - id: dnipro
-    name: Dnipro
-    capital: false
-    resource: components
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: donetsk
-    name: Donetsk
-    capital: false
-    resource: supplies
-    population: 5
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: kharkiv
-    name: Kharkiv
-    capital: false
-    resource: electronics
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 0
-      underground_bunkers: 0
-
-  - id: kyiv
-    name: Kyiv
+  - id: tokyo
+    name: Tokyo
     capital: true
-    resource: rares
+    resource: supplies
     population: 6
     starting:
       air_base: 1
       naval_base: 0
       underground_bunkers: 0
 
-  - id: lviv
-    name: Lviv
+  - id: oita
+    name: Oita
     capital: false
     resource: fuel
-    population: 5
+    population: 4
     starting:
       air_base: 0
       naval_base: 0
       underground_bunkers: 0
 
-  - id: odessa
-    name: Odessa
-    capital: false
-    resource: supplies
-    population: 5
-    starting:
-      air_base: 0
-      naval_base: 0
-      underground_bunkers: 0
-
-  - id: zaporizhia
-    name: Zaporizhia
+  - id: saitama
+    name: Saitama
     capital: false
     resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: hiroshima
+    name: Hiroshima
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: yono
+    name: Yono
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: sendai
+    name: Sendai
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: fujisawa
+    name: Fujisawa
+    capital: false
+    resource: supplies
     population: 5
     starting:
       air_base: 0

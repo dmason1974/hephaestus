@@ -1,73 +1,73 @@
 version: 1
 
 country:
-  id: ukraine
-  name: Ukraine
-  doctrine: eastern
+  id: united_kingdom
+  name: United Kingdom
+  doctrine: european
 
 cities:
-  - id: dnipro
-    name: Dnipro
-    capital: false
-    resource: components
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: donetsk
-    name: Donetsk
-    capital: false
+  - id: london
+    name: London
+    capital: true
     resource: supplies
-    population: 5
+    population: 6
     starting:
-      air_base: 0
+      air_base: 1
       naval_base: 1
       underground_bunkers: 0
 
-  - id: kharkiv
-    name: Kharkiv
+  - id: birmingham
+    name: Birmingham
     capital: false
     resource: electronics
     population: 4
     starting:
       air_base: 0
-      naval_base: 0
+      naval_base: 1
       underground_bunkers: 0
 
-  - id: kyiv
-    name: Kyiv
-    capital: true
-    resource: rares
-    population: 6
+  - id: liverpool
+    name: Liverpool
+    capital: false
+    resource: supplies
+    population: 4
     starting:
-      air_base: 1
+      air_base: 0
       naval_base: 0
       underground_bunkers: 0
 
-  - id: lviv
-    name: Lviv
+  - id: nottingham
+    name: Nottingham
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: sheffield
+    name: Sheffield
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: bristol
+    name: Bristol
     capital: false
     resource: fuel
     population: 5
     starting:
       air_base: 0
-      naval_base: 0
+      naval_base: 1
       underground_bunkers: 0
 
-  - id: odessa
-    name: Odessa
-    capital: false
-    resource: supplies
-    population: 5
-    starting:
-      air_base: 0
-      naval_base: 0
-      underground_bunkers: 0
-
-  - id: zaporizhia
-    name: Zaporizhia
+  - id: glasgow
+    name: Glasgow
     capital: false
     resource: components
     population: 5

@@ -1,75 +1,75 @@
 version: 1
 
 country:
-  id: ukraine
-  name: Ukraine
-  doctrine: eastern
+  id: australia
+  name: Australia
+  doctrine: western
 
 cities:
-  - id: dnipro
-    name: Dnipro
-    capital: false
-    resource: components
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: donetsk
-    name: Donetsk
-    capital: false
-    resource: supplies
-    population: 5
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: kharkiv
-    name: Kharkiv
-    capital: false
-    resource: electronics
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 0
-      underground_bunkers: 0
-
-  - id: kyiv
-    name: Kyiv
+  - id: canberra
+    name: Canberra
     capital: true
-    resource: rares
+    resource: supplies
     population: 6
     starting:
       air_base: 1
       naval_base: 0
       underground_bunkers: 0
 
-  - id: lviv
-    name: Lviv
+  - id: maitland
+    name: Maitland
     capital: false
-    resource: fuel
-    population: 5
+    resource: components
+    population: 4
     starting:
       air_base: 0
       naval_base: 0
       underground_bunkers: 0
 
-  - id: odessa
-    name: Odessa
+  - id: brisbane
+    name: Brisbane
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: perth
+    name: Perth
     capital: false
     resource: supplies
     population: 5
     starting:
       air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: adelaide
+    name: Adelaide
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: gold_coast
+    name: Gold Coast
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
       naval_base: 0
       underground_bunkers: 0
 
-  - id: zaporizhia
-    name: Zaporizhia
+  - id: sydney
+    name: Sydney
     capital: false
-    resource: components
+    resource: electronics
     population: 5
     starting:
       air_base: 0

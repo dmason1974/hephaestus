@@ -1,0 +1,17 @@
+version: 1
+
+country:
+  id: solomon_islands
+  name: Solomon Islands
+  doctrine: european
+
+cities:
+  - id: honiara
+    name: Honiara
+    capital: true
+    resource: electronics
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

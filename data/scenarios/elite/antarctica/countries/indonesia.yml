@@ -1,63 +1,43 @@
 version: 1
 
 country:
-  id: ukraine
-  name: Ukraine
-  doctrine: eastern
+  id: indonesia
+  name: Indonesia
+  doctrine: european
 
 cities:
-  - id: dnipro
-    name: Dnipro
-    capital: false
-    resource: components
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: donetsk
-    name: Donetsk
-    capital: false
-    resource: supplies
-    population: 5
-    starting:
-      air_base: 0
-      naval_base: 1
-      underground_bunkers: 0
-
-  - id: kharkiv
-    name: Kharkiv
-    capital: false
-    resource: electronics
-    population: 4
-    starting:
-      air_base: 0
-      naval_base: 0
-      underground_bunkers: 0
-
-  - id: kyiv
-    name: Kyiv
+  - id: jakarta
+    name: Jakarta
     capital: true
-    resource: rares
+    resource: electronics
     population: 6
     starting:
       air_base: 1
-      naval_base: 0
+      naval_base: 1
       underground_bunkers: 0
 
-  - id: lviv
-    name: Lviv
+  - id: surabaya
+    name: Surabaya
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: medan
+    name: Medan
     capital: false
     resource: fuel
-    population: 5
+    population: 4
     starting:
       air_base: 0
       naval_base: 0
       underground_bunkers: 0
 
-  - id: odessa
-    name: Odessa
+  - id: bandung
+    name: Bandung
     capital: false
     resource: supplies
     population: 5
@@ -66,12 +46,32 @@ cities:
       naval_base: 0
       underground_bunkers: 0
 
-  - id: zaporizhia
-    name: Zaporizhia
+  - id: bekasi
+    name: Bekasi
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: palembang
+    name: Palembang
     capital: false
     resource: components
     population: 5
     starting:
       air_base: 0
       naval_base: 0
+      underground_bunkers: 0
+
+  - id: tangerang
+    name: Tangerang
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
       underground_bunkers: 0

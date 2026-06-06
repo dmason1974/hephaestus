@@ -284,7 +284,7 @@ Invoke via YAML force plan file or env vars (`PLAN_COUNTRY`, `PLAN_DEMANDS`, `PL
 |---|---|---|
 | **Mobilisation cost missing from ranking** | ✅ Fixed | `compareOptions` now includes mobilisation cost in `totalEconomicCost`; upkeep and mobilisation costs were also silently zero due to per-doctrine record access bug — both fixed |
 | **`secret_weapons_lab` not in build planner** | ✅ Fixed | `planInfrastructureForProfiles` detects the requirement from unit YAML, inserts the build step after the base chain and before `recruiting_office`; `secret_weapons_lab` added to `BuildingId` and engine simulation |
-| **`arms_industry` level fixed at L1** | ✅ Fixed | `armsIndustryLevel` is now a search dimension alongside RO level and city count; default max is L1 (opt-in via `PLAN_MAX_AI_LEVEL` / `search.max_arms_industry_level`). Income boost from higher AI levels is not yet modelled — only build cost + delayed window |
+| **`arms_industry` level fixed at L1** | ✅ Fixed | `armsIndustryLevel` is now a search dimension alongside RO level and city count; default max is L1 (opt-in via `PLAN_MAX_AI_LEVEL` / `search.max_arms_industry_level`). Income from AI upgrades is now correctly modelled: `evaluateChoiceSet` runs a combined `simulateBuildOrder` over all cities with the force-plan build order and uses `dynamicHourlyIncomeFromSimulation`, matching the eco support path. Eco support candidate pruning also added: `arms_industry`/`air_base`/`naval_base` are only explored when they generate a resource currently in deficit; `underground_bunkers` and `relocate_headquarters` remain as candidates always (morale → production yield) |
 | **Prerequisite research chains not threaded** | ✅ Fixed | `planMobilizationBuild` now passes mobilisation-start deadlines to the JIT scheduler; the dependency graph (`expandTargetsWithUnitRequirements` + task successor links) propagates constraints so ASF L1–L4 is scheduled before SASF L1 and completes before mobilisation opens |
 | **No coalition shared resource pool** | ⬜ Open | Single-country only; no cross-country resource aggregation |
 | **Flip point not modelled** | ⬜ Open | City transitions from eco to military mode implicitly on day 1; there is no search over when to make that transition |
@@ -295,8 +295,61 @@ Invoke via YAML force plan file or env vars (`PLAN_COUNTRY`, `PLAN_DEMANDS`, `PL
 1. ✅ **Fix ranking** — mobilisation cost now in `totalEconomicCost`; per-doctrine cost access fixed throughout
 2. ✅ **Add `secret_weapons_lab` to infrastructure build planner** — detects requirement from unit YAML, correct critical path for stealth ASF cities
 3. ✅ **Thread prerequisite research chains** — `planMobilizationBuild` now passes `buildResearchDeadlineMap(scheduledGroups)` as `latestCompletionByUnitLevel`; the JIT backward scheduler propagates the constraint through the dependency graph (SASF L1 deadline → ASF L4 → L3 → L2 → L1), ensuring prerequisite research completes before mobilisation opens; infeasible plans (chain too long) return `null` so the planner retries with more cities
-4. ✅ **Add `arms_industry` level as a search dimension** — `QueueChoice.armsIndustryLevel` + `QueueProfileSummary.armsIndustryTargetLevel`; `buildPlanActionsForCity` builds AI to the target level; search loops over 1..`maxArmsIndustryLevel` (default 1, overridable via `PLAN_MAX_AI_LEVEL` env var or `search.max_arms_industry_level` in plan YAML); display strings include `@AI{n}`; `totalArmsIndustryLevels` tracked in `EvaluatedOption` and used as secondary sort key. Note: income boost from higher AI levels is not yet modelled — only build cost and delayed production window are captured
-5. **Coalition wrapper** — pool resources across N country simulations, allocate unit production to countries, optimise flip points jointly using the existing single-country harness as the inner evaluator
+4. ✅ **Add `arms_industry` level as a search dimension** — `QueueChoice.armsIndustryLevel` + `QueueProfileSummary.armsIndustryTargetLevel`; `buildPlanActionsForCity` builds AI to the target level; search loops over 1..`maxArmsIndustryLevel` (default 1, overridable via `PLAN_MAX_AI_LEVEL` env var or `search.max_arms_industry_level` in plan YAML); display strings include `@AI{n}`; income from AI upgrades modelled correctly via `dynamicHourlyIncomeFromSimulation`; eco support candidate pruning by deficit resource
+5. **Eco-first flip-point planner** — see Chunk 5 Architecture below
+
+---
+
+## Chunk 5 Architecture — Eco-First Flip-Point Planner
+
+### The Core Idea
+
+The current harness always starts the military build chain on day 1, which means every military city sacrifices its entire eco potential. In reality, the optimal plan looks like this for each city:
+
+1. **Eco phase**: city builds whatever the beam search says is optimal (arms_industry, air_base upgrades for production bonus, etc.)
+2. **Flip point**: city switches from eco mode to military mode
+3. **Military phase**: city builds the fixed infrastructure chain (air_base to required level → secret_weapons_lab → recruiting_office)
+4. **Mobilisation phase**: units queue as soon as infrastructure is ready
+
+The flip point is **not** a free search variable — it is **derived** from the cheapest mobilisation footprint:
+
+```
+flipPoint = deadline − requiredMobilisationWindow − infraBuildTime
+```
+
+Where:
+- `requiredMobilisationWindow` = time to produce the required units given cityCount × RO level (already computed by `planMobilizationBuild`)
+- `infraBuildTime` = time to build the full military chain from the city's **starting** building levels (conservative: ignores eco-phase partial progress on shared buildings like air_base; slightly understates eco income but avoids circular dependency)
+
+### Two-Pass Algorithm
+
+**Pass 1 — Eco potential (pre-computed, reused across search iterations):**
+- Run city beam search for every city in scope → store per-city optimal eco build timeline
+- For each military city at a given flip point, truncate that city's timeline at the flip point → eco income and buildings completed before the city goes dark
+
+**Pass 2 — Force footprint search (existing search loop, augmented):**
+- For each (cityCount × RO × AI) combination:
+  1. Derive the flip point per military city (backward from deadline)
+  2. If flip point < game start: combination is infeasible (chain too long even at t=0)
+  3. Compute resource budget = truncated eco income (military cities) + full eco income (eco cities) + starting balance
+  4. Subtract infrastructure cost + mobilisation cost + upkeep
+  5. Report net by resource — positive means self-funding; negative is the shortfall
+
+### Shortfall Reporting vs Eco Support Search
+
+Chunk 5 prioritises **shortfall visibility** over auto-patching. Instead of silently running the eco support beam search when unaffordable, the planner reports the gap by resource. The eco support search remains available as a secondary step but the primary output is: "this footprint needs X more components and Y more cash than the plan generates — here is where that gap comes from."
+
+### Design Decision: Conservative Flip Point
+
+The eco phase may partially build shared buildings (e.g. air_base to L2 for production bonus). The military chain would then only need to continue from L2 to L5, making it shorter and pushing the flip point later. Modelling this correctly creates a circular dependency (flip point → eco phase outcome → infra build time → flip point). For chunk 5, we use the **conservative** approach: infra build time is always measured from the city's **starting** building levels, not from where the eco phase leaves them. This slightly understates eco income and slightly overstates infra build time, but it is unambiguous and correct to implement. The gap can be revisited in a follow-up.
+
+### What Changes in `force-build-plan.ts`
+
+- Pre-compute beam search results for all country cities at startup (reuse `elite-ww3-city-beam-search` logic)
+- Add `computeFlipPoint(city, requiredMobilisationWindow)` helper — backwards from deadline
+- Replace `baselineCountryHourly` in the resource budget with: sum of truncated beam-search income (military cities up to flip point) + full beam-search income (eco cities)
+- Add per-resource shortfall output alongside the existing affordability table
+- Eco support search becomes opt-in (`PLAN_ECO_SUPPORT=true`) rather than automatic
 
 ---
 

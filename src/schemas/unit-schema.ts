@@ -9,6 +9,7 @@ const SnakeCaseId = z
 
 const nonNegativeNumberSchema = z.number().min(0);
 const nonNegativeIntSchema = z.number().int().min(0);
+const positiveIntSchema = z.number().int().min(1);
 
 const completeResourceRecordSchema = z
   .object({
@@ -69,6 +70,8 @@ export function buildUnitCatalogSchema(enums: Enumerations) {
   const unitLevelSchema = z
     .object({
       requirements: z.array(z.string().min(1)),
+      batch_size: positiveIntSchema.optional(),
+      warheads_per_launch: positiveIntSchema.optional(),
       research: z
         .record(doctrineKeySchema, doctrineResearchSchema)
         .refine(r => Object.keys(r).length > 0, "research must include at least one doctrine"),

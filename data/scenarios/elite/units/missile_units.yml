@@ -1,0 +1,386 @@
+schema_version: 1
+domain: units
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+units:
+  # === WARHEAD PROGRAMS ===
+  # Sequential research chain: conventional → chemical → nuclear
+  # These are single-level consumable units (auto-consumed when a missile fires).
+  # Batch sizes vary per type (x4 / x3 / x2) — schema field pending.
+
+  conventional_warhead:
+    name: Conventional Warhead
+    category: Missile
+    doctrine:
+      - western
+      - eastern
+      - european
+    levels:
+      "1":
+        requirements:
+          - secret_weapons_lab level 1
+          - arms_industry level 1
+        batch_size: 4
+        research:
+          # Research program: Guided Missile Program
+          western:
+            unlock_day: 1
+            time: { days: 1, hours: 1, minutes: 30 }
+            cost: { supplies: 2500, fuel: 3000, cash: 10000 }
+          eastern:
+            unlock_day: 1
+            time: { days: 1, hours: 1, minutes: 30 }
+            cost: { supplies: 2500, fuel: 3000, cash: 10000 }
+          european:
+            unlock_day: 1
+            time: { days: 1, hours: 1, minutes: 30 }
+            cost: { supplies: 2500, fuel: 3000, cash: 10000 }
+        mobilisation:
+          # x4 per mobilisation
+          western:
+            time: { days: 1 }
+            cost: { supplies: 1350, components: 250, fuel: 500, rares: 900, cash: 2225 }
+          eastern:
+            time: { days: 1 }
+            cost: { supplies: 1350, components: 250, fuel: 500, rares: 900, cash: 2225 }
+          european:
+            time: { days: 1 }
+            cost: { supplies: 1350, components: 250, fuel: 500, rares: 900, cash: 2225 }
+        daily_upkeep:
+          western:
+            cost: {}
+          eastern:
+            cost: {}
+          european:
+            cost: {}
+
+  chemical_warhead:
+    name: Chemical Warhead
+    category: Missile
+    doctrine:
+      - western
+      - eastern
+      - european
+    levels:
+      "1":
+        requirements:
+          - secret_weapons_lab level 2
+          - arms_industry level 1
+        batch_size: 3
+        research:
+          # Research program: Chemical Weapons Program
+          # Tree dependency: requires conventional_warhead (Guided Missile Program) completed
+          western:
+            unlock_day: 3
+            time: { days: 1, hours: 3 }
+            cost: { supplies: 3750, fuel: 4000, cash: 12500 }
+          eastern:
+            unlock_day: 3
+            time: { days: 1, hours: 3 }
+            cost: { supplies: 3750, fuel: 4000, cash: 12500 }
+          european:
+            unlock_day: 3
+            time: { days: 1, hours: 3 }
+            cost: { supplies: 3750, fuel: 4000, cash: 12500 }
+        mobilisation:
+          # x3 per mobilisation
+          western:
+            time: { days: 1 }
+            cost: { supplies: 850, components: 350, fuel: 625, rares: 625, cash: 2750 }
+          eastern:
+            time: { days: 1 }
+            cost: { supplies: 850, components: 350, fuel: 625, rares: 625, cash: 2750 }
+          european:
+            time: { days: 1 }
+            cost: { supplies: 850, components: 350, fuel: 625, rares: 625, cash: 2750 }
+        daily_upkeep:
+          western:
+            cost: {}
+          eastern:
+            cost: {}
+          european:
+            cost: {}
+
+  nuclear_warhead:
+    name: Nuclear Warhead
+    category: Missile
+    doctrine:
+      - western
+      - eastern
+      - european
+    levels:
+      "1":
+        requirements:
+          - secret_weapons_lab level 4
+          - arms_industry level 1
+        batch_size: 2
+        research:
+          # Research program: Nuclear Weapons Program
+          # Tree dependency: requires chemical_warhead (Chemical Weapons Program) completed
+          western:
+            unlock_day: 5
+            time: { days: 1, hours: 4, minutes: 30 }
+            cost: { supplies: 5000, fuel: 5000, cash: 15000 }
+          eastern:
+            unlock_day: 5
+            time: { days: 1, hours: 4, minutes: 30 }
+            cost: { supplies: 5000, fuel: 5000, cash: 15000 }
+          european:
+            unlock_day: 5
+            time: { days: 1, hours: 4, minutes: 30 }
+            cost: { supplies: 5000, fuel: 5000, cash: 15000 }
+        mobilisation:
+          # x2 per mobilisation
+          western:
+            time: { days: 1 }
+            cost: { supplies: 1500, components: 750, fuel: 750, rares: 1000, cash: 3750 }
+          eastern:
+            time: { days: 1 }
+            cost: { supplies: 1500, components: 750, fuel: 750, rares: 1000, cash: 3750 }
+          european:
+            time: { days: 1 }
+            cost: { supplies: 1500, components: 750, fuel: 750, rares: 1000, cash: 3750 }
+        daily_upkeep:
+          western:
+            cost: {}
+          eastern:
+            cost: {}
+          european:
+            cost: {}
+
+  # === MISSILES ===
+  # Missiles are research-only units — they are NOT mobilised as units.
+  # You mobilise warheads; firing a missile consumes warheads from stock.
+  # Warhead cost per launch increases with missile level:
+  #   Cruise Missile levels 1–3: 1 warhead per launch (any type)
+  #   Cruise Missile levels 4+:  2 warheads per launch (any type)
+  # The mobilisation blocks below are structural placeholders (schema requires them).
+  # Schema extension needed: warheads_per_launch field.
+
+  conventional_cruise_missile:
+    name: Conventional Cruise Missile
+    category: Missile
+    doctrine:
+      - western
+      - eastern
+      - european
+    levels:
+      "1":
+        requirements: []
+        warheads_per_launch: 1
+        research:
+          # Research program: Gryphon
+          western:
+            unlock_day: 3
+            time: { days: 1 }
+            cost: { supplies: 2000, fuel: 2250, cash: 6000 }
+          eastern:
+            unlock_day: 3
+            time: { days: 1 }
+            cost: { supplies: 2000, fuel: 2250, cash: 6000 }
+          european:
+            unlock_day: 3
+            time: { days: 1 }
+            cost: { supplies: 2000, fuel: 2250, cash: 6000 }
+        mobilisation:
+          # Not mobilised as a unit — warhead consumption: 1 per launch
+          western:
+            time: { minutes: 0 }
+            cost: {}
+          eastern:
+            time: { minutes: 0 }
+            cost: {}
+          european:
+            time: { minutes: 0 }
+            cost: {}
+        daily_upkeep:
+          western:
+            cost: {}
+          eastern:
+            cost: {}
+          european:
+            cost: {}
+      "2":
+        requirements: []
+        warheads_per_launch: 1
+        research:
+          # Research program: Booster Upgrade
+          western:
+            unlock_day: 6
+            time: { days: 1, hours: 1, minutes: 30 }
+            cost: { supplies: 2200, fuel: 2475, cash: 6600 }
+          eastern:
+            unlock_day: 6
+            time: { days: 1, hours: 1, minutes: 30 }
+            cost: { supplies: 2200, fuel: 2475, cash: 6600 }
+          european:
+            unlock_day: 6
+            time: { days: 1, hours: 1, minutes: 30 }
+            cost: { supplies: 2200, fuel: 2475, cash: 6600 }
+        mobilisation:
+          # Not mobilised as a unit — warhead consumption: 1 per launch
+          western:
+            time: { minutes: 0 }
+            cost: {}
+          eastern:
+            time: { minutes: 0 }
+            cost: {}
+          european:
+            time: { minutes: 0 }
+            cost: {}
+        daily_upkeep:
+          western:
+            cost: {}
+          eastern:
+            cost: {}
+          european:
+            cost: {}
+      "3":
+        requirements: []
+        warheads_per_launch: 1
+        research:
+          # Research program: Fuel Improvement
+          western:
+            unlock_day: 11
+            time: { days: 1, hours: 3 }
+            cost: { supplies: 2400, fuel: 2700, cash: 7200 }
+          eastern:
+            unlock_day: 11
+            time: { days: 1, hours: 3 }
+            cost: { supplies: 2400, fuel: 2700, cash: 7200 }
+          european:
+            unlock_day: 11
+            time: { days: 1, hours: 3 }
+            cost: { supplies: 2400, fuel: 2700, cash: 7200 }
+        mobilisation:
+          # Not mobilised as a unit — warhead consumption: 1 per launch
+          western:
+            time: { minutes: 0 }
+            cost: {}
+          eastern:
+            time: { minutes: 0 }
+            cost: {}
+          european:
+            time: { minutes: 0 }
+            cost: {}
+        daily_upkeep:
+          western:
+            cost: {}
+          eastern:
+            cost: {}
+          european:
+            cost: {}
+      "4":
+        requirements: []
+        warheads_per_launch: 2
+        research:
+          # Research program: Tomahawk
+          western:
+            unlock_day: 15
+            time: { days: 1, hours: 6, minutes: 45 }
+            cost: { supplies: 2600, fuel: 2925, cash: 7800 }
+          eastern:
+            unlock_day: 15
+            time: { days: 1, hours: 6, minutes: 45 }
+            cost: { supplies: 2600, fuel: 2925, cash: 7800 }
+          european:
+            unlock_day: 15
+            time: { days: 1, hours: 6, minutes: 45 }
+            cost: { supplies: 2600, fuel: 2925, cash: 7800 }
+        mobilisation:
+          # Not mobilised as a unit — warhead consumption: 2 per launch
+          western:
+            time: { minutes: 0 }
+            cost: {}
+          eastern:
+            time: { minutes: 0 }
+            cost: {}
+          european:
+            time: { minutes: 0 }
+            cost: {}
+        daily_upkeep:
+          western:
+            cost: {}
+          eastern:
+            cost: {}
+          european:
+            cost: {}
+      "5":
+        requirements: []
+        warheads_per_launch: 2
+        research:
+          # Research program: Warhead Shielding
+          western:
+            unlock_day: 18
+            time: { days: 1, hours: 9 }
+            cost: { supplies: 2800, fuel: 3150, cash: 8400 }
+          eastern:
+            unlock_day: 18
+            time: { days: 1, hours: 9 }
+            cost: { supplies: 2800, fuel: 3150, cash: 8400 }
+          european:
+            unlock_day: 18
+            time: { days: 1, hours: 9 }
+            cost: { supplies: 2800, fuel: 3150, cash: 8400 }
+        mobilisation:
+          # Not mobilised as a unit — warhead consumption: 2 per launch
+          western:
+            time: { minutes: 0 }
+            cost: {}
+          eastern:
+            time: { minutes: 0 }
+            cost: {}
+          european:
+            time: { minutes: 0 }
+            cost: {}
+        daily_upkeep:
+          western:
+            cost: {}
+          eastern:
+            cost: {}
+          european:
+            cost: {}
+      "6":
+        requirements: []
+        warheads_per_launch: 2
+        research:
+          # Research program: LRSO
+          western:
+            unlock_day: 24
+            time: { days: 1, hours: 12, minutes: 45 }
+            cost: { supplies: 3000, fuel: 3375, cash: 9000 }
+          eastern:
+            unlock_day: 24
+            time: { days: 1, hours: 12, minutes: 45 }
+            cost: { supplies: 3000, fuel: 3375, cash: 9000 }
+          european:
+            unlock_day: 24
+            time: { days: 1, hours: 12, minutes: 45 }
+            cost: { supplies: 3000, fuel: 3375, cash: 9000 }
+        mobilisation:
+          # Not mobilised as a unit — warhead consumption: 2 per launch
+          western:
+            time: { minutes: 0 }
+            cost: {}
+          eastern:
+            time: { minutes: 0 }
+            cost: {}
+          european:
+            time: { minutes: 0 }
+            cost: {}
+        daily_upkeep:
+          western:
+            cost: {}
+          eastern:
+            cost: {}
+          european:
+            cost: {}
+
+  # TODO: Ballistic Missile, ICBM — data pending screenshots.
+  # TODO: Pershing I (Conventional Ballistic Missile) — warhead consumption cost needs schema extension.

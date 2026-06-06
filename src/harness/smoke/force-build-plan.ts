@@ -24,6 +24,7 @@ type QueueProfileSummary = {
   requiredBaseLevel: number;
   requiredArmyBaseLevel: number;
   requiredRecruitingOfficeLevel: number;
+  armsIndustryTargetLevel: number;
   candidateCities: CountryCity[];
 };
 type QueueChoice = {
@@ -31,6 +32,7 @@ type QueueChoice = {
   queueType: QueueType;
   cityCount: number;
   recruitingOfficeLevel: number;
+  armsIndustryLevel: number;
 };
 type CityBuildPlan = {
   queueKey: string;
@@ -117,6 +119,7 @@ type EvaluatedOption = {
   cityBuildPlans: CityBuildPlan[];
   totalCities: number;
   totalRecruitingOfficeLevels: number;
+  totalArmsIndustryLevels: number;
   totalReadyHoursBeforeWar: number;
   infrastructureCost: Record<Resource, number>;
   mobilisationCost: Record<Resource, number>;
@@ -388,14 +391,17 @@ function buildPlanActionsForCity(
   requiredBaseLevel: number,
   requiredArmyBaseLevel: number,
   requiredRecruitingOfficeLevel: number,
-  requiresSecretWeaponsLab: boolean
+  requiresSecretWeaponsLab: boolean,
+  armsIndustryTargetLevel: number
 ) {
   const actions: Array<{
     buildingId: "arms_industry" | "air_base" | "naval_base" | "army_base" | "secret_weapons_lab" | "recruiting_office";
     targetLevel: number;
   }> = [];
 
-  actions.push({ buildingId: "arms_industry", targetLevel: 1 });
+  for (let level = 1; level <= armsIndustryTargetLevel; level++) {
+    actions.push({ buildingId: "arms_industry", targetLevel: level });
+  }
 
   if (queueType === "air" && city.starting.air_base < requiredBaseLevel) {
     for (let level = city.starting.air_base + 1; level <= requiredBaseLevel; level++) {
@@ -438,9 +444,10 @@ function buildStepsForCity(
   requiredBaseLevel: number,
   requiredArmyBaseLevel: number,
   requiredRecruitingOfficeLevel: number,
-  requiresSecretWeaponsLab: boolean
+  requiresSecretWeaponsLab: boolean,
+  armsIndustryTargetLevel: number
 ) {
-  const steps: string[] = ["arms_industry -> level 1"];
+  const steps: string[] = [`arms_industry -> level ${armsIndustryTargetLevel}`];
 
   if (queueType === "air" && city.starting.air_base < requiredBaseLevel) {
     steps.push(`air_base -> level ${requiredBaseLevel}`);
@@ -494,7 +501,8 @@ function planInfrastructureForProfiles(
         profile.requiredBaseLevel,
         profile.requiredArmyBaseLevel,
         profile.requiredRecruitingOfficeLevel,
-        requiresSecretWeaponsLab
+        requiresSecretWeaponsLab,
+        profile.armsIndustryTargetLevel
       );
       const simulation = simulateBuildOrder({
         cities: [buildCityState(city)],
@@ -533,7 +541,8 @@ function planInfrastructureForProfiles(
           profile.requiredBaseLevel,
           profile.requiredArmyBaseLevel,
           profile.requiredRecruitingOfficeLevel,
-          requiresSecretWeaponsLab
+          requiresSecretWeaponsLab,
+          profile.armsIndustryTargetLevel
         ),
         totalCost: cityCost,
         lastCompletionAbsoluteHour: timingRows.length > 0
@@ -937,6 +946,7 @@ function compareOptions(a: EvaluatedOption, b: EvaluatedOption) {
     (totalResourceCost(a.preWarUpkeep) - totalResourceCost(b.preWarUpkeep)) ||
     (a.totalCities - b.totalCities) ||
     (a.totalRecruitingOfficeLevels - b.totalRecruitingOfficeLevels) ||
+    (a.totalArmsIndustryLevels - b.totalArmsIndustryLevels) ||
     (a.totalReadyHoursBeforeWar - b.totalReadyHoursBeforeWar) ||
     (a.latestResearchEndAbsoluteHour - b.latestResearchEndAbsoluteHour)
   );
@@ -958,6 +968,10 @@ const maxExtraCities = planFile?.search?.max_extra_cities ?? parseNonNegativeInt
 const maxRecruitingOfficeLevel = Math.min(
   MAX_BUILDING_LEVEL,
   planFile?.search?.max_recruiting_office_level ?? parsePositiveInt(process.env.PLAN_MAX_RO_LEVEL, 5)
+);
+const maxArmsIndustryLevel = Math.min(
+  MAX_BUILDING_LEVEL,
+  planFile?.search?.max_arms_industry_level ?? parsePositiveInt(process.env.PLAN_MAX_AI_LEVEL, 1)
 );
 
 const parsedDemands = planFile?.demands ?? parseDemandList(process.env.PLAN_DEMANDS);
@@ -1045,6 +1059,7 @@ const baselineProfiles = baselinePlan.cityProfiles.map(profile => ({
   requiredBaseLevel: profile.requiredBaseLevel,
   requiredArmyBaseLevel: profile.requiredArmyBaseLevel,
   requiredRecruitingOfficeLevel: profile.requiredRecruitingOfficeLevel,
+  armsIndustryTargetLevel: 1,
   candidateCities: candidateCitiesForQueueType(country, profile.queueType).slice(0, profile.cityCount),
 }));
 
@@ -1056,6 +1071,7 @@ const queueSearchSpace = baselineProfiles.map(profile => ({
     candidateCitiesForQueueType(country, profile.queueType).length,
     profile.cityCount + maxExtraCities
   ),
+  maxArmsIndustryLevel,
 }));
 
 const evaluatedOptions: EvaluatedOption[] = [];
@@ -1064,7 +1080,8 @@ const progressEveryOptions = parsePositiveInt(process.env.PLAN_PROGRESS_EVERY_OP
 const progressEveryEcoDepth = parsePositiveInt(process.env.PLAN_PROGRESS_EVERY_ECO_DEPTH, 1);
 const totalChoiceCombinations = queueSearchSpace.reduce((product, group) => {
   const roChoices = Math.max(0, maxRecruitingOfficeLevel - group.minRecruitingOfficeLevel + 1);
-  return product * Math.max(1, roChoices * group.maxCityCount);
+  const aiChoices = group.maxArmsIndustryLevel;
+  return product * Math.max(1, roChoices * group.maxCityCount * aiChoices);
 }, 1);
 let evaluatedChoiceCount = 0;
 
@@ -1098,15 +1115,19 @@ function evaluateChoiceSet(choices: QueueChoice[]) {
     return;
   }
 
-  const profileSummaries = plan.cityProfiles.map(profile => ({
-    queueKey: profile.queueKey,
-    queueType: profile.queueType,
-    cityCount: profile.cityCount,
-    requiredBaseLevel: profile.requiredBaseLevel,
-    requiredArmyBaseLevel: profile.requiredArmyBaseLevel,
-    requiredRecruitingOfficeLevel: profile.requiredRecruitingOfficeLevel,
-    candidateCities: candidateCitiesForQueueType(country, profile.queueType).slice(0, profile.cityCount),
-  }));
+  const profileSummaries = plan.cityProfiles.map(profile => {
+    const choice = choiceByQueue.get(profile.queueKey);
+    return {
+      queueKey: profile.queueKey,
+      queueType: profile.queueType,
+      cityCount: profile.cityCount,
+      requiredBaseLevel: profile.requiredBaseLevel,
+      requiredArmyBaseLevel: profile.requiredArmyBaseLevel,
+      requiredRecruitingOfficeLevel: profile.requiredRecruitingOfficeLevel,
+      armsIndustryTargetLevel: choice?.armsIndustryLevel ?? 1,
+      candidateCities: candidateCitiesForQueueType(country, profile.queueType).slice(0, profile.cityCount),
+    };
+  });
 
   const infrastructure = planInfrastructureForProfiles(
     profileSummaries,
@@ -1154,6 +1175,10 @@ function evaluateChoiceSet(choices: QueueChoice[]) {
       (sum, profile) => sum + (profile.cityCount * profile.requiredRecruitingOfficeLevel),
       0
     ),
+    totalArmsIndustryLevels: profileSummaries.reduce(
+      (sum, profile) => sum + (profile.cityCount * profile.armsIndustryTargetLevel),
+      0
+    ),
     totalReadyHoursBeforeWar: upkeep.readyHours,
     infrastructureCost: infrastructure.totalCost,
     mobilisationCost,
@@ -1169,7 +1194,7 @@ function evaluateChoiceSet(choices: QueueChoice[]) {
   if (evaluatedChoiceCount % progressEveryOptions === 0) {
     progress(
       `force options ${evaluatedChoiceCount}/${totalChoiceCombinations}: ` +
-      `${choices.map(choice => `${choice.queueType}:${choice.cityCount}@RO${choice.recruitingOfficeLevel}`).join(" ; ")} ` +
+      `${choices.map(choice => `${choice.queueType}:${choice.cityCount}@RO${choice.recruitingOfficeLevel}@AI${choice.armsIndustryLevel}`).join(" ; ")} ` +
       `=> affordable=${evaluated.affordability.affordable} totalCost=${Number(evaluated.totalEconomicCost.toFixed(2))}`
     );
   }
@@ -1184,17 +1209,20 @@ function searchChoices(index: number, current: QueueChoice[]) {
   const group = queueSearchSpace[index];
   if (!group) return;
 
-  for (let recruitingOfficeLevel = group.minRecruitingOfficeLevel; recruitingOfficeLevel <= maxRecruitingOfficeLevel; recruitingOfficeLevel++) {
-    for (let cityCount = 1; cityCount <= group.maxCityCount; cityCount++) {
-      searchChoices(index + 1, [
-        ...current,
-        {
-          queueKey: group.queueKey,
-          queueType: group.queueType,
-          cityCount,
-          recruitingOfficeLevel,
-        },
-      ]);
+  for (let armsIndustryLevel = 1; armsIndustryLevel <= group.maxArmsIndustryLevel; armsIndustryLevel++) {
+    for (let recruitingOfficeLevel = group.minRecruitingOfficeLevel; recruitingOfficeLevel <= maxRecruitingOfficeLevel; recruitingOfficeLevel++) {
+      for (let cityCount = 1; cityCount <= group.maxCityCount; cityCount++) {
+        searchChoices(index + 1, [
+          ...current,
+          {
+            queueKey: group.queueKey,
+            queueType: group.queueType,
+            cityCount,
+            recruitingOfficeLevel,
+            armsIndustryLevel,
+          },
+        ]);
+      }
     }
   }
 }
@@ -1213,7 +1241,7 @@ if (evaluatedOptions.length === 0) {
 
 const best = evaluatedOptions[0];
 progress(
-  `chosen footprint: ${best.choices.map(choice => `${choice.queueType}:${choice.cityCount}@RO${choice.recruitingOfficeLevel}`).join(" ; ")} ` +
+  `chosen footprint: ${best.choices.map(choice => `${choice.queueType}:${choice.cityCount}@RO${choice.recruitingOfficeLevel}@AI${choice.armsIndustryLevel}`).join(" ; ")} ` +
   `baselineAffordable=${best.affordability.affordable} totalCost=${Number(best.totalEconomicCost.toFixed(2))}`
 );
 best.ecoSupport = ecoSupportSearch(best);
@@ -1321,11 +1349,12 @@ console.table(
   evaluatedOptions.slice(0, topN).map((option, index) => ({
       rank: index + 1,
       queues: option.choices
-        .map(choice => `${choice.queueType}:${choice.cityCount}@RO${choice.recruitingOfficeLevel}`)
+        .map(choice => `${choice.queueType}:${choice.cityCount}@RO${choice.recruitingOfficeLevel}@AI${choice.armsIndustryLevel}`)
         .join(" ; "),
       affordable: option.affordability.affordable,
       totalCities: option.totalCities,
-    totalROLevels: option.totalRecruitingOfficeLevels,
+      totalROLevels: option.totalRecruitingOfficeLevels,
+      totalAILevels: option.totalArmsIndustryLevels,
       readyHoursBeforeWar: option.totalReadyHoursBeforeWar,
       totalEconomicCost: Number(option.totalEconomicCost.toFixed(2)),
       infraCash: option.infrastructureCost.cash,

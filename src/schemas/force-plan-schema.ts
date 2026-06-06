@@ -22,6 +22,7 @@ export const forcePlanFileSchema = z.object({
     top: positiveIntSchema.optional(),
     max_extra_cities: nonNegativeIntSchema.optional(),
     max_recruiting_office_level: positiveIntSchema.optional(),
+    max_arms_industry_level: positiveIntSchema.optional(),
   }).strict().optional(),
   demands: z.array(forceDemandSchema).min(1),
 }).strict();

@@ -284,7 +284,7 @@ Invoke via YAML force plan file or env vars (`PLAN_COUNTRY`, `PLAN_DEMANDS`, `PL
 |---|---|---|
 | **Mobilisation cost missing from ranking** | ✅ Fixed | `compareOptions` now includes mobilisation cost in `totalEconomicCost`; upkeep and mobilisation costs were also silently zero due to per-doctrine record access bug — both fixed |
 | **`secret_weapons_lab` not in build planner** | ✅ Fixed | `planInfrastructureForProfiles` detects the requirement from unit YAML, inserts the build step after the base chain and before `recruiting_office`; `secret_weapons_lab` added to `BuildingId` and engine simulation |
-| **`arms_industry` level fixed at L1** | ⬜ Open | `buildPlanActionsForCity` always builds arms_industry to L1 only; higher levels are never in the search space |
+| **`arms_industry` level fixed at L1** | ✅ Fixed | `armsIndustryLevel` is now a search dimension alongside RO level and city count; default max is L1 (opt-in via `PLAN_MAX_AI_LEVEL` / `search.max_arms_industry_level`). Income boost from higher AI levels is not yet modelled — only build cost + delayed window |
 | **Prerequisite research chains not threaded** | ✅ Fixed | `planMobilizationBuild` now passes mobilisation-start deadlines to the JIT scheduler; the dependency graph (`expandTargetsWithUnitRequirements` + task successor links) propagates constraints so ASF L1–L4 is scheduled before SASF L1 and completes before mobilisation opens |
 | **No coalition shared resource pool** | ⬜ Open | Single-country only; no cross-country resource aggregation |
 | **Flip point not modelled** | ⬜ Open | City transitions from eco to military mode implicitly on day 1; there is no search over when to make that transition |
@@ -295,7 +295,7 @@ Invoke via YAML force plan file or env vars (`PLAN_COUNTRY`, `PLAN_DEMANDS`, `PL
 1. ✅ **Fix ranking** — mobilisation cost now in `totalEconomicCost`; per-doctrine cost access fixed throughout
 2. ✅ **Add `secret_weapons_lab` to infrastructure build planner** — detects requirement from unit YAML, correct critical path for stealth ASF cities
 3. ✅ **Thread prerequisite research chains** — `planMobilizationBuild` now passes `buildResearchDeadlineMap(scheduledGroups)` as `latestCompletionByUnitLevel`; the JIT backward scheduler propagates the constraint through the dependency graph (SASF L1 deadline → ASF L4 → L3 → L2 → L1), ensuring prerequisite research completes before mobilisation opens; infeasible plans (chain too long) return `null` so the planner retries with more cities
-4. **Add `arms_industry` level as a search dimension** — vary L1–L5 per city alongside RO level; evaluate cost vs delayed production window
+4. ✅ **Add `arms_industry` level as a search dimension** — `QueueChoice.armsIndustryLevel` + `QueueProfileSummary.armsIndustryTargetLevel`; `buildPlanActionsForCity` builds AI to the target level; search loops over 1..`maxArmsIndustryLevel` (default 1, overridable via `PLAN_MAX_AI_LEVEL` env var or `search.max_arms_industry_level` in plan YAML); display strings include `@AI{n}`; `totalArmsIndustryLevels` tracked in `EvaluatedOption` and used as secondary sort key. Note: income boost from higher AI levels is not yet modelled — only build cost and delayed production window are captured
 5. **Coalition wrapper** — pool resources across N country simulations, allocate unit production to countries, optimise flip points jointly using the existing single-country harness as the inner evaluator
 
 ---

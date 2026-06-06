@@ -1,0 +1,210 @@
+schema_version: 1
+domain: units
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+units:
+  combat_recon_vehicle:
+    name: Combat Recon Vehicle
+    category: Support
+    doctrine:
+      - western
+      - european
+      - eastern
+    levels:
+      "1":
+        requirements:
+          - army_base level 1
+        research:
+          unlock_day: 1
+          time:
+            minutes: 22
+            seconds: 30
+          cost:
+            components: 1250
+            rares: 1350
+            cash: 1250
+        mobilisation:
+          time:
+            hours: 21
+          cost:
+            supplies: 950
+            components: 850
+            manpower: 400
+            cash: 1000
+        daily_upkeep:
+          cost:
+            supplies: 50
+            manpower: 25
+            fuel: 20
+            cash: 75
+      "2":
+        requirements:
+          - army_base level 1
+          - combat_recon_vehicle level 1
+        research:
+          unlock_day: 4
+          time:
+            hours: 18
+          cost:
+            components: 1375
+            rares: 1485
+            cash: 1375
+        mobilisation:
+          time:
+            hours: 22
+          cost:
+            supplies: 950
+            components: 850
+            manpower: 400
+            cash: 1000
+        daily_upkeep:
+          cost:
+            supplies: 55
+            manpower: 30
+            fuel: 25
+            cash: 80
+      "3":
+        requirements:
+          - army_base level 1
+          - combat_recon_vehicle level 2
+        research:
+          unlock_day: 8
+          time:
+            hours: 18
+            minutes: 45
+          cost:
+            components: 1500
+            rares: 1620
+            cash: 1500
+        mobilisation:
+          time:
+            hours: 23
+          cost:
+            supplies: 950
+            components: 850
+            manpower: 400
+            cash: 1000
+        daily_upkeep:
+          cost:
+            supplies: 60
+            manpower: 35
+            fuel: 30
+            cash: 85
+      "4":
+        requirements:
+          - army_base level 1
+          - combat_recon_vehicle level 3
+        research:
+          unlock_day: 12
+          time:
+            hours: 22
+            minutes: 30
+          cost:
+            components: 1625
+            rares: 1755
+            cash: 1625
+        mobilisation:
+          time:
+            days: 1
+            hours: 1
+          cost:
+            supplies: 1250
+            components: 1150
+            manpower: 550
+            cash: 1350
+        daily_upkeep:
+          cost:
+            supplies: 70
+            manpower: 45
+            fuel: 40
+            cash: 95
+      "5":
+        requirements:
+          - army_base level 1
+          - combat_recon_vehicle level 4
+        research:
+          unlock_day: 18
+          time:
+            days: 1
+            minutes: 45
+          cost:
+            components: 1750
+            rares: 1890
+            cash: 1750
+        mobilisation:
+          time:
+            hours: 22
+          cost:
+            supplies: 1250
+            components: 1150
+            manpower: 550
+            cash: 1350
+        daily_upkeep:
+          cost:
+            supplies: 75
+            manpower: 50
+            fuel: 45
+            cash: 100
+      "6":
+        requirements:
+          - army_base level 1
+          - combat_recon_vehicle level 5
+        research:
+          unlock_day: 23
+          time:
+            days: 1
+            hours: 4
+            minutes: 30
+          cost:
+            components: 1875
+            rares: 2025
+            cash: 1875
+        mobilisation:
+          time:
+            days: 1
+          cost:
+            supplies: 1450
+            components: 1250
+            manpower: 725
+            cash: 1750
+        daily_upkeep:
+          cost:
+            supplies: 85
+            manpower: 60
+            fuel: 55
+            cash: 110
+      "7":
+        requirements:
+          - army_base level 1
+          - combat_recon_vehicle level 6
+        research:
+          unlock_day: 28
+          time:
+            days: 1
+            hours: 6
+            minutes: 45
+          cost:
+            components: 1875
+            rares: 2025
+            cash: 1875
+        mobilisation:
+          time:
+            days: 1
+            hours: 1
+          cost:
+            supplies: 1450
+            components: 1250
+            manpower: 725
+            cash: 1750
+        daily_upkeep:
+          cost:
+            supplies: 95
+            manpower: 70
+            fuel: 65
+            cash: 120

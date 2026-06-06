@@ -12,7 +12,10 @@ units:
   mobile_anti_air_vehicle:
     name: Mobile Anti-Air Vehicle
     category: Support
-    doctrine: Western
+    doctrine:
+      - western
+      - european
+      - eastern
     levels:
       "1":
         requirements:
@@ -1022,23 +1025,179 @@ units:
               manpower: 65
               fuel: 70
               cash: 225
-  combat_recon_vehicle:
-    name: Combat Recon Vehicle
+  mobile_radar:
+    name: Mobile Radar
     category: Support
-    doctrine: western
+    doctrine:
+      - western
+      - european
+      - eastern
     levels:
       "1":
         requirements:
-          - army_base level 3
+          - army_base level 2
           - arms_industry level 1
         research:
-          unlock_day: 1
+          unlock_day: 3
           time:
-            hours: 0
-          cost: {}
+            hours: 18
+          cost:
+            supplies: 750
+            rares: 775
+            cash: 1850
         mobilisation:
           time:
-            hours: 0
-          cost: {}
+            hours: 18
+          cost:
+            supplies: 600
+            manpower: 350
+            electronics: 450
+            cash: 1000
         daily_upkeep:
-          cost: {}
+          cost:
+            supplies: 20
+            manpower: 15
+            fuel: 15
+            cash: 40
+      "2":
+        requirements:
+          - army_base level 2
+          - arms_industry level 1
+          - mobile_radar level 1
+        research:
+          unlock_day: 7
+          time:
+            hours: 18
+            minutes: 45
+          cost:
+            supplies: 825
+            rares: 855
+            cash: 2035
+        mobilisation:
+          time:
+            hours: 19
+          cost:
+            supplies: 600
+            manpower: 350
+            electronics: 450
+            cash: 1000
+        daily_upkeep:
+          cost:
+            supplies: 25
+            manpower: 20
+            fuel: 20
+            cash: 45
+      "3":
+        requirements:
+          - army_base level 2
+          - arms_industry level 1
+          - mobile_radar level 2
+        research:
+          unlock_day: 14
+          time:
+            hours: 22
+            minutes: 30
+          cost:
+            supplies: 900
+            rares: 930
+            cash: 2220
+        mobilisation:
+          time:
+            hours: 21
+          cost:
+            supplies: 650
+            manpower: 450
+            electronics: 575
+            cash: 1250
+        daily_upkeep:
+          cost:
+            supplies: 35
+            manpower: 25
+            fuel: 25
+            cash: 55
+      "4":
+        requirements:
+          - army_base level 2
+          - arms_industry level 1
+          - mobile_radar level 3
+        research:
+          unlock_day: 18
+          time:
+            days: 1
+            minutes: 45
+          cost:
+            supplies: 975
+            rares: 1010
+            cash: 2405
+        mobilisation:
+          time:
+            hours: 22
+          cost:
+            supplies: 650
+            manpower: 450
+            electronics: 575
+            cash: 1250
+        daily_upkeep:
+          cost:
+            supplies: 40
+            manpower: 30
+            fuel: 30
+            cash: 60
+      "5":
+        requirements:
+          - army_base level 2
+          - arms_industry level 1
+          - mobile_radar level 4
+        research:
+          unlock_day: 25
+          time:
+            days: 1
+            hours: 3
+          cost:
+            supplies: 1050
+            rares: 1085
+            cash: 2590
+        mobilisation:
+          time:
+            hours: 23
+          cost:
+            supplies: 650
+            manpower: 450
+            electronics: 575
+            cash: 1250
+        daily_upkeep:
+          cost:
+            supplies: 45
+            manpower: 35
+            fuel: 35
+            cash: 65
+      "6":
+        requirements:
+          - army_base level 2
+          - arms_industry level 1
+          - mobile_radar level 5
+        research:
+          unlock_day: 28
+          time:
+            days: 1
+            hours: 6
+            minutes: 45
+          cost:
+            supplies: 1125
+            rares: 1165
+            cash: 2775
+        mobilisation:
+          time:
+            days: 1
+            hours: 1
+          cost:
+            supplies: 750
+            manpower: 575
+            electronics: 700
+            cash: 1750
+        daily_upkeep:
+          cost:
+            supplies: 50
+            manpower: 40
+            fuel: 40
+            cash: 75

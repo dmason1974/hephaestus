@@ -1,0 +1,17 @@
+version: 1
+
+country:
+  id: liberia
+  name: Liberia
+  doctrine: eastern
+
+cities:
+  - id: monrovia
+    name: Monrovia
+    capital: true
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

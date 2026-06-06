@@ -1,8 +1,6 @@
-import path from "node:path";
-
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
-import { loadUnitCatalog } from "../../scenarios/io/load-unit-catalog.js";
+import { loadMergedUnitCatalogForScenario } from "../../scenarios/io/load-unit-catalog.js";
 import { planMobilizationBuild } from "../../engine/simulation/unit-mobilization-plan.js";
 
 function mapDayForAbsoluteHour(absoluteHour: number) {
@@ -13,36 +11,17 @@ function hourOfDayForAbsoluteHour(absoluteHour: number) {
   return (absoluteHour % 24) + 1;
 }
 
-const scenario = loadScenarioFile("elite/ww3");
+const scenarioId = "elite/ww3";
+const scenario = loadScenarioFile(scenarioId);
 const buildings = loadBuildingsFile();
-const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
-const fighterCatalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
-const heaviesCatalog = loadUnitCatalog(path.resolve("data/units/heavies_units.yml"));
-const infantryCatalog = loadUnitCatalog(path.resolve("data/units/infantry_units.yml"));
-const officerCatalog = loadUnitCatalog(path.resolve("data/units/officer_units.yml"));
-const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
-
-const mergedCatalog = {
-  ...navalCatalog,
-  units: {
-    ...navalCatalog.units,
-    ...fighterCatalog.units,
-    ...heaviesCatalog.units,
-    ...infantryCatalog.units,
-    ...officerCatalog.units,
-    ...seasonalCatalog.units,
-  },
-};
+const mergedCatalog = loadMergedUnitCatalogForScenario(scenarioId);
 
 const demands = [
-  { unitId: "naval_veteran", count: 1 },
   { unitId: "fixed_wing_veteran", count: 1, researchTargetLevel: 6 },
   { unitId: "epic_airstrike_officer", count: 1, researchTargetLevel: 6 },
   { unitId: "awacs", count: 4, researchTargetLevel: 6 },
   { unitId: "airborne_infantry", count: 20 },
   { unitId: "air_superiority_fighter", count: 18 },
-  { unitId: "elite_frigate", count: 9 },
-  { unitId: "elite_drone_mothership", count: 10 },
 ];
 
 const result = planMobilizationBuild({

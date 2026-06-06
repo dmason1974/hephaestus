@@ -10,18 +10,18 @@ start:
 speed: "4x"
 
 coalition:
-  - argentina
-  - australia
-  - indonesia
-  - italy
-  - japan
-  - new_zealand
-  - norway
-  - pakistan
-  - russia
-  - south_africa
-  - ukraine
-  - united_kingdom
+  - argentina      # western
+  - australia      # western
+  - indonesia      # european
+  - italy          # european
+  - japan          # western
+  - new_zealand    # european
+  - norway         # western
+  - pakistan       # western
+  - russia         # eastern
+  - south_africa   # european
+  - ukraine        # eastern
+  - united_kingdom # european
 
 starting_balance:
   supplies: 35748

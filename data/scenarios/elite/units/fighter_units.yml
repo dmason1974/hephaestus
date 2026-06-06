@@ -1276,3 +1276,68 @@ units:
               electronics: 120
               cash: 300
               manpower: 150
+  stealth_air_superiority_fighter:
+    name: Stealth Air Superiority Fighter
+    category: Air
+    doctrine:
+      - european
+      - western
+    levels:
+      "1":
+        requirements:
+          - air_base level 5
+          - secret_weapons_lab level 1
+          - arms_industry level 1
+        research:
+          european:
+            unlock_day: 16
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 3000
+              rares: 4400
+              cash: 8000
+          western:
+            unlock_day: 16
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 3000
+              rares: 4400
+              cash: 8000
+        mobilisation:
+          european:
+            time:
+              days: 1
+              hours: 12
+            cost:
+              components: 1500
+              manpower: 550
+              rares: 450
+              electronics: 1600
+              cash: 7000
+          western:
+            time:
+              days: 1
+              hours: 12
+            cost:
+              components: 1500
+              manpower: 550
+              rares: 450
+              electronics: 1600
+              cash: 7000
+        daily_upkeep:
+          european:
+            cost:
+              manpower: 70
+              fuel: 70
+              electronics: 75
+              cash: 260
+          western:
+            cost:
+              manpower: 70
+              fuel: 70
+              electronics: 75
+              cash: 260

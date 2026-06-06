@@ -1,0 +1,71 @@
+version: 1
+
+country:
+  id: peru
+  name: Peru
+  doctrine: western
+
+cities:
+  - id: lima
+    name: Lima
+    capital: true
+    resource: electronics
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 0
+  - id: arequipa
+    name: Arequipa
+    capital: false
+    resource: rares
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: callao
+    name: Callao
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: trujillo
+    name: Trujillo
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: chiclayo
+    name: Chiclayo
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: iquitos
+    name: Iquitos
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: huancayo
+    name: Huancayo
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

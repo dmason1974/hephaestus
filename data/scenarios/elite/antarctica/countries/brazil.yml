@@ -1,0 +1,71 @@
+version: 1
+
+country:
+  id: brazil
+  name: Brazil
+  doctrine: european
+
+cities:
+  - id: brasilia
+    name: Brasilia
+    capital: true
+    resource: components
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 0
+  - id: rio_de_janeiro
+    name: Rio de Janeiro
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: salvador
+    name: Salvador
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: fortaleza
+    name: Fortaleza
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: belo_horizonte
+    name: Belo Horizonte
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: sao_paulo
+    name: Sao Paulo
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: curitiba
+    name: Curitiba
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

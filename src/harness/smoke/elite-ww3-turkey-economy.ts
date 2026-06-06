@@ -24,7 +24,7 @@ import { planMobilizationBuild } from "../../engine/simulation/unit-mobilization
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
-import { loadUnitCatalog } from "../../scenarios/io/load-unit-catalog.js";
+import { loadMergedUnitCatalogForScenario } from "../../scenarios/io/load-unit-catalog.js";
 import type { Country } from "../../schemas/country-schema.js";
 import {
   buildHomelandCityBuildOrderFromBaseline,
@@ -48,24 +48,7 @@ const buildingsFile = loadBuildingsFile(path.resolve("data/buildings.yml"));
 const scenario = loadScenarioFile(scenarioId);
 const turkey = loadScenarioCountry(scenarioId, "turkey");
 
-const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
-const fighterCatalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
-const heaviesCatalog = loadUnitCatalog(path.resolve("data/units/heavies_units.yml"));
-const infantryCatalog = loadUnitCatalog(path.resolve("data/units/infantry_units.yml"));
-const officerCatalog = loadUnitCatalog(path.resolve("data/units/officer_units.yml"));
-const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
-
-const mergedCatalog = {
-  ...navalCatalog,
-  units: {
-    ...navalCatalog.units,
-    ...fighterCatalog.units,
-    ...heaviesCatalog.units,
-    ...infantryCatalog.units,
-    ...officerCatalog.units,
-    ...seasonalCatalog.units,
-  },
-};
+const mergedCatalog = loadMergedUnitCatalogForScenario(scenarioId);
 
 const demands = [
   { unitId: "fixed_wing_veteran", count: 1, researchTargetLevel: 6, queueGroup: "istanbul_air", forcedCityCount: 1 },

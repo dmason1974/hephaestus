@@ -1,0 +1,71 @@
+version: 1
+
+country:
+  id: canada
+  name: Canada
+  doctrine: european
+
+cities:
+  - id: ottawa
+    name: Ottawa
+    capital: true
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 0
+  - id: toronto
+    name: Toronto
+    capital: false
+    resource: electronics
+    population: 6
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: montreal
+    name: Montreal
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: calgary
+    name: Calgary
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: edmonton
+    name: Edmonton
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: mississauga
+    name: Mississauga
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: north_york
+    name: North York
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

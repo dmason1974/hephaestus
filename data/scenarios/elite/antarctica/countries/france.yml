@@ -1,0 +1,71 @@
+version: 1
+
+country:
+  id: france
+  name: France
+  doctrine: european
+
+cities:
+  - id: paris
+    name: Paris
+    capital: true
+    resource: supplies
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 0
+  - id: marseille
+    name: Marseille
+    capital: false
+    resource: rares
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: lyon
+    name: Lyon
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: toulouse
+    name: Toulouse
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: nice
+    name: Nice
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: nantes
+    name: Nantes
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: strasbourg
+    name: Strasbourg
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

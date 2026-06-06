@@ -1,0 +1,71 @@
+version: 1
+
+country:
+  id: iceland
+  name: Iceland
+  doctrine: western
+
+cities:
+  - id: reykjavik
+    name: Reykjavik
+    capital: true
+    resource: electronics
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 0
+  - id: kopavogur
+    name: Kopavogur
+    capital: false
+    resource: rares
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: hafnarfjoerdur
+    name: Hafnarfjoerdur
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: akureyri
+    name: Akureyri
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: reykjanesbaer
+    name: Reykjanesbaer
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: garthabaer
+    name: Garthabaer
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: mosfellsbaer
+    name: Mosfellsbaer
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

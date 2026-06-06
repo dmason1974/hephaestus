@@ -1,0 +1,71 @@
+version: 1
+
+country:
+  id: chile
+  name: Chile
+  doctrine: european
+
+cities:
+  - id: santiago
+    name: Santiago
+    capital: true
+    resource: components
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 0
+  - id: puente_alto
+    name: Puente Alto
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: antofagasta
+    name: Antofagasta
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: vina_del_mar
+    name: Vina del Mar
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: valparaiso
+    name: Valparaiso
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: talcahuano
+    name: Talcahuano
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: san_bernardo
+    name: San Bernardo
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0

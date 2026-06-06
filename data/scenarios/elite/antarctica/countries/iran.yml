@@ -1,0 +1,17 @@
+version: 1
+
+country:
+  id: iran
+  name: Iran
+  doctrine: eastern
+
+cities:
+  - id: tehran
+    name: Tehran
+    capital: true
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

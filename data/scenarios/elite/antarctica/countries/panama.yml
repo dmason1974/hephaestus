@@ -1,0 +1,17 @@
+version: 1
+
+country:
+  id: panama
+  name: Panama
+  doctrine: western
+
+cities:
+  - id: panama_city
+    name: Panama City
+    capital: true
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

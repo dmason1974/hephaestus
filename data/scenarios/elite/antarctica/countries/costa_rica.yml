@@ -1,0 +1,71 @@
+version: 1
+
+country:
+  id: costa_rica
+  name: Costa Rica
+  doctrine: western
+
+cities:
+  - id: san_jose
+    name: San Jose
+    capital: true
+    resource: components
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 0
+  - id: limon
+    name: Limon
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: san_francisco
+    name: San Francisco
+    capital: false
+    resource: rares
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: alajuela
+    name: Alajuela
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: liberia
+    name: Liberia
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: paraiso
+    name: Paraiso
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: puntarenas
+    name: Puntarenas
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

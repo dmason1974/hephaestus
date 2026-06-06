@@ -1,34 +1,13 @@
-import path from "node:path";
-
 import { scenarioStartAbsoluteHour } from "../../core/time.js";
 import { simulateUnitResearchTargets } from "../../engine/simulation/unit-research-sim.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
-import { loadUnitCatalog } from "../../scenarios/io/load-unit-catalog.js";
+import { loadMergedUnitCatalogForScenario } from "../../scenarios/io/load-unit-catalog.js";
 
 const scenarioId = "elite/ww3";
 const scenario = loadScenarioFile(scenarioId);
-
-const navalCatalog = loadUnitCatalog(path.resolve("data/units/naval_units.yml"));
-const fighterCatalog = loadUnitCatalog(path.resolve("data/units/fighter_units.yml"));
-const heaviesCatalog = loadUnitCatalog(path.resolve("data/units/heavies_units.yml"));
-const officerCatalog = loadUnitCatalog(path.resolve("data/units/officer_units.yml"));
-const seasonalCatalog = loadUnitCatalog(path.resolve("data/units/seasonal_units.yml"));
-
-const mergedCatalog = {
-  ...navalCatalog,
-  units: {
-    ...navalCatalog.units,
-    ...fighterCatalog.units,
-    ...heaviesCatalog.units,
-    ...officerCatalog.units,
-    ...seasonalCatalog.units,
-  },
-};
+const mergedCatalog = loadMergedUnitCatalogForScenario(scenarioId);
 
 const targets = {
-  elite_drone_mothership: 2,
-  elite_frigate: 2,
-  naval_veteran: 7,
   fixed_wing_veteran: 6,
   epic_airstrike_officer: 6,
   awacs: 6,

@@ -1,0 +1,17 @@
+version: 1
+
+country:
+  id: greenland
+  name: Greenland
+  doctrine: european
+
+cities:
+  - id: nuuk
+    name: Nuuk
+    capital: true
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

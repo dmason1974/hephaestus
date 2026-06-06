@@ -1,0 +1,71 @@
+version: 1
+
+country:
+  id: ghana
+  name: Ghana
+  doctrine: eastern
+
+cities:
+  - id: accra
+    name: Accra
+    capital: true
+    resource: components
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 0
+  - id: kumasi
+    name: Kumasi
+    capital: false
+    resource: supplies
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: tamale
+    name: Tamale
+    capital: false
+    resource: electronics
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: takoradi
+    name: Takoradi
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: atsiaman
+    name: Atsiaman
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: tema
+    name: Tema
+    capital: false
+    resource: rares
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: teshi_old_town
+    name: Teshi Old Town
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

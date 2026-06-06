@@ -1,0 +1,71 @@
+version: 1
+
+country:
+  id: mexico
+  name: Mexico
+  doctrine: european
+
+cities:
+  - id: mexico_city
+    name: Mexico City
+    capital: true
+    resource: supplies
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 0
+      underground_bunkers: 0
+  - id: zapopan
+    name: Zapopan
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: monterrey
+    name: Monterrey
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: culiacan
+    name: Culiacan
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+  - id: puebla
+    name: Puebla
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: juarez
+    name: Juarez
+    capital: false
+    resource: rares
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+  - id: tijuana
+    name: Tijuana
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0

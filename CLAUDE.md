@@ -280,20 +280,20 @@ Invoke via YAML force plan file or env vars (`PLAN_COUNTRY`, `PLAN_DEMANDS`, `PL
 
 ### Known Gaps in the Current Harness
 
-| Gap | Description |
-|---|---|
-| **Mobilisation cost missing from ranking** | `compareOptions` ranks by `infrastructureCost + upkeepCost` but excludes mobilisation cost — units mobilised at different levels look equal to the ranker |
-| **`arms_industry` level fixed at L1** | `buildPlanActionsForCity` always builds arms_industry to L1 only; higher levels are never in the search space |
-| **`secret_weapons_lab` not in build planner** | For units requiring secret_weapons_lab (e.g. stealth ASF), the infrastructure build plan omits this building and therefore produces wrong timing |
-| **Prerequisite research chains not threaded** | The research scheduler handles a unit's own level chain but not unit-to-unit prerequisites (e.g. stealth ASF requires ASF L1–L4 to be researched first) |
-| **No coalition shared resource pool** | Single-country only; no cross-country resource aggregation |
-| **Flip point not modelled** | City transitions from eco to military mode implicitly on day 1; there is no search over when to make that transition |
-| **Cross-queue city sharing not modelled** | A city assigned to SASF production and one assigned to AWACS are fully independent; the "switch mid-plan" pattern (AWACS during dead window → SASF after) is not found |
+| Gap | Status | Description |
+|---|---|---|
+| **Mobilisation cost missing from ranking** | ✅ Fixed | `compareOptions` now includes mobilisation cost in `totalEconomicCost`; upkeep and mobilisation costs were also silently zero due to per-doctrine record access bug — both fixed |
+| **`secret_weapons_lab` not in build planner** | ✅ Fixed | `planInfrastructureForProfiles` detects the requirement from unit YAML, inserts the build step after the base chain and before `recruiting_office`; `secret_weapons_lab` added to `BuildingId` and engine simulation |
+| **`arms_industry` level fixed at L1** | ⬜ Open | `buildPlanActionsForCity` always builds arms_industry to L1 only; higher levels are never in the search space |
+| **Prerequisite research chains not threaded** | ⬜ Open | The research scheduler handles a unit's own level chain but not unit-to-unit prerequisites (e.g. stealth ASF requires ASF L1–L4 to be researched first) |
+| **No coalition shared resource pool** | ⬜ Open | Single-country only; no cross-country resource aggregation |
+| **Flip point not modelled** | ⬜ Open | City transitions from eco to military mode implicitly on day 1; there is no search over when to make that transition |
+| **Cross-queue city sharing not modelled** | ⬜ Open | A city assigned to SASF production and one assigned to AWACS are fully independent; the "switch mid-plan" pattern (AWACS during dead window → SASF after) is not found |
 
-### Implementation Path (next session)
+### Implementation Path
 
-1. **Fix ranking** — include mobilisation cost in `totalEconomicCost` in `compareOptions` (one-line fix, high correctness impact)
-2. **Add `secret_weapons_lab` to infrastructure build planner** — detect when the target unit requires it and insert into the city build queue
+1. ✅ **Fix ranking** — mobilisation cost now in `totalEconomicCost`; per-doctrine cost access fixed throughout
+2. ✅ **Add `secret_weapons_lab` to infrastructure build planner** — detects requirement from unit YAML, correct critical path for stealth ASF cities
 3. **Thread prerequisite research chains** — the research scheduler needs to know that stealth ASF requires ASF L4 first; chain these via the unit's `requirements` field
 4. **Add `arms_industry` level as a search dimension** — vary L1–L5 per city alongside RO level; evaluate cost vs delayed production window
 5. **Coalition wrapper** — pool resources across N country simulations, allocate unit production to countries, optimise flip points jointly using the existing single-country harness as the inner evaluator

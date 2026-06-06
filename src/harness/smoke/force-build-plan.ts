@@ -848,8 +848,15 @@ function ecoSupportSearch(option: Pick<EvaluatedOption, "plan" | "cityBuildPlans
         const candidateBuildingIds = ([
           "arms_industry",
           "air_base",
+          "underground_bunkers",
+          "relocate_headquarters",
           ...(levels.naval_base > 0 ? ["naval_base" as const] : []),
         ] as EcoBuildingId[]).filter(buildingId => {
+          // underground_bunkers and relocate_headquarters raise morale which increases
+          // production yield — keep them as candidates and let the beam discover benefit
+          if (buildingId === "underground_bunkers" || buildingId === "relocate_headquarters") {
+            return true;
+          }
           if (buildingId === "arms_industry") {
             // flat_bonus.cash helps any cash deficit; production% helps if city resource is in deficit
             return deficitResources.has("cash") || deficitResources.has(city.resource as Resource);

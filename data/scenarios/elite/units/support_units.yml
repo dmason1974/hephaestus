@@ -229,151 +229,287 @@ units:
   multiple_rocket_launcher:
     name: Multiple Rocket Launcher
     category: Support
-    doctrine: Western
+    doctrine:
+      - european
+      - western
     levels:
       "1":
         requirements:
           - army_base level 4
           - arms_industry level 1
         research:
-          unlock_day: 5
-          time:
-            hours: 20
-            minutes: 15
-          cost:
-            supplies: 1750
-            rares: 2000
-            cash: 3000
+          european:
+            unlock_day: 5
+            time:
+              hours: 20
+              minutes: 15
+            cost:
+              supplies: 1750
+              rares: 2000
+              cash: 3000
+          western:
+            unlock_day: 5
+            time:
+              hours: 20
+              minutes: 15
+            cost:
+              supplies: 1750
+              rares: 2000
+              cash: 3000
         mobilisation:
-          time:
-            days: 1
-          cost:
-            supplies: 1500
-            electronics: 800
-            cash: 1750
-            manpower: 500
+          european:
+            time:
+              days: 1
+            cost:
+              supplies: 1500
+              electronics: 800
+              cash: 1750
+              manpower: 500
+          western:
+            time:
+              days: 1
+            cost:
+              supplies: 1500
+              electronics: 800
+              cash: 1750
+              manpower: 500
         daily_upkeep:
-          cost:
-            supplies: 90
-            fuel: 30
-            cash: 125
-            manpower: 30
+          european:
+            cost:
+              supplies: 90
+              fuel: 30
+              cash: 125
+              manpower: 30
+          western:
+            cost:
+              supplies: 90
+              fuel: 30
+              cash: 125
+              manpower: 30
       "2":
         requirements:
           - army_base level 4
           - arms_industry level 1
           - multiple_rocket_launcher level 1
         research:
-          unlock_day: 9
-          time:
-            hours: 21
-            minutes: 0
-          cost:
-            supplies: 1925
-            rares: 2200
-            cash: 3300
+          european:
+            unlock_day: 9
+            time:
+              hours: 21
+            cost:
+              supplies: 1925
+              rares: 2200
+              cash: 3300
+          western:
+            unlock_day: 9
+            time:
+              hours: 21
+            cost:
+              supplies: 1925
+              rares: 2200
+              cash: 3300
         mobilisation:
-          time:
-            days: 1
-            hours: 1
-          cost:
-            supplies: 1500
-            electronics: 800
-            cash: 1750
+          european:
+            time:
+              days: 1
+              hours: 1
+            cost:
+              supplies: 1500
+              electronics: 800
+              cash: 1750
+              manpower: 500
+          western:
+            time:
+              days: 1
+              hours: 1
+            cost:
+              supplies: 1500
+              electronics: 800
+              cash: 1750
+              manpower: 500
         daily_upkeep:
-          cost:
-            supplies: 95
-            fuel: 40
-            cash: 135
-            manpower: 40
+          european:
+            cost:
+              supplies: 95
+              fuel: 40
+              cash: 135
+              manpower: 40
+          western:
+            cost:
+              supplies: 95
+              fuel: 40
+              cash: 135
+              manpower: 40
       "3":
         requirements:
           - army_base level 4
           - arms_industry level 1
           - multiple_rocket_launcher level 2
         research:
-          unlock_day: 13
-          time:
-            hours: 23
-            minutes: 15
-          cost:
-            supplies: 2100
-            rares: 2400
-            cash: 3600
+          european:
+            unlock_day: 13
+            time:
+              hours: 23
+              minutes: 15
+            cost:
+              supplies: 2100
+              rares: 2400
+              cash: 3600
+          western:
+            unlock_day: 13
+            time:
+              hours: 23
+              minutes: 15
+            cost:
+              supplies: 2100
+              rares: 2400
+              cash: 3600
         mobilisation:
-          time:
-            days: 1
-            hours: 2
-          cost:
-            supplies: 1500
-            electronics: 800
-            cash: 1750
-            manpower: 500
+          european:
+            time:
+              days: 1
+              hours: 2
+            cost:
+              supplies: 1500
+              electronics: 800
+              cash: 1750
+              manpower: 500
+          western:
+            time:
+              days: 1
+              hours: 2
+            cost:
+              supplies: 1500
+              electronics: 800
+              cash: 1750
+              manpower: 500
         daily_upkeep:
-          cost:
-            supplies: 100
-            fuel: 50
-            cash: 150
-            manpower: 50
+          european:
+            cost:
+              supplies: 100
+              fuel: 50
+              cash: 150
+              manpower: 50
+          western:
+            cost:
+              supplies: 100
+              fuel: 50
+              cash: 150
+              manpower: 50
       "4":
         requirements:
           - army_base level 4
           - arms_industry level 1
           - multiple_rocket_launcher level 3
         research:
-          unlock_day: 17
-          time:
-            days: 1
-            hours: 4
-          cost:
-            supplies: 2275
-            rares: 2600
-            cash: 3900
+          european:
+            unlock_day: 17
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 2275
+              rares: 2600
+              cash: 3900
+          western:
+            unlock_day: 17
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 2275
+              rares: 2600
+              cash: 3900
         mobilisation:
-          time:
-            days: 1
-            hours: 4
-          cost:
-            supplies: 1750
-            electronics: 1000
-            cash: 2500
-            manpower: 675
+          european:
+            time:
+              days: 1
+              hours: 4
+            cost:
+              supplies: 1750
+              electronics: 1000
+              cash: 2500
+              manpower: 675
+          western:
+            time:
+              days: 1
+              hours: 4
+            cost:
+              supplies: 1750
+              electronics: 1000
+              cash: 2500
+              manpower: 675
         daily_upkeep:
-          cost:
-            supplies: 110
-            fuel: 65
-            cash: 2500
-            manpower: 60
+          european:
+            cost:
+              supplies: 110
+              fuel: 65
+              cash: 160
+              manpower: 60
+          western:
+            cost:
+              supplies: 110
+              fuel: 65
+              cash: 160
+              manpower: 60
       "5":
         requirements:
           - army_base level 4
           - arms_industry level 1
           - multiple_rocket_launcher level 4
         research:
-          unlock_day: 27
-          time:
-            days: 1
-            hours: 6
-            minutes: 45
-          cost:
-            supplies: 2450
-            rares: 2800
-            cash: 4200
+          european:
+            unlock_day: 27
+            time:
+              days: 1
+              hours: 6
+              minutes: 45
+            cost:
+              supplies: 2450
+              rares: 2800
+              cash: 4200
+          western:
+            unlock_day: 27
+            time:
+              days: 1
+              hours: 6
+              minutes: 45
+            cost:
+              supplies: 2450
+              rares: 2800
+              cash: 4200
         mobilisation:
-          time:
-            days: 1
-            hours: 6
-          cost:
-            supplies: 2250
-            electronics: 1200
-            cash: 3000
-            manpower: 800
+          european:
+            time:
+              days: 1
+              hours: 6
+            cost:
+              supplies: 2250
+              electronics: 1200
+              cash: 3000
+              manpower: 800
+          western:
+            time:
+              days: 1
+              hours: 6
+            cost:
+              supplies: 2250
+              electronics: 1200
+              cash: 3000
+              manpower: 800
         daily_upkeep:
-          cost:
-            supplies: 120
-            fuel: 80
-            cash: 170
-            manpower: 70
+          european:
+            cost:
+              supplies: 120
+              fuel: 80
+              cash: 170
+              manpower: 70
+          western:
+            cost:
+              supplies: 120
+              fuel: 80
+              cash: 170
+              manpower: 70
   towed_artillery:
     name: Towed Artillery
     category: Support
@@ -408,3 +544,501 @@ units:
             fuel: 15
             cash: 50
             manpower: 15
+  theatre_defense_system:
+    name: Theatre Defense System
+    category: Support
+    doctrine:
+      - western
+      - european
+      - eastern
+    levels:
+      "1":
+        requirements:
+          - army_base level 5
+          - arms_industry level 1
+        research:
+          western:
+            unlock_day: 5
+            time:
+              hours: 21
+              minutes: 45
+            cost:
+              supplies: 1850
+              rares: 2000
+              cash: 3000
+          european:
+            unlock_day: 6
+            time:
+              hours: 21
+              minutes: 45
+            cost:
+              supplies: 1850
+              rares: 2000
+              cash: 3000
+          eastern:
+            unlock_day: 7
+            time:
+              hours: 21
+              minutes: 45
+            cost:
+              supplies: 1850
+              rares: 2000
+              cash: 3000
+        mobilisation:
+          western:
+            time:
+              hours: 18
+            cost:
+              supplies: 1500
+              components: 500
+              electronics: 900
+              cash: 2000
+          european:
+            time:
+              hours: 18
+            cost:
+              supplies: 1500
+              components: 500
+              electronics: 900
+              cash: 2000
+          eastern:
+            time:
+              hours: 18
+            cost:
+              supplies: 1500
+              components: 500
+              electronics: 900
+              cash: 2000
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 80
+              manpower: 30
+              fuel: 30
+              cash: 125
+          european:
+            cost:
+              supplies: 80
+              manpower: 30
+              fuel: 30
+              cash: 125
+          eastern:
+            cost:
+              supplies: 80
+              manpower: 30
+              fuel: 30
+              cash: 125
+      "2":
+        requirements:
+          - army_base level 5
+          - arms_industry level 1
+          - theatre_defense_system level 1
+        research:
+          western:
+            unlock_day: 7
+            time:
+              hours: 22
+              minutes: 30
+            cost:
+              supplies: 2035
+              rares: 2200
+              cash: 3300
+          european:
+            unlock_day: 8
+            time:
+              hours: 22
+              minutes: 30
+            cost:
+              supplies: 2035
+              rares: 2200
+              cash: 3300
+          eastern:
+            unlock_day: 10
+            time:
+              hours: 22
+              minutes: 30
+            cost:
+              supplies: 2035
+              rares: 2200
+              cash: 3300
+        mobilisation:
+          western:
+            time:
+              hours: 19
+            cost:
+              supplies: 1500
+              components: 500
+              electronics: 900
+              cash: 2000
+          european:
+            time:
+              hours: 19
+            cost:
+              supplies: 1500
+              components: 500
+              electronics: 900
+              cash: 2000
+          eastern:
+            time:
+              hours: 19
+            cost:
+              supplies: 1500
+              components: 500
+              electronics: 900
+              cash: 2000
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 85
+              manpower: 35
+              fuel: 35
+              cash: 140
+          european:
+            cost:
+              supplies: 85
+              manpower: 35
+              fuel: 35
+              cash: 140
+          eastern:
+            cost:
+              supplies: 85
+              manpower: 35
+              fuel: 35
+              cash: 140
+      "3":
+        requirements:
+          - army_base level 5
+          - arms_industry level 1
+          - theatre_defense_system level 2
+        research:
+          western:
+            unlock_day: 11
+            time:
+              days: 1
+              minutes: 45
+            cost:
+              supplies: 2220
+              rares: 2400
+              cash: 3600
+          european:
+            unlock_day: 12
+            time:
+              days: 1
+              minutes: 45
+            cost:
+              supplies: 2220
+              rares: 2400
+              cash: 3600
+          eastern:
+            unlock_day: 14
+            time:
+              days: 1
+              minutes: 45
+            cost:
+              supplies: 2220
+              rares: 2400
+              cash: 3600
+        mobilisation:
+          western:
+            time:
+              hours: 20
+            cost:
+              supplies: 1500
+              components: 500
+              electronics: 900
+              cash: 2000
+          european:
+            time:
+              hours: 20
+            cost:
+              supplies: 1500
+              components: 500
+              electronics: 900
+              cash: 2000
+          eastern:
+            time:
+              hours: 20
+            cost:
+              supplies: 1500
+              components: 500
+              electronics: 900
+              cash: 2000
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 90
+              manpower: 40
+              fuel: 40
+              cash: 155
+          european:
+            cost:
+              supplies: 90
+              manpower: 40
+              fuel: 40
+              cash: 155
+          eastern:
+            cost:
+              supplies: 90
+              manpower: 40
+              fuel: 40
+              cash: 155
+      "4":
+        requirements:
+          - army_base level 5
+          - arms_industry level 1
+          - theatre_defense_system level 3
+        research:
+          western:
+            unlock_day: 13
+            time:
+              days: 1
+              hours: 4
+              minutes: 30
+            cost:
+              supplies: 2405
+              rares: 2600
+              cash: 3900
+          european:
+            unlock_day: 15
+            time:
+              days: 1
+              hours: 4
+              minutes: 30
+            cost:
+              supplies: 2405
+              rares: 2600
+              cash: 3900
+          eastern:
+            unlock_day: 17
+            time:
+              days: 1
+              hours: 4
+              minutes: 30
+            cost:
+              supplies: 2405
+              rares: 2600
+              cash: 3900
+        mobilisation:
+          western:
+            time:
+              hours: 21
+            cost:
+              supplies: 1750
+              components: 700
+              electronics: 1250
+              cash: 2500
+          european:
+            time:
+              hours: 21
+            cost:
+              supplies: 1750
+              components: 700
+              electronics: 1250
+              cash: 2500
+          eastern:
+            time:
+              hours: 21
+            cost:
+              supplies: 1750
+              components: 700
+              electronics: 1250
+              cash: 2500
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 95
+              manpower: 50
+              fuel: 55
+              cash: 175
+          european:
+            cost:
+              supplies: 95
+              manpower: 50
+              fuel: 55
+              cash: 175
+          eastern:
+            cost:
+              supplies: 95
+              manpower: 50
+              fuel: 55
+              cash: 175
+      "5":
+        requirements:
+          - army_base level 5
+          - arms_industry level 1
+          - theatre_defense_system level 4
+        research:
+          western:
+            unlock_day: 20
+            time:
+              days: 1
+              hours: 6
+              minutes: 45
+            cost:
+              supplies: 2590
+              rares: 2800
+              cash: 4200
+          european:
+            unlock_day: 20
+            time:
+              days: 1
+              hours: 6
+              minutes: 45
+            cost:
+              supplies: 2590
+              rares: 2800
+              cash: 4200
+          eastern:
+            unlock_day: 20
+            time:
+              days: 1
+              hours: 6
+              minutes: 45
+            cost:
+              supplies: 2590
+              rares: 2800
+              cash: 4200
+        mobilisation:
+          western:
+            time:
+              hours: 22
+            cost:
+              supplies: 1750
+              components: 700
+              electronics: 1250
+              cash: 2500
+          european:
+            time:
+              hours: 22
+            cost:
+              supplies: 1750
+              components: 700
+              electronics: 1250
+              cash: 2500
+          eastern:
+            time:
+              hours: 22
+            cost:
+              supplies: 1750
+              components: 700
+              electronics: 1250
+              cash: 2500
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 100
+              manpower: 55
+              fuel: 60
+              cash: 200
+          european:
+            cost:
+              supplies: 100
+              manpower: 55
+              fuel: 60
+              cash: 200
+          eastern:
+            cost:
+              supplies: 100
+              manpower: 55
+              fuel: 60
+              cash: 200
+      "6":
+        requirements:
+          - army_base level 5
+          - arms_industry level 1
+          - theatre_defense_system level 5
+        research:
+          western:
+            unlock_day: 25
+            time:
+              days: 1
+              hours: 10
+              minutes: 30
+            cost:
+              supplies: 2775
+              rares: 3000
+              cash: 4500
+          european:
+            unlock_day: 28
+            time:
+              days: 1
+              hours: 10
+              minutes: 30
+            cost:
+              supplies: 2775
+              rares: 3000
+              cash: 4500
+          eastern:
+            unlock_day: 28
+            time:
+              days: 1
+              hours: 10
+              minutes: 30
+            cost:
+              supplies: 2775
+              rares: 3000
+              cash: 4500
+        mobilisation:
+          western:
+            time:
+              hours: 23
+            cost:
+              supplies: 2000
+              components: 900
+              electronics: 1500
+              cash: 3500
+          european:
+            time:
+              hours: 23
+            cost:
+              supplies: 2000
+              components: 900
+              electronics: 1500
+              cash: 3500
+          eastern:
+            time:
+              hours: 23
+            cost:
+              supplies: 2000
+              components: 900
+              electronics: 1500
+              cash: 3500
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 110
+              manpower: 65
+              fuel: 70
+              cash: 225
+          european:
+            cost:
+              supplies: 110
+              manpower: 65
+              fuel: 70
+              cash: 225
+          eastern:
+            cost:
+              supplies: 110
+              manpower: 65
+              fuel: 70
+              cash: 225
+  combat_recon_vehicle:
+    name: Combat Recon Vehicle
+    category: Support
+    doctrine: western
+    levels:
+      "1":
+        requirements:
+          - army_base level 3
+          - arms_industry level 1
+        research:
+          unlock_day: 1
+          time:
+            hours: 0
+          cost: {}
+        mobilisation:
+          time:
+            hours: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}

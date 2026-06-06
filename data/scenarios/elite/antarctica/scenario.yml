@@ -9,6 +9,11 @@ start:
 
 speed: "4x"
 
+truce_length_days: 28
+
+research:
+  unlocked_through_day_at_start: 10
+
 coalition:
   - argentina      # western
   - australia      # western

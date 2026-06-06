@@ -1288,6 +1288,7 @@ units:
           - air_base level 5
           - secret_weapons_lab level 1
           - arms_industry level 1
+          - air_superiority_fighter level 4
         research:
           european:
             unlock_day: 16

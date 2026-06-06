@@ -842,13 +842,21 @@ function ecoSupportSearch(option: Pick<EvaluatedOption, "plan" | "cityBuildPlans
         const city = cityById.get(cityId);
         if (!city) continue;
         const levels = currentLevelsByCity.get(cityId) ?? zeroEcoBuildingLevels();
-        const candidateBuildingIds: EcoBuildingId[] = [
+        const deficitResources = new Set<Resource>(
+          RESOURCE_KEYS.filter(r => (state.affordability.minimumBalances[r] ?? 0) < 0)
+        );
+        const candidateBuildingIds = ([
           "arms_industry",
           "air_base",
-          "underground_bunkers",
-          "relocate_headquarters",
           ...(levels.naval_base > 0 ? ["naval_base" as const] : []),
-        ];
+        ] as EcoBuildingId[]).filter(buildingId => {
+          if (buildingId === "arms_industry") {
+            // flat_bonus.cash helps any cash deficit; production% helps if city resource is in deficit
+            return deficitResources.has("cash") || deficitResources.has(city.resource as Resource);
+          }
+          // air_base / naval_base only boost city's primary resource production
+          return deficitResources.has(city.resource as Resource);
+        });
 
         for (const buildingId of candidateBuildingIds) {
           const maxLevel = maxDefinedBuildingLevel(buildingId);
@@ -1150,18 +1158,19 @@ function evaluateChoiceSet(choices: QueueChoice[]) {
     scenarioStartHour,
     ...plan.segments.map(segment => segment.endAbsoluteHourExclusive)
   );
-  const buildCosts = infrastructure.cityBuildPlans.flatMap(cityPlan =>
-    cityPlan.timingRows.map(row => ({
-      cityId: `${country.country.id}:${cityPlan.city.id}`,
-      buildingId: row.buildingId as TimedBuildCostRow["buildingId"],
-      toLevel: row.toLevel,
-      startAbsoluteHour: row.startAbsoluteHour,
-    }))
-  );
+  const forcePlanBuildOrder = infrastructure.cityBuildPlans.flatMap(cityPlan => cityPlan.buildActions);
+  const forcePlanSimulation = simulateBuildOrder({
+    cities: buildAllCityStates(),
+    buildOrder: forcePlanBuildOrder,
+    buildings,
+    scenario,
+    hoursToSimulate: truceLengthDays * 24,
+  });
+  const buildCosts = timedBuildRowsFromSimulation(forcePlanSimulation);
   const affordability = buildAffordabilityResult({
     plan,
     buildCosts,
-    hourlyIncome: baselineCountryHourly,
+    hourlyIncome: dynamicHourlyIncomeFromSimulation(forcePlanSimulation),
     hoursToSimulate: truceLengthDays * 24,
   });
 

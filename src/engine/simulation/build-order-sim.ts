@@ -348,6 +348,7 @@ export function simulateBuildOrder(args: {
         naval_base: [],
         recruiting_office: [],
         relocate_headquarters: [],
+        secret_weapons_lab: [],
         underground_bunkers: [],
       };
       const airBase = interpolatedEconomicEffectsForBuilding({
@@ -509,6 +510,7 @@ export function simulateBuildOrder(args: {
           ...citySegments.naval_base,
           ...citySegments.recruiting_office,
           ...citySegments.relocate_headquarters,
+          ...citySegments.secret_weapons_lab,
           ...citySegments.underground_bunkers,
         ])
         .map(segment => ({

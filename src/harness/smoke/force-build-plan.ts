@@ -43,7 +43,7 @@ type CityBuildPlan = {
   firstMobilizationStartAbsoluteHour: number | null;
   buildActions: Array<{
     cityId: string;
-    buildingId: "arms_industry" | "air_base" | "naval_base" | "army_base" | "recruiting_office";
+    buildingId: "arms_industry" | "air_base" | "naval_base" | "army_base" | "secret_weapons_lab" | "recruiting_office";
     targetLevel: number;
   }>;
   timingRows: Array<{
@@ -119,6 +119,7 @@ type EvaluatedOption = {
   totalRecruitingOfficeLevels: number;
   totalReadyHoursBeforeWar: number;
   infrastructureCost: Record<Resource, number>;
+  mobilisationCost: Record<Resource, number>;
   preWarUpkeep: Record<Resource, number>;
   latestResearchEndAbsoluteHour: number;
   latestMobilizationEndAbsoluteHour: number;
@@ -274,7 +275,7 @@ function parseDemandList(envValue: string | undefined) {
 
 function buildingCost(
   buildings: BuildingsFile,
-  buildingId: "arms_industry" | "air_base" | "naval_base" | "army_base" | "recruiting_office" | "relocate_headquarters" | "underground_bunkers",
+  buildingId: "arms_industry" | "air_base" | "naval_base" | "army_base" | "secret_weapons_lab" | "recruiting_office" | "relocate_headquarters" | "underground_bunkers",
   targetLevel: number
 ) {
   const levelData = buildings.buildings[buildingId]?.levels[String(targetLevel) as "1" | "2" | "3" | "4" | "5"];
@@ -386,10 +387,11 @@ function buildPlanActionsForCity(
   queueType: QueueType,
   requiredBaseLevel: number,
   requiredArmyBaseLevel: number,
-  requiredRecruitingOfficeLevel: number
+  requiredRecruitingOfficeLevel: number,
+  requiresSecretWeaponsLab: boolean
 ) {
   const actions: Array<{
-    buildingId: "arms_industry" | "air_base" | "naval_base" | "army_base" | "recruiting_office";
+    buildingId: "arms_industry" | "air_base" | "naval_base" | "army_base" | "secret_weapons_lab" | "recruiting_office";
     targetLevel: number;
   }> = [];
 
@@ -413,6 +415,10 @@ function buildPlanActionsForCity(
     }
   }
 
+  if (requiresSecretWeaponsLab) {
+    actions.push({ buildingId: "secret_weapons_lab", targetLevel: 1 });
+  }
+
   if (requiredRecruitingOfficeLevel > 0) {
     for (let level = 1; level <= requiredRecruitingOfficeLevel; level++) {
       actions.push({ buildingId: "recruiting_office", targetLevel: level });
@@ -431,7 +437,8 @@ function buildStepsForCity(
   queueType: QueueType,
   requiredBaseLevel: number,
   requiredArmyBaseLevel: number,
-  requiredRecruitingOfficeLevel: number
+  requiredRecruitingOfficeLevel: number,
+  requiresSecretWeaponsLab: boolean
 ) {
   const steps: string[] = ["arms_industry -> level 1"];
 
@@ -443,6 +450,9 @@ function buildStepsForCity(
   }
   if (requiredArmyBaseLevel > 0) {
     steps.push(`army_base -> level ${requiredArmyBaseLevel}`);
+  }
+  if (requiresSecretWeaponsLab) {
+    steps.push("secret_weapons_lab -> level 1");
   }
   if (requiredRecruitingOfficeLevel > 0) {
     steps.push(`recruiting_office -> level ${requiredRecruitingOfficeLevel}`);
@@ -470,13 +480,21 @@ function planInfrastructureForProfiles(
   const totalCost = zeroResources();
 
   for (const profile of profiles) {
+    const queueDemands = demands.filter(d => queueKeyForDemand(catalog, d) === profile.queueKey);
+    const requiresSecretWeaponsLab = queueDemands.some(d =>
+      Object.values(catalog.units[d.unitId]?.levels ?? {}).some(level =>
+        level.requirements.some(r => parseLevelRequirement(r)?.id === "secret_weapons_lab")
+      )
+    );
+
     profile.candidateCities.forEach((city, index) => {
       const buildOrder = buildPlanActionsForCity(
         city,
         profile.queueType,
         profile.requiredBaseLevel,
         profile.requiredArmyBaseLevel,
-        profile.requiredRecruitingOfficeLevel
+        profile.requiredRecruitingOfficeLevel,
+        requiresSecretWeaponsLab
       );
       const simulation = simulateBuildOrder({
         cities: [buildCityState(city)],
@@ -514,7 +532,8 @@ function planInfrastructureForProfiles(
           profile.queueType,
           profile.requiredBaseLevel,
           profile.requiredArmyBaseLevel,
-          profile.requiredRecruitingOfficeLevel
+          profile.requiredRecruitingOfficeLevel,
+          requiresSecretWeaponsLab
         ),
         totalCost: cityCost,
         lastCompletionAbsoluteHour: timingRows.length > 0
@@ -544,7 +563,8 @@ function preWarUpkeepForPlan(catalog: UnitCatalog, plan: MobilizationPlanResult,
     }
     const completedHoursBeforeWar = Math.max(0, deadlineAbsoluteHour - segment.endAbsoluteHourExclusive);
     readyHours += completedHoursBeforeWar;
-    addResources(totals, scaleResources(unitLevel.daily_upkeep.cost, completedHoursBeforeWar / 24));
+    const upkeepCost = { ...zeroResources(), ...(unitLevel.daily_upkeep[country.country.doctrine]?.cost ?? {}) };
+    addResources(totals, scaleResources(upkeepCost, completedHoursBeforeWar / 24));
   }
 
   return {
@@ -615,7 +635,7 @@ function buildAffordabilityResult(args: {
     spendingRows.push({
       absoluteHour: segment.startAbsoluteHour,
       label: `${segment.queueKey}:${segment.unitId}:${segment.mobilizeLevel}`,
-      cost: { ...unitLevel.mobilisation.cost },
+      cost: unitLevel.mobilisation[country.country.doctrine]?.cost ?? {},
     });
   }
 
@@ -1095,6 +1115,12 @@ function evaluateChoiceSet(choices: QueueChoice[]) {
     truceLengthDays
   );
   const upkeep = preWarUpkeepForPlan(catalog, plan, deadlineAbsoluteHour);
+  const mobilisationCost = zeroResources();
+  for (const segment of plan.segments) {
+    const segLevel = catalog.units[segment.unitId]?.levels[String(segment.mobilizeLevel)];
+    const segCost = segLevel?.mobilisation[country.country.doctrine]?.cost;
+    if (segCost) addResources(mobilisationCost, segCost);
+  }
   const latestResearchEndAbsoluteHour = Math.max(
     scenarioStartHour,
     ...plan.researchPlan.segments.map(segment => segment.endAbsoluteHourExclusive)
@@ -1130,10 +1156,11 @@ function evaluateChoiceSet(choices: QueueChoice[]) {
     ),
     totalReadyHoursBeforeWar: upkeep.readyHours,
     infrastructureCost: infrastructure.totalCost,
+    mobilisationCost,
     preWarUpkeep: upkeep.totals,
     latestResearchEndAbsoluteHour,
     latestMobilizationEndAbsoluteHour,
-    totalEconomicCost: totalResourceCost(infrastructure.totalCost) + totalResourceCost(upkeep.totals),
+    totalEconomicCost: totalResourceCost(infrastructure.totalCost) + totalResourceCost(mobilisationCost) + totalResourceCost(upkeep.totals),
     affordability,
     ecoSupport: null,
   };
@@ -1303,6 +1330,8 @@ console.table(
       totalEconomicCost: Number(option.totalEconomicCost.toFixed(2)),
       infraCash: option.infrastructureCost.cash,
       infraElectronics: option.infrastructureCost.electronics,
+      mobCash: option.mobilisationCost.cash,
+      mobComponents: option.mobilisationCost.components,
     upkeepCash: Number(option.preWarUpkeep.cash.toFixed(2)),
     upkeepManpower: Number(option.preWarUpkeep.manpower.toFixed(2)),
     latestResearchDay: mapDayForAbsoluteHour(option.latestResearchEndAbsoluteHour),

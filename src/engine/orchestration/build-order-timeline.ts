@@ -22,6 +22,7 @@ export type BuildingId =
   | "naval_base"
   | "recruiting_office"
   | "relocate_headquarters"
+  | "secret_weapons_lab"
   | "underground_bunkers";
 
 export type BuildingLevels = {
@@ -35,6 +36,7 @@ export type BuildingLevels = {
   naval_base: number;
   recruiting_office: number;
   relocate_headquarters: number;
+  secret_weapons_lab?: number;
   underground_bunkers: number;
 };
 
@@ -142,6 +144,9 @@ export function scheduleBuildSegments(args: {
     naval_base: getBuildingLevelTimings(args.buildings, "naval_base"),
     recruiting_office: getBuildingLevelTimings(args.buildings, "recruiting_office"),
     relocate_headquarters: getBuildingLevelTimings(args.buildings, "relocate_headquarters"),
+    secret_weapons_lab: args.buildings.buildings["secret_weapons_lab"]
+      ? getBuildingLevelTimings(args.buildings, "secret_weapons_lab")
+      : { 0: { level: 0, buildTimeMinutes: 0 } },
     underground_bunkers: getBuildingLevelTimings(args.buildings, "underground_bunkers"),
   };
   const scenarioStartMinute = scenarioStartAbsoluteHour(args.scenario) * 60;
@@ -159,6 +164,7 @@ export function scheduleBuildSegments(args: {
     naval_base: 0,
     recruiting_office: 0,
     relocate_headquarters: 0,
+    secret_weapons_lab: 0,
     underground_bunkers: 0,
   } satisfies Record<BuildingId, number>;
 
@@ -176,6 +182,7 @@ export function scheduleBuildSegments(args: {
       naval_base: [],
       recruiting_office: [],
       relocate_headquarters: [],
+      secret_weapons_lab: [],
       underground_bunkers: [],
     });
   }

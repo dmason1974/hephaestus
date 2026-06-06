@@ -100,6 +100,99 @@ units:
             rares: 15
             cash: 150
             manpower: 1
+  commando:
+    name: Commando
+    category: Infantry
+    doctrine:
+      - western
+      - european
+      - eastern
+    levels:
+      "1":
+        requirements:
+          - mercenary_outpost level 1
+          - special_forces level 1
+        research:
+          unlock_day: 6
+          time:
+            hours: 16
+            minutes: 30
+          cost:
+            supplies: 1500
+            rares: 1500
+            cash: 15000
+        mobilisation:
+          time:
+            hours: 20
+          cost:
+            components: 1200
+            electronics: 600
+            cash: 5000
+            manpower: 250
+        daily_upkeep:
+          cost:
+            supplies: 80
+            electronics: 30
+            cash: 500
+            manpower: 10
+      "2":
+        requirements:
+          - mercenary_outpost level 2
+          - special_forces level 2
+          - commando level 1
+        research:
+          unlock_day: 17
+          time:
+            hours: 19
+            minutes: 30
+          cost:
+            supplies: 1750
+            rares: 1750
+            cash: 20000
+        mobilisation:
+          time:
+            days: 1
+          cost:
+            components: 1500
+            electronics: 800
+            cash: 7500
+            manpower: 300
+        daily_upkeep:
+          cost:
+            supplies: 90
+            electronics: 40
+            cash: 600
+            manpower: 20
+      "3":
+        requirements:
+          - mercenary_outpost level 3
+          - special_forces level 3
+          - commando level 2
+        research:
+          unlock_day: 30
+          time:
+            hours: 22
+            minutes: 30
+          cost:
+            supplies: 2000
+            rares: 2000
+            cash: 25000
+        mobilisation:
+          time:
+            days: 1
+            hours: 4
+          cost:
+            components: 1800
+            electronics: 1000
+            cash: 10000
+            manpower: 1000
+        daily_upkeep:
+          cost:
+            supplies: 100
+            electronics: 50
+            cash: 750
+            manpower: 30
+
   elite_frigate:
     name: Elite Frigate
     category: Naval

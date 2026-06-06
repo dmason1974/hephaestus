@@ -376,154 +376,418 @@ units:
   special_forces:
     name: Special Forces
     category: Infantry
-    doctrine: Western
+    doctrine:
+      - western
+      - european
+      - eastern
     levels:
       "1":
         requirements:
           - army_base level 3
           - air_base level 1
+          - recruiting_office level 1
         research:
-          unlock_day: 4
-          time:
-            days: 0
-            hours: 21
-            minutes: 45
-          cost:
-            supplies: 1500
-            rares: 1875
-            cash: 2000
+          western:
+            unlock_day: 4
+            time:
+              hours: 21
+              minutes: 45
+            cost:
+              supplies: 1500
+              rares: 1875
+              cash: 2000
+          european:
+            unlock_day: 4
+            time:
+              hours: 21
+              minutes: 45
+            cost:
+              supplies: 1500
+              rares: 1875
+              cash: 2000
+          eastern:
+            unlock_day: 3
+            time:
+              hours: 21
+              minutes: 45
+            cost:
+              supplies: 1500
+              rares: 1875
+              cash: 2000
         mobilisation:
-          time:
-            days: 1
-            hours: 0
-          cost:
-            components: 1100
-            electronics: 500
-            cash: 1000
-            manpower: 1000
+          western:
+            time:
+              days: 1
+            cost:
+              components: 1100
+              electronics: 500
+              cash: 1000
+              manpower: 1000
+          european:
+            time:
+              days: 1
+            cost:
+              components: 1100
+              electronics: 500
+              cash: 1750
+              manpower: 1000
+          eastern:
+            time:
+              days: 1
+            cost:
+              components: 1100
+              electronics: 500
+              cash: 1750
+              manpower: 1000
         daily_upkeep:
-          cost:
-            supplies: 70
-            fuel: 20
-            cash: 90
-            manpower: 20
+          western:
+            cost:
+              supplies: 70
+              fuel: 20
+              cash: 90
+              manpower: 20
+          european:
+            cost:
+              supplies: 70
+              fuel: 20
+              cash: 90
+              manpower: 30
+          eastern:
+            cost:
+              supplies: 70
+              fuel: 20
+              cash: 90
+              manpower: 20
       "2":
         requirements:
           - army_base level 3
           - air_base level 1
+          - recruiting_office level 1
           - special_forces level 1
         research:
-          unlock_day: 9
-          time:
-            days: 0
-            hours: 22
-            minutes: 30
-          cost:
-            supplies: 1650
-            rares: 2065
-            cash: 2200
+          western:
+            unlock_day: 9
+            time:
+              hours: 22
+              minutes: 30
+            cost:
+              supplies: 1650
+              rares: 2065
+              cash: 2200
+          european:
+            unlock_day: 8
+            time:
+              hours: 22
+              minutes: 30
+            cost:
+              supplies: 1650
+              rares: 2065
+              cash: 2200
+          eastern:
+            unlock_day: 7
+            time:
+              hours: 22
+              minutes: 30
+            cost:
+              supplies: 1650
+              rares: 2065
+              cash: 2200
         mobilisation:
-          time:
-            days: 1
-            hours: 1
-          cost:
-            components: 1100
-            electronics: 500
-            cash: 1000
-            manpower: 1000
+          western:
+            time:
+              days: 1
+              hours: 1
+            cost:
+              components: 1100
+              electronics: 500
+              cash: 1000
+              manpower: 1000
+          european:
+            time:
+              days: 1
+              hours: 1
+            cost:
+              components: 1100
+              electronics: 500
+              cash: 1750
+              manpower: 1000
+          eastern:
+            time:
+              days: 1
+              hours: 1
+            cost:
+              components: 1100
+              electronics: 500
+              cash: 1750
+              manpower: 1000
         daily_upkeep:
-          cost:
-            supplies: 75
-            fuel: 35
-            cash: 95
-            manpower: 40
+          western:
+            cost:
+              supplies: 75
+              fuel: 35
+              cash: 95
+              manpower: 40
+          european:
+            cost:
+              supplies: 75
+              fuel: 35
+              cash: 95
+              manpower: 40
+          eastern:
+            cost:
+              supplies: 75
+              fuel: 35
+              cash: 95
+              manpower: 40
       "3":
         requirements:
           - army_base level 3
           - air_base level 1
+          - recruiting_office level 1
           - special_forces level 2
         research:
-          unlock_day: 17
-          time:
-            days: 1
-            hours: 2
-            minutes: 15
-          cost:
-            supplies: 1800
-            rares: 2250
-            cash: 2400
+          western:
+            unlock_day: 17
+            time:
+              days: 1
+              hours: 2
+              minutes: 15
+            cost:
+              supplies: 1800
+              rares: 2250
+              cash: 2400
+          european:
+            unlock_day: 15
+            time:
+              days: 1
+              hours: 2
+              minutes: 15
+            cost:
+              supplies: 1800
+              rares: 2250
+              cash: 2400
+          eastern:
+            unlock_day: 13
+            time:
+              days: 1
+              hours: 2
+              minutes: 15
+            cost:
+              supplies: 1800
+              rares: 2250
+              cash: 2400
         mobilisation:
-          time:
-            days: 1
-            hours: 2
-          cost:
-            components: 1350
-            electronics: 650
-            cash: 2250
-            manpower: 1250
+          western:
+            time:
+              days: 1
+              hours: 2
+            cost:
+              components: 1350
+              electronics: 650
+              cash: 2250
+              manpower: 1250
+          european:
+            time:
+              days: 1
+              hours: 2
+            cost:
+              components: 1350
+              electronics: 650
+              cash: 2250
+              manpower: 1250
+          eastern:
+            time:
+              days: 1
+              hours: 2
+            cost:
+              components: 1350
+              electronics: 650
+              cash: 2250
+              manpower: 1250
         daily_upkeep:
-          cost:
-            supplies: 90
-            fuel: 50
-            cash: 105
-            manpower: 65
+          western:
+            cost:
+              supplies: 90
+              fuel: 50
+              cash: 105
+              manpower: 65
+          european:
+            cost:
+              supplies: 90
+              fuel: 50
+              cash: 105
+              manpower: 65
+          eastern:
+            cost:
+              supplies: 90
+              fuel: 50
+              cash: 105
+              manpower: 65
       "4":
         requirements:
           - army_base level 3
           - air_base level 1
+          - recruiting_office level 1
           - special_forces level 3
         research:
-          unlock_day: 22
-          time:
-            days: 1
-            hours: 4
-            minutes: 30
-          cost:
-            supplies: 1950
-            rares: 2440
-            cash: 2600
+          western:
+            unlock_day: 22
+            time:
+              days: 1
+              hours: 4
+              minutes: 30
+            cost:
+              supplies: 1950
+              rares: 2440
+              cash: 2600
+          european:
+            unlock_day: 20
+            time:
+              days: 1
+              hours: 4
+              minutes: 30
+            cost:
+              supplies: 1950
+              rares: 2440
+              cash: 2600
+          eastern:
+            unlock_day: 18
+            time:
+              days: 1
+              hours: 4
+              minutes: 30
+            cost:
+              supplies: 1950
+              rares: 2440
+              cash: 2600
         mobilisation:
-          time:
-            days: 1
-            hours: 3
-          cost:
-            components: 1350
-            electronics: 650
-            cash: 2250
-            manpower: 1250
+          western:
+            time:
+              days: 1
+              hours: 3
+            cost:
+              components: 1350
+              electronics: 650
+              cash: 2250
+              manpower: 1250
+          european:
+            time:
+              days: 1
+              hours: 3
+            cost:
+              components: 1350
+              electronics: 650
+              cash: 2250
+              manpower: 1250
+          eastern:
+            time:
+              days: 1
+              hours: 3
+            cost:
+              components: 1350
+              electronics: 650
+              cash: 2250
+              manpower: 1250
         daily_upkeep:
-          cost:
-            supplies: 95
-            fuel: 65
-            cash: 115
-            manpower: 75
+          western:
+            cost:
+              supplies: 95
+              fuel: 65
+              cash: 115
+              manpower: 75
+          european:
+            cost:
+              supplies: 95
+              fuel: 65
+              cash: 115
+              manpower: 75
+          eastern:
+            cost:
+              supplies: 95
+              fuel: 65
+              cash: 115
+              manpower: 75
       "5":
         requirements:
           - army_base level 3
           - air_base level 1
+          - recruiting_office level 1
           - special_forces level 4
         research:
-          unlock_day: 30
-          time:
-            days: 0
-            hours: 21
-            minutes: 45
-          cost:
-            supplies: 2100
-            rares: 2625
-            cash: 2800
+          western:
+            unlock_day: 30
+            time:
+              days: 1
+              hours: 7
+              minutes: 30
+            cost:
+              supplies: 2100
+              rares: 2625
+              cash: 2800
+          european:
+            unlock_day: 27
+            time:
+              days: 1
+              hours: 7
+              minutes: 30
+            cost:
+              supplies: 2100
+              rares: 2625
+              cash: 2800
+          eastern:
+            unlock_day: 24
+            time:
+              days: 1
+              hours: 7
+              minutes: 30
+            cost:
+              supplies: 2100
+              rares: 2625
+              cash: 2800
         mobilisation:
-          time:
-            days: 1
-            hours: 4
-          cost:
-            components: 1600
-            electronics: 800
-            cash: 2500
-            manpower: 1500
+          western:
+            time:
+              days: 1
+              hours: 4
+            cost:
+              components: 1600
+              electronics: 800
+              cash: 2500
+              manpower: 1500
+          european:
+            time:
+              days: 1
+              hours: 4
+            cost:
+              components: 1600
+              electronics: 800
+              cash: 2500
+              manpower: 1500
+          eastern:
+            time:
+              days: 1
+              hours: 4
+            cost:
+              components: 1600
+              electronics: 800
+              cash: 2500
+              manpower: 1500
         daily_upkeep:
-          cost:
-            supplies: 110
-            fuel: 80
-            cash: 125
-            manpower: 90
+          western:
+            cost:
+              supplies: 110
+              fuel: 80
+              cash: 125
+              manpower: 90
+          european:
+            cost:
+              supplies: 110
+              fuel: 80
+              cash: 125
+              manpower: 90
+          eastern:
+            cost:
+              supplies: 110
+              fuel: 80
+              cash: 125
+              manpower: 90

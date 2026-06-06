@@ -9,6 +9,213 @@ resources:
   - cash
   - manpower
 units:
+  tank_veteran:
+    name: Tank Veteran
+    category: Armored
+    doctrine:
+      - western
+      - european
+      - eastern
+    levels:
+      "1":
+        requirements:
+          - army_base level 3
+          - recruiting_office level 2
+        research:
+          unlock_day: 2
+          time:
+            hours: 6
+          cost:
+            supplies: 400
+            rares: 350
+            cash: 600
+        mobilisation:
+          time:
+            days: 1
+            hours: 2
+          cost:
+            components: 2400
+            electronics: 1000
+            cash: 2750
+            manpower: 1250
+        daily_upkeep:
+          cost:
+            components: 145
+            fuel: 65
+            cash: 270
+            manpower: 65
+      "2":
+        requirements:
+          - army_base level 3
+          - recruiting_office level 2
+          - tank_veteran level 1
+        research:
+          unlock_day: 5
+          time:
+            hours: 6
+            minutes: 45
+          cost:
+            supplies: 450
+            rares: 400
+            cash: 700
+        mobilisation:
+          time:
+            days: 1
+            hours: 6
+          cost:
+            components: 2750
+            electronics: 1200
+            cash: 3250
+            manpower: 1350
+        daily_upkeep:
+          cost:
+            components: 155
+            fuel: 75
+            cash: 290
+            manpower: 70
+      "3":
+        requirements:
+          - army_base level 3
+          - recruiting_office level 2
+          - tank_veteran level 2
+        research:
+          unlock_day: 7
+          time:
+            hours: 7
+            minutes: 30
+          cost:
+            supplies: 600
+            rares: 500
+            cash: 800
+        mobilisation:
+          time:
+            days: 1
+            hours: 11
+          cost:
+            components: 3000
+            electronics: 1400
+            cash: 3750
+            manpower: 1550
+        daily_upkeep:
+          cost:
+            components: 160
+            fuel: 85
+            cash: 305
+            manpower: 80
+      "4":
+        requirements:
+          - army_base level 4
+          - recruiting_office level 4
+          - tank_veteran level 3
+        research:
+          unlock_day: 10
+          time:
+            hours: 9
+          cost:
+            supplies: 700
+            rares: 600
+            cash: 1000
+        mobilisation:
+          time:
+            days: 1
+            hours: 16
+          cost:
+            components: 3300
+            electronics: 1650
+            cash: 4500
+            manpower: 2400
+        daily_upkeep:
+          cost:
+            components: 180
+            fuel: 95
+            cash: 325
+            manpower: 100
+      "5":
+        requirements:
+          - army_base level 4
+          - recruiting_office level 4
+          - tank_veteran level 4
+        research:
+          unlock_day: 13
+          time:
+            hours: 9
+            minutes: 45
+          cost:
+            supplies: 800
+            rares: 700
+            cash: 1200
+        mobilisation:
+          time:
+            days: 1
+            hours: 23
+          cost:
+            components: 3600
+            electronics: 1900
+            cash: 5000
+            manpower: 2750
+        daily_upkeep:
+          cost:
+            components: 200
+            fuel: 105
+            cash: 340
+            manpower: 110
+      "6":
+        requirements:
+          - army_base level 4
+          - recruiting_office level 4
+          - tank_veteran level 5
+        research:
+          unlock_day: 16
+          time:
+            hours: 10
+            minutes: 30
+          cost:
+            supplies: 950
+            rares: 850
+            cash: 1500
+        mobilisation:
+          time:
+            days: 2
+            hours: 5
+          cost:
+            components: 4000
+            electronics: 2300
+            cash: 6500
+            manpower: 4000
+        daily_upkeep:
+          cost:
+            components: 225
+            fuel: 115
+            cash: 360
+            manpower: 125
+      "7":
+        requirements:
+          - army_base level 5
+          - recruiting_office level 5
+          - tank_veteran level 6
+        research:
+          unlock_day: 19
+          time:
+            hours: 12
+          cost:
+            supplies: 1100
+            rares: 950
+            cash: 1750
+        mobilisation:
+          time:
+            days: 2
+            hours: 12
+          cost:
+            components: 4500
+            electronics: 2700
+            cash: 8000
+            manpower: 4600
+        daily_upkeep:
+          cost:
+            components: 245
+            fuel: 125
+            cash: 380
+            manpower: 145
   combat_recon_vehicle:
     name: Combat Recon Vehicle
     category: Support

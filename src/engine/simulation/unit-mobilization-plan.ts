@@ -418,33 +418,41 @@ export function planMobilizationBuild(args: {
     profiles: MobilizationCityProfile[]
   ): MobilizationPlanResult | null => {
     if (groupIndex >= queueGroupConfigs.length) {
-      // Schedule research independently with JIT optimization
-      // Level 1 research completes as early as possible (on unlock_day)
-      // Higher levels are JIT to truce end
-      // By passing mobilizationStartHour = deadlineAbsoluteHour, we tell the scheduler
-      // that mobilization happens at the deadline, so level 1 can schedule early
-      
-      if (process.env.PLAN_DEBUG === "true") {
-        console.error(`[mobilization-plan] scheduling research independently (level 1 on unlock_day, higher levels JIT)`);
-      }
-
       try {
+        // Constrain each demanded unit's research to complete before its first mobilization
+        // starts. This ensures prerequisite research chains (e.g. ASF L1–L4 before SASF L1)
+        // are scheduled early enough — the JIT backward scheduler propagates the constraint
+        // through the dependency graph automatically.
+        const researchDeadlines = buildResearchDeadlineMap(scheduledGroups);
+
         const researchPlan = simulateUnitResearchTargets(
           args.catalog,
           researchTargets,
           args.scenario,
           {
-            // No specific deadlines - research schedules with JIT
-            latestCompletionByUnitLevel: {},
+            latestCompletionByUnitLevel: researchDeadlines,
             unitDemandCounts: Object.fromEntries(
               args.demands.map(demand => [demand.unitId, demand.count])
             ),
-            // Pass deadline as mobilization start so level 1 schedules early
             mobilizationStartHour: deadlineAbsoluteHour,
             enableJitScheduling: true,
             doctrine: args.doctrine,
           }
         );
+
+        // All demanded units must have L1 research scheduled; if a unit's prerequisite
+        // chain cannot finish before the first mobilization, the plan is infeasible
+        // and the caller should retry with more cities (widens the mobilization window).
+        for (const unitId of Object.keys(researchTargets)) {
+          if (!researchPlan.segments.some(s => s.unitId === unitId && s.level === 1)) {
+            if (process.env.PLAN_DEBUG === "true") {
+              console.error(
+                `[mobilization-plan] infeasible: ${unitId} L1 research cannot complete before first mobilisation — retrying with more cities`
+              );
+            }
+            return null;
+          }
+        }
 
         if (process.env.PLAN_DEBUG === "true") {
           console.error(`[mobilization-plan] research plan succeeded with ${researchPlan.segments.length} segments`);

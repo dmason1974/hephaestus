@@ -27,6 +27,10 @@ function loadMergedUnitCatalog() {
   };
 }
 
+function loadEliteFighterCatalog() {
+  return loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
+}
+
 test("mobilization planner splits capped units into the lowest feasible mobilisation levels", () => {
   const result = planMobilizationBuild({
     catalog: loadMergedUnitCatalog(),
@@ -165,4 +169,48 @@ test("mobilization planner fits the elite ww3 package before truce end and deriv
       );
     }
   }
+});
+
+test("mobilization planner threads prerequisite research chains — SASF research plan includes ASF L1-L4", () => {
+  // SASF requires air_superiority_fighter level 4 as a research prerequisite.
+  // The planner must schedule ASF L1-L4 before SASF L1 in the research plan,
+  // and all research must complete before the first SASF mobilisation starts.
+  const scenario = loadScenarioFile("elite/ww3");
+  const catalog = loadEliteFighterCatalog();
+
+  const result = planMobilizationBuild({
+    catalog,
+    buildings: loadBuildingsFile(),
+    scenario,
+    demands: [{ unitId: "stealth_air_superiority_fighter", count: 3, doctrine: "western" }],
+  });
+
+  const researchUnitIds = new Set(result.researchPlan.segments.map(s => s.unitId));
+  assert.ok(researchUnitIds.has("air_superiority_fighter"), "Research plan must include ASF as prerequisite");
+  assert.ok(researchUnitIds.has("stealth_air_superiority_fighter"), "Research plan must include SASF");
+
+  const asfLevels = result.researchPlan.segments
+    .filter(s => s.unitId === "air_superiority_fighter")
+    .map(s => s.level)
+    .sort((a, b) => a - b);
+  assert.ok(asfLevels.includes(4), "Research plan must include ASF L4 (direct prerequisite of SASF)");
+
+  // ASF L4 must complete before SASF L1 starts
+  const asfL4 = result.researchPlan.segments.find(s => s.unitId === "air_superiority_fighter" && s.level === 4);
+  const sasfL1 = result.researchPlan.segments.find(s => s.unitId === "stealth_air_superiority_fighter" && s.level === 1);
+  assert.ok(asfL4, "ASF L4 research must be scheduled");
+  assert.ok(sasfL1, "SASF L1 research must be scheduled");
+  assert.ok(
+    asfL4.endAbsoluteHourExclusive <= sasfL1.startAbsoluteHour,
+    `ASF L4 (ends ${asfL4.endAbsoluteHourExclusive}) must complete before SASF L1 starts (${sasfL1.startAbsoluteHour})`
+  );
+
+  // SASF research must complete before the first SASF mobilisation starts
+  const firstSasfMobStart = Math.min(...result.segments
+    .filter(s => s.unitId === "stealth_air_superiority_fighter")
+    .map(s => s.startAbsoluteHour));
+  assert.ok(
+    sasfL1.endAbsoluteHourExclusive <= firstSasfMobStart,
+    `SASF L1 research (ends ${sasfL1.endAbsoluteHourExclusive}) must complete before first SASF mob (starts ${firstSasfMobStart})`
+  );
 });

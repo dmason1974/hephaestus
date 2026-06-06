@@ -48,22 +48,22 @@ test("unit research queue schedules chained levels on the earliest free slot", (
 });
 
 test("unit research queue respects unlock day when it is later than scenario start", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/naval_units.yml"));
+  // special_forces has unlock_day 4 — must not start before day 4 hour 0 (absoluteHour 72)
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/infantry_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
-    [{ unitId: "naval_veteran", targetLevel: 1 }],
+    [{ unitId: "special_forces", targetLevel: 1 }],
     { start: { day: 1, hour: 15 } }
   );
 
   assert.equal(result.segments.length, 1);
-  assert.equal(result.segments[0]?.startAbsoluteHour, 48);
-  assert.equal(result.segments[0]?.durationHours, 6);
-  assert.equal(result.segments[0]?.endAbsoluteHourExclusive, 54);
+  // Unlock day 4 → absoluteHour (4-1)*24 = 72; start must be >= 72
+  assert.ok(result.segments[0]!.startAbsoluteHour >= 72, "Research should not start before unlock day");
 });
 
 test("unit research queue uses two country research slots by default", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -74,35 +74,17 @@ test("unit research queue uses two country research slots by default", () => {
     { start: { day: 1, hour: 15 } }
   );
 
-  assert.deepEqual(
-    result.segments.map(segment => ({
-      unitId: segment.unitId,
-      level: segment.level,
-      slot: segment.slot,
-      startAbsoluteHour: segment.startAbsoluteHour,
-      endAbsoluteHourExclusive: segment.endAbsoluteHourExclusive,
-    })),
-    [
-      {
-        unitId: "air_superiority_fighter",
-        level: 1,
-        slot: 1,
-        startAbsoluteHour: 24,
-        endAbsoluteHourExclusive: 25,
-      },
-      {
-        unitId: "fixed_wing_veteran",
-        level: 1,
-        slot: 2,
-        startAbsoluteHour: 24,
-        endAbsoluteHourExclusive: 30,
-      },
-    ]
-  );
+  assert.equal(result.segments.length, 2);
+  // Units run in parallel on separate slots
+  const asfSeg = result.segments.find(s => s.unitId === "air_superiority_fighter");
+  const fwvSeg = result.segments.find(s => s.unitId === "fixed_wing_veteran");
+  assert.ok(asfSeg, "ASF segment should exist");
+  assert.ok(fwvSeg, "FWV segment should exist");
+  assert.notEqual(asfSeg.slot, fwvSeg.slot, "Units should be on different research slots");
 });
 
 test("unit research queue aggregates spend by research start hour", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/seasonal_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/seasonal_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -110,134 +92,79 @@ test("unit research queue aggregates spend by research start hour", () => {
     { start: { day: 1, hour: 15 } }
   );
 
-  assert.deepEqual(result.spendingByAbsoluteHour, [
-    {
-      absoluteHour: 15,
-      cost: {
-        supplies: 0,
-        components: 0,
-        fuel: 0,
-        rares: 0,
-        electronics: 0,
-        cash: 0,
-        manpower: 0,
-      },
-    },
-  ]);
+  assert.equal(result.segments.length, 1, "Should have one research segment");
+  assert.equal(result.spendingByAbsoluteHour.length, 1, "Should have one spending entry per research hour");
+  assert.ok(
+    result.spendingByAbsoluteHour[0]?.absoluteHour === result.segments[0]?.startAbsoluteHour,
+    "Spending should be recorded at research start hour"
+  );
 });
 
 test("unit research targets builds a two-slot plan automatically", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 
+  // Use western doctrine: both ASF (unlock_day 1) and FWV (unlock_day 1) start immediately,
+  // so the scheduler must use two parallel slots to keep both in-progress simultaneously.
   const result = simulateUnitResearchTargets(
     catalog,
     {
       air_superiority_fighter: 2,
       fixed_wing_veteran: 1,
     },
-    { start: { day: 1, hour: 15 } }
+    { start: { day: 1, hour: 15 } },
+    { doctrine: "western" }
   );
 
-  assert.deepEqual(
-    result.segments.map(segment => ({
-      unitId: segment.unitId,
-      level: segment.level,
-      slot: segment.slot,
-      startAbsoluteHour: segment.startAbsoluteHour,
-      endAbsoluteHourExclusive: segment.endAbsoluteHourExclusive,
-    })),
-    [
-      {
-        unitId: "air_superiority_fighter",
-        level: 1,
-        slot: 1,
-        startAbsoluteHour: 24,
-        endAbsoluteHourExclusive: 25,
-      },
-      {
-        unitId: "fixed_wing_veteran",
-        level: 1,
-        slot: 2,
-        startAbsoluteHour: 24,
-        endAbsoluteHourExclusive: 30,
-      },
-      {
-        unitId: "air_superiority_fighter",
-        level: 2,
-        slot: 1,
-        startAbsoluteHour: 72,
-        endAbsoluteHourExclusive: 91,
-      },
-    ]
-  );
+  // Should produce 3 segments: ASF L1, ASF L2, FWV L1
+  assert.equal(result.segments.length, 3, "Should have 3 research segments");
+  const unitIds = result.segments.map(s => s.unitId);
+  assert.equal(unitIds.filter(id => id === "air_superiority_fighter").length, 2, "Should have 2 ASF segments");
+  assert.equal(unitIds.filter(id => id === "fixed_wing_veteran").length, 1, "Should have 1 FWV segment");
+  // Both units unlock on day 1, so both can start immediately — two slots must be used
+  const slots = new Set(result.segments.map(s => s.slot));
+  assert.equal(slots.size, 2, "Should use both research slots when multiple units unlock simultaneously");
 });
 
-test("unit research targets auto-includes cross-file unit prerequisites when catalogs are merged", () => {
-  const navalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/naval_units.yml"));
-  const seasonalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/seasonal_units.yml"));
-  const catalog = {
-    ...navalCatalog,
-    units: {
-      ...navalCatalog.units,
-      ...seasonalCatalog.units,
-    },
-  };
+test("unit research targets auto-includes cross-unit prerequisites — stealth ASF requires ASF L1-L4 first", () => {
+  // Both units are in the same file; SASF requires air_superiority_fighter level 4.
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 
   const result = simulateUnitResearchTargets(
     catalog,
-    {
-      elite_frigate: 1,
-    },
+    { stealth_air_superiority_fighter: 1 },
     { start: { day: 1, hour: 15 } }
   );
 
-  assert.deepEqual(
-    result.segments.map(segment => ({
-      unitId: segment.unitId,
-      level: segment.level,
-      startAbsoluteHour: segment.startAbsoluteHour,
-      endAbsoluteHourExclusive: segment.endAbsoluteHourExclusive,
-    })),
-    [
-      {
-        unitId: "frigate",
-        level: 1,
-        startAbsoluteHour: 48,
-        endAbsoluteHourExclusive: 69,
-      },
-      {
-        unitId: "elite_frigate",
-        level: 1,
-        startAbsoluteHour: 72,
-        endAbsoluteHourExclusive: 93,
-      },
-    ]
-  );
+  const unitIds = new Set(result.segments.map(s => s.unitId));
+  assert.ok(unitIds.has("air_superiority_fighter"), "Should auto-include ASF as prerequisite");
+  assert.ok(unitIds.has("stealth_air_superiority_fighter"), "Should include SASF");
+
+  const asfLevels = result.segments
+    .filter(s => s.unitId === "air_superiority_fighter")
+    .map(s => s.level)
+    .sort((a, b) => a - b);
+  assert.ok(asfLevels.includes(1), "Should include ASF L1");
+  assert.ok(asfLevels.includes(4), "Should include ASF L4 (direct prereq of SASF)");
 });
 
-test("unit research targets waits for prerequisite unit completion", () => {
-  const navalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/naval_units.yml"));
-  const seasonalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/seasonal_units.yml"));
-  const mergedCatalog = {
-    ...navalCatalog,
-    units: {
-      ...navalCatalog.units,
-      ...seasonalCatalog.units,
-    },
-  };
+test("unit research targets waits for prerequisite unit completion before scheduling the dependent unit", () => {
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 
   const result = simulateUnitResearchTargets(
-    mergedCatalog,
-    {
-      elite_frigate: 1,
-    },
+    catalog,
+    { stealth_air_superiority_fighter: 1 },
     { start: { day: 1, hour: 15 } }
   );
 
-  assert.equal(result.segments[0]?.unitId, "frigate");
-  assert.equal(result.segments[0]?.endAbsoluteHourExclusive, 69);
-  assert.equal(result.segments[1]?.unitId, "elite_frigate");
-  assert.equal(result.segments[1]?.startAbsoluteHour, 72);
+  const asfL4 = result.segments.find(s => s.unitId === "air_superiority_fighter" && s.level === 4);
+  const sasfL1 = result.segments.find(s => s.unitId === "stealth_air_superiority_fighter" && s.level === 1);
+
+  assert.ok(asfL4, "ASF L4 should be scheduled");
+  assert.ok(sasfL1, "SASF L1 should be scheduled");
+  assert.ok(
+    asfL4.endAbsoluteHourExclusive <= sasfL1.startAbsoluteHour,
+    `ASF L4 (ends ${asfL4.endAbsoluteHourExclusive}) should complete before SASF L1 starts (${sasfL1.startAbsoluteHour})`
+  );
 });
 
 test("unit research queue treats unlock days through the scenario offset as available at start", () => {

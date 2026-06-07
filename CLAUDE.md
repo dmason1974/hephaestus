@@ -330,7 +330,7 @@ Invoke via YAML force plan file or env vars (`PLAN_COUNTRY`, `PLAN_DEMANDS`, `PL
 | **`arms_industry` level fixed at L1** | ✅ Fixed | `armsIndustryLevel` is now a search dimension alongside RO level and city count; default max is L1 (opt-in via `PLAN_MAX_AI_LEVEL` / `search.max_arms_industry_level`). Income from AI upgrades is now correctly modelled: `evaluateChoiceSet` runs a combined `simulateBuildOrder` over all cities with the force-plan build order and uses `dynamicHourlyIncomeFromSimulation`, matching the eco support path. Eco support candidate pruning also added: `arms_industry`/`air_base`/`naval_base` are only explored when they generate a resource currently in deficit; `underground_bunkers` and `relocate_headquarters` remain as candidates always (morale → production yield) |
 | **Prerequisite research chains not threaded** | ✅ Fixed | `planMobilizationBuild` now passes mobilisation-start deadlines to the JIT scheduler; the dependency graph (`expandTargetsWithUnitRequirements` + task successor links) propagates constraints so ASF L1–L4 is scheduled before SASF L1 and completes before mobilisation opens |
 | **No coalition shared resource pool** | ⬜ Open | Single-country only; no cross-country resource aggregation |
-| **Flip point not modelled** | ⬜ Open | City transitions from eco to military mode implicitly on day 1; there is no search over when to make that transition |
+| **Flip point not modelled** | ✅ Solved (eco harness) | `src/engine/eco/flip-point-solver.ts` computes the latest safe flip point per city via iterative convergence; `src/harness/smoke/coalition-force-plan.ts` sweeps (city count × RO level) and reports eco hours captured per configuration |
 | **Cross-queue city sharing not modelled** | ⬜ Open | A city assigned to SASF production and one assigned to AWACS are fully independent; the "switch mid-plan" pattern (AWACS during dead window → SASF after) is not found |
 
 ### Implementation Path
@@ -395,12 +395,12 @@ New file: `src/harness/smoke/coalition-force-plan.ts`
 
 ### What Needs Building
 
-1. **Extract city beam search** → `src/engine/eco/city-eco-beam.ts` (exported callable)
-2. **Parse `coalition_force_plan` YAML** → new schema in `scenario-schema.ts` or separate file
-3. **Flip point solver** → iterative delta computation
-4. **New harness** → `coalition-force-plan.ts` wiring it together
+1. ✅ **Extract city beam search** → `src/engine/eco/city-eco-beam.ts` (exported callable `runCityEcoBeam`); includes `buildingLevelsAtAbsHour` per city
+2. ✅ **Parse `coalition_force_plan` YAML** → `src/schemas/coalition-force-plan-schema.ts` + `src/scenarios/io/load-coalition-plan.ts`
+3. ✅ **Flip point solver** → `src/engine/eco/flip-point-solver.ts`; iterative convergence with `buildingLevelsAtAbsHour`; handles batch_size (warheads), RO speed bonuses, per-city remaining chain
+4. ✅ **New harness** → `src/harness/smoke/coalition-force-plan.ts`; sweeps city count × RO level for each demand; outputs flip-point matrix + eco beam results per city; run via `npm run smoke:coalition-force-plan`
 5. **`mercenary_outpost` in build planner** → same pattern as `secret_weapons_lab`: detect from unit YAML requirements, insert in city infra chain
-6. **Province mobilisation track** → commando (and future province units) excluded from city slot capacity; `mobilisation_source: province` in demand YAML
+6. **Province mobilisation track** → commando (and future province units) excluded from city slot capacity; `mobilisation_source: province` in demand YAML (schema done, harness already skips province demands)
 
 ---
 

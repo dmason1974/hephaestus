@@ -357,6 +357,7 @@ Invoke via YAML force plan file or env vars (`PLAN_COUNTRY`, `PLAN_DEMANDS`, `PL
 4. ✅ **Add `arms_industry` level as a search dimension** — `QueueChoice.armsIndustryLevel` + `QueueProfileSummary.armsIndustryTargetLevel`; `buildPlanActionsForCity` builds AI to the target level; search loops over 1..`maxArmsIndustryLevel` (default 1, overridable via `PLAN_MAX_AI_LEVEL` env var or `search.max_arms_industry_level` in plan YAML); display strings include `@AI{n}`; income from AI upgrades modelled correctly via `dynamicHourlyIncomeFromSimulation`; eco support candidate pruning by deficit resource
 5. ✅ **Eco-first flip-point planner** — see Chunk 5 Architecture below; flip-point sweep complete
 6. ✅ **Income accounting (chunk 6)** — per-row: eco income (military cities capped at flip point then flat rate; eco cities full), infra cost, mob cost (L1), upkeep cost (L1 rate); net balance per resource with shortfall/surplus; coalition starting balance shown in header separately
+7. ✅ **Coalition aggregation (chunk 7)** — for each country, best feasible row per demand (most eco hours captured); per-city flip = min across all demands using that city (prevents income double-counting); coalition balance sheet in HTML: total eco income + starting balance − total costs, with shortfall/surplus highlighting per resource. Only runs with `CFP_COUNTRY=all`. **OOM note**: full run (beam_width=50) requires `--max-old-space-size=8192` for 14 countries.
 
 ---
 
@@ -414,7 +415,7 @@ Where `remainingInfraTime` is the delta between what the eco phase built and wha
 - Handles `batch_size` (warheads: 100 units = 25 mob events), launcher platforms (cruise missile: skipped), province demands (commando: skipped)
 - Per-row income accounting: eco income (with post-flip flat-rate extrapolation), infra/mob/upkeep costs, net resource balance, affordable/shortfall summary
 - `countryStatus` (homeland/occupied) correctly flows into city morale for eco beam (bug fixed chunk 6)
-- **Still missing**: coalition-level aggregation across all countries against the shared pool (chunk 7)
+- **Chunk 7 complete**: coalition-level aggregation across all countries against the shared pool — coalition balance sheet in HTML output
 
 ### What Needs Building
 
@@ -430,36 +431,29 @@ Where `remainingInfraTime` is the delta between what the eco phase built and wha
 
 ---
 
-## Chunk 7 Architecture — Coalition Aggregation
+## Chunk 7 Architecture — Coalition Aggregation ✅ COMPLETE
 
-### The Goal
+### What Was Built
 
-Chunk 6 gives per-country income accounting per flip-point matrix row. Chunk 7 aggregates across all 14 countries into one coalition-level balance sheet against the shared starting pool.
+`computeCoalitionSummary` in `coalition-force-plan.ts`:
+- For each country demand, selects the best feasible flip-point row (most eco hours captured; fewest cities as tiebreaker).
+- Multi-demand countries: per-city flip = min flip across all demands using that city, preventing income double-counting.
+- Eco-only countries (UK, Iran, Madagascar, Solomon Islands): contribute full 28-day eco income (no flip).
+- Sums eco income + costs across all countries; adds starting balance once.
+- HTML output: selected-config table, per-country income/cost breakdown, coalition balance sheet with shortfall/surplus highlighting.
 
-### What Needs to Happen
+### Known Limitations
 
-For each configuration (per-country: unit × numCities × roLevel), we need a **coalition-level view**:
+- **Best-row selection is independent per demand**: for multi-demand countries (e.g. Indonesia SASF+UAV+warheads), the "best UAV row" shows 636h eco but those cities are already constrained to flip at 278h by SASF. The balance sheet is computed correctly (using per-city flip), but the per-demand flip shown in the config table can be misleading.
+- **Capital-first city ordering**: not optimal; combinatorial city-subset search is future work.
+- **OOM**: full run (beam_width=50, 14 countries) requires `node --max-old-space-size=8192 --import tsx ...`
 
-1. **Coalition eco income**: sum of all countries' eco income contributions. Military cities in each country are capped at their flip point; eco-only cities and countries with no demands contribute full 28-day income.
-2. **Coalition costs**: sum of all countries' infra + mob + upkeep costs.
-3. **Net coalition balance**: coalition starting balance + coalition eco income − coalition costs, per resource.
-4. **Binding constraints**: which resources go negative, by how much, and which country/demand is the main driver.
+### Next Steps (Chunk 8+)
 
-### Design Decisions
-
-- The coalition plan YAML defines one flip-point configuration per demand per country. The harness currently sweeps all combinations; chunk 7 needs to pick one per demand (or sweep combinations across countries jointly, which is expensive).
-- **First pass**: take the per-country optimal row (best feasible flip point per demand) and aggregate those into a coalition view.
-- **Country interaction**: each country's flip point is currently computed independently. In reality, shared resources mean a country that consumes a lot of supplies puts pressure on others. Full joint optimisation is a future chunk.
-
-### Harness Extension
-
-Extend `coalition-force-plan.ts` or add a separate `coalition-aggregation.ts`:
-- Load all countries from the plan
-- For each country, pick the "best" row per demand (e.g. lowest shortfall or highest eco hours captured while feasible)
-- Sum eco income across all countries (respecting each country's city assignments and flip points)
-- Sum all costs
-- Add coalition starting balance once
-- Output: one coalition-level balance sheet + per-country breakdown
+- **Joint demand optimisation per country**: treat multi-demand countries as a single optimisation problem (shared city pool)
+- **Optimal city subset search**: combinatorial rather than capital-first ordering
+- **`mercenary_outpost` in build planner**: Russia/commando cities need it in the infra chain
+- **Province mobilisation costs**: commando mob cost not yet included in balance sheet
 
 ---
 

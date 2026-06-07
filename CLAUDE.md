@@ -196,7 +196,7 @@ The project's end goal is a **coalition-wide JIT force projection optimizer** fo
 
 **LHS (Economy — largely solved):** Given N eco-build days, what resource flow does the coalition generate? The city and country beam search harnesses (`elite-ww3-city-beam-search.ts`, `elite-ww3-country-beam-search.ts`) answer this per country.
 
-**RHS (Force Projection — work in progress):** Given a target force, work backwards to find the optimal **flip point** per city — the moment each city stops queuing eco buildings and starts queuing military infrastructure (air_base upgrades, secret_lab, recruiting_office). The flip point determines how much eco income is captured before the city goes dark for construction, and when mobilisation capacity comes online.
+**RHS (Force Projection — flip-point analysis complete, income accounting pending):** Given a target force, work backwards to find the optimal **flip point** per city — the moment each city stops queuing eco buildings and starts queuing military infrastructure (air_base upgrades, secret_lab, recruiting_office). The flip point determines how much eco income is captured before the city goes dark for construction, and when mobilisation capacity comes online. The flip-point sweep harness (`coalition-force-plan.ts`) now answers this per country across the full search space (all RO levels, all cities).
 
 The two sides are coupled: eco income funds the military build, and the flip point is the join. The optimal flip point is different per city, per country, and is interdependent across the coalition because of the shared resource pool.
 
@@ -339,7 +339,7 @@ Invoke via YAML force plan file or env vars (`PLAN_COUNTRY`, `PLAN_DEMANDS`, `PL
 2. ✅ **Add `secret_weapons_lab` to infrastructure build planner** — detects requirement from unit YAML, correct critical path for stealth ASF cities
 3. ✅ **Thread prerequisite research chains** — `planMobilizationBuild` now passes `buildResearchDeadlineMap(scheduledGroups)` as `latestCompletionByUnitLevel`; the JIT backward scheduler propagates the constraint through the dependency graph (SASF L1 deadline → ASF L4 → L3 → L2 → L1), ensuring prerequisite research completes before mobilisation opens; infeasible plans (chain too long) return `null` so the planner retries with more cities
 4. ✅ **Add `arms_industry` level as a search dimension** — `QueueChoice.armsIndustryLevel` + `QueueProfileSummary.armsIndustryTargetLevel`; `buildPlanActionsForCity` builds AI to the target level; search loops over 1..`maxArmsIndustryLevel` (default 1, overridable via `PLAN_MAX_AI_LEVEL` env var or `search.max_arms_industry_level` in plan YAML); display strings include `@AI{n}`; income from AI upgrades modelled correctly via `dynamicHourlyIncomeFromSimulation`; eco support candidate pruning by deficit resource
-5. **Eco-first flip-point planner** — see Chunk 5 Architecture below
+5. ✅ **Eco-first flip-point planner** — see Chunk 5 Architecture below; flip-point sweep complete; income accounting (steps 4-6 of two-pass algorithm) is the next chunk
 
 ---
 
@@ -366,9 +366,10 @@ Where `remainingInfraTime` is the delta between what the eco phase built and wha
 
 - **No locked eco cities** — all cities are candidates for any military role. The optimizer assigns cities based on what the force plan requires. No city is protected as eco-only.
 - **City assignment is optimizer output** — the YAML specifies demands per country, not which cities produce which units. The optimizer finds the cheapest city subset to flip.
-- **Beam search extraction required** — `elite-ww3-city-beam-search.ts` is a standalone script with no exports. Must be extracted into `src/engine/eco/city-eco-beam.ts` as a callable function before chunk 5 can run.
-- **Single country first** — build for one country, validate, then extend to coalition.
-- **Shortfall reporting** — primary output is per-resource shortfall, not auto-patching. Eco support search opt-in via `PLAN_ECO_SUPPORT=true`.
+- **Beam search extracted** — `src/engine/eco/city-eco-beam.ts` is the callable form; `buildingLevelsAtAbsHour(H)` is the key hook for the flip-point solver.
+- **Single country first** — harness runs per-country; coalition aggregation is a future chunk.
+- **Sweep, not search** — the harness sweeps all (city count × RO level) combinations and reports the flip-point matrix; city subset selection is currently simplified (capital-first ordering, not combinatorial). The full subset search is a future chunk.
+- **Key empirical finding** — RO L5 is not always optimal. For 50 SASF across 7 cities, RO L3 captures more eco (278h) than RO L5 (271h) because the extra queue time for L4→L5 outweighs the mob window saving. The crossover is around 5–6 cities. Without RO L4/L5 in the search space this would not be visible.
 
 ### Two-Pass Algorithm
 
@@ -385,22 +386,27 @@ Where `remainingInfraTime` is the delta between what the eco phase built and wha
   5. Subtract infra cost + mobilisation cost + upkeep
   6. Report net shortfall by resource
 
-### New Harness
+### Harness — `coalition-force-plan.ts`
 
-New file: `src/harness/smoke/coalition-force-plan.ts`
-- Reads `coalition_force_plan` YAML (e.g. `pnth_v_road_2026_jun.yml`)
-- For target country: runs eco beam search for all cities
-- Runs flip-point force footprint search
-- Outputs: per-city build plan + country resource summary + (eventually) coalition aggregate
+`src/harness/smoke/coalition-force-plan.ts` — run via `npm run smoke:coalition-force-plan`
+
+- Reads `coalition_force_plan` YAML (default: `pnth_v_road_2026_jun.yml`)
+- For each country (or one via `CFP_COUNTRY=<id>`): runs eco beam search for all cities
+- Sweeps all city counts (1..N) × all RO levels (1..5) for each non-province demand
+- Outputs HTML flip-point matrix: eco hours captured, remaining build chain, mob window per configuration
+- Handles `batch_size` (warheads: 100 units = 25 mob events), launcher platforms (cruise missile: skipped), province demands (commando: skipped)
+- **Still missing**: income budget vs. military cost accounting (steps 4-6 of the two-pass algorithm)
 
 ### What Needs Building
 
 1. ✅ **Extract city beam search** → `src/engine/eco/city-eco-beam.ts` (exported callable `runCityEcoBeam`); includes `buildingLevelsAtAbsHour` per city
 2. ✅ **Parse `coalition_force_plan` YAML** → `src/schemas/coalition-force-plan-schema.ts` + `src/scenarios/io/load-coalition-plan.ts`
 3. ✅ **Flip point solver** → `src/engine/eco/flip-point-solver.ts`; iterative convergence with `buildingLevelsAtAbsHour`; handles batch_size (warheads), RO speed bonuses, per-city remaining chain
-4. ✅ **New harness** → `src/harness/smoke/coalition-force-plan.ts`; sweeps city count × RO level for each demand; outputs flip-point matrix + eco beam results per city; run via `npm run smoke:coalition-force-plan`
-5. **`mercenary_outpost` in build planner** → same pattern as `secret_weapons_lab`: detect from unit YAML requirements, insert in city infra chain
-6. **Province mobilisation track** → commando (and future province units) excluded from city slot capacity; `mobilisation_source: province` in demand YAML (schema done, harness already skips province demands)
+4. ✅ **New harness** → `src/harness/smoke/coalition-force-plan.ts`; sweeps all city counts × all RO levels (1–5) for each demand; outputs flip-point matrix + eco beam results per city; run via `npm run smoke:coalition-force-plan`
+5. **Income accounting** — the two-pass algorithm steps 4-6: compute eco income up to flip point per city, subtract infra + mob + upkeep costs, report net resource shortfall by resource. This is the next chunk.
+6. **Optimal city subset search** — currently the harness assigns cities in capital-first order. A combinatorial search over subsets (which N cities are cheapest to flip?) is needed for the true optimum.
+7. **`mercenary_outpost` in build planner** → same pattern as `secret_weapons_lab`: detect from unit YAML requirements, insert in city infra chain (Russia/commando cities)
+8. **Province mobilisation track** → commando (and future province units) excluded from city slot capacity; `mobilisation_source: province` in demand YAML (schema done, harness already skips province demands)
 
 ---
 

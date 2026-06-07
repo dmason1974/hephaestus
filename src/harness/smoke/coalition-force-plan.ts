@@ -22,8 +22,8 @@ const planId = process.env.CFP_PLAN ?? "pnth_v_road_2026_jun";
 const countryFilter = process.env.CFP_COUNTRY ?? "all";
 const beamWidth = parsePositiveInt(process.env.CFP_BEAM_WIDTH, 50);
 const topN = parsePositiveInt(process.env.CFP_TOP, 3);
-const maxRoLevel = parsePositiveInt(process.env.CFP_MAX_RO, 3);
-const maxCityCount = parsePositiveInt(process.env.CFP_MAX_CITIES, 5);
+const maxRoLevel = parsePositiveInt(process.env.CFP_MAX_RO, 5);
+const maxCityCount = parsePositiveInt(process.env.CFP_MAX_CITIES, 99);
 const outputFilePath = path.resolve(process.env.CFP_OUTPUT_FILE?.trim() ?? "tmp/coalition-force-plan.html");
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {

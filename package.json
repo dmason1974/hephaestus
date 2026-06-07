@@ -39,7 +39,7 @@
     "smoke:beam:country:elite-ww3": "node --import tsx src/harness/smoke/elite-ww3-country-beam-search.ts",
     "smoke:mc:city:elite-ww3": "node --import tsx src/harness/smoke/elite-ww3-city-monte-carlo.ts",
     "smoke:iraq:plan:elite-ww3": "node --import tsx src/harness/smoke/elite-ww3-iraq-mrl.ts",
-    "smoke:coalition-force-plan": "node --import tsx src/harness/smoke/coalition-force-plan.ts",
+    "smoke:coalition-force-plan": "node --max-old-space-size=8192 --import tsx src/harness/smoke/coalition-force-plan.ts",
     "smoke:build-order": "node --import tsx src/harness/smoke/build-order.ts",
     "smoke:greece:electro": "node --import tsx src/harness/smoke/greece-electronics-city-benefit.ts",
     "smoke:build-order:compare": "node --import tsx src/harness/smoke/build-order-compare.ts",

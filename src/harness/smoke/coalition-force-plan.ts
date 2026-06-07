@@ -247,7 +247,7 @@ type CountryAnalysis = {
   demands: Demand[];
   ecoSummaries: CityEcoSummary[];
   flipMatrixRows: FlipMatrix[];
-  cityResults: CityEcoResult[];
+  coalitionContribution: CountryCoalitionContribution;
 };
 
 function analyseCountry(countryId: string): CountryAnalysis {
@@ -347,6 +347,47 @@ function analyseCountry(countryId: string): CountryAnalysis {
     }
   }
 
+  // Compute coalition contribution while cityResults is still in local scope (GC'd after return)
+  const coalSelectedConfigs: SelectedConfig[] = [];
+  const rowsForEco: Array<{ row: FlipMatrix }> = [];
+  for (const demand of countryPlan.demands) {
+    if (demand.mobilisation_source === "province") {
+      coalSelectedConfigs.push({ demand, row: null, skipped: true });
+      continue;
+    }
+    if (unitMobTimeHours(demand.unitId, doctrine) === 0) {
+      coalSelectedConfigs.push({ demand, row: null, skipped: true });
+      continue;
+    }
+    const best = selectBestRow(flipMatrixRows.filter(r => r.unitId === demand.unitId));
+    coalSelectedConfigs.push({ demand, row: best, skipped: false });
+    if (best) rowsForEco.push({ row: best });
+  }
+  const coEcoIncome = countryEcoIncomeForSelections(cityResults, rowsForEco);
+  const coInfra = zeroResourceMap();
+  const coMob = zeroResourceMap();
+  const coUpkeep = zeroResourceMap();
+  for (const cfg of coalSelectedConfigs) {
+    if (!cfg.row) continue;
+    addResources(coInfra, cfg.row.infraCost);
+    addResources(coMob, cfg.row.mobCost);
+    addResources(coUpkeep, cfg.row.upkeepCost);
+  }
+  const coNetBalance = zeroResourceMap();
+  for (const r of RESOURCE_KEYS) coNetBalance[r] = coEcoIncome[r] - coInfra[r] - coMob[r] - coUpkeep[r];
+  const coalitionContribution: CountryCoalitionContribution = {
+    countryId,
+    countryName: country.country.name,
+    doctrine,
+    selectedConfigs: coalSelectedConfigs,
+    ecoIncome: coEcoIncome,
+    infraCost: coInfra,
+    mobCost: coMob,
+    upkeepCost: coUpkeep,
+    netBalance: coNetBalance,
+    hasInfeasible: coalSelectedConfigs.some(c => !c.skipped && (c.row === null || c.row.feasible !== "✓")),
+  };
+
   return {
     countryId,
     countryName: country.country.name,
@@ -355,7 +396,7 @@ function analyseCountry(countryId: string): CountryAnalysis {
     demands: countryPlan.demands,
     ecoSummaries,
     flipMatrixRows,
-    cityResults,
+    coalitionContribution,
   };
 }
 
@@ -367,7 +408,7 @@ type SelectedConfig = {
   skipped: boolean; // launcher platform or province demand
 };
 
-type CountryCoalitionRow = {
+type CountryCoalitionContribution = {
   countryId: string;
   countryName: string;
   doctrine: string;
@@ -381,7 +422,7 @@ type CountryCoalitionRow = {
 };
 
 type CoalitionSummary = {
-  countries: CountryCoalitionRow[];
+  countries: CountryCoalitionContribution[];
   totalEcoIncome: Record<Resource, number>;
   totalInfraCost: Record<Resource, number>;
   totalMobCost: Record<Resource, number>;
@@ -447,71 +488,20 @@ function computeCoalitionSummary(analyses: CountryAnalysis[]): CoalitionSummary 
   const totalMobCost = zeroResourceMap();
   const totalUpkeepCost = zeroResourceMap();
 
-  const countries: CountryCoalitionRow[] = [];
-
+  const countries: CountryCoalitionContribution[] = [];
   for (const analysis of analyses) {
-    const selectedConfigs: SelectedConfig[] = [];
-    const rowsForEco: Array<{ row: FlipMatrix }> = [];
-
-    for (const demand of analysis.demands) {
-      if (demand.mobilisation_source === "province") {
-        selectedConfigs.push({ demand, row: null, skipped: true });
-        continue;
-      }
-      const mobTimePerUnit = unitMobTimeHours(demand.unitId, analysis.doctrine);
-      if (mobTimePerUnit === 0) {
-        selectedConfigs.push({ demand, row: null, skipped: true });
-        continue;
-      }
-      const demandRows = analysis.flipMatrixRows.filter(r => r.unitId === demand.unitId);
-      const best = selectBestRow(demandRows);
-      selectedConfigs.push({ demand, row: best, skipped: false });
-      if (best) rowsForEco.push({ row: best });
-    }
-
-    const ecoIncome = countryEcoIncomeForSelections(analysis.cityResults, rowsForEco);
-    const infraCost = zeroResourceMap();
-    const mobCost = zeroResourceMap();
-    const upkeepCost = zeroResourceMap();
-
-    for (const cfg of selectedConfigs) {
-      if (!cfg.row) continue;
-      addResources(infraCost, cfg.row.infraCost);
-      addResources(mobCost, cfg.row.mobCost);
-      addResources(upkeepCost, cfg.row.upkeepCost);
-    }
-
-    const netBalance = zeroResourceMap();
-    for (const r of RESOURCE_KEYS) {
-      netBalance[r] = ecoIncome[r] - infraCost[r] - mobCost[r] - upkeepCost[r];
-    }
-
-    addResources(totalEcoIncome, ecoIncome);
-    addResources(totalInfraCost, infraCost);
-    addResources(totalMobCost, mobCost);
-    addResources(totalUpkeepCost, upkeepCost);
-
-    countries.push({
-      countryId: analysis.countryId,
-      countryName: analysis.countryName,
-      doctrine: analysis.doctrine,
-      selectedConfigs,
-      ecoIncome,
-      infraCost,
-      mobCost,
-      upkeepCost,
-      netBalance,
-      hasInfeasible: selectedConfigs.some(c => !c.skipped && (c.row === null || c.row.feasible !== "✓")),
-    });
+    const contrib = analysis.coalitionContribution;
+    addResources(totalEcoIncome, contrib.ecoIncome);
+    addResources(totalInfraCost, contrib.infraCost);
+    addResources(totalMobCost, contrib.mobCost);
+    addResources(totalUpkeepCost, contrib.upkeepCost);
+    countries.push(contrib);
   }
 
-  const totalCosts = zeroResourceMap();
-  for (const r of RESOURCE_KEYS) {
-    totalCosts[r] = totalInfraCost[r] + totalMobCost[r] + totalUpkeepCost[r];
-  }
   const netCoalitionBalance = zeroResourceMap();
   for (const r of RESOURCE_KEYS) {
-    netCoalitionBalance[r] = totalEcoIncome[r] + startingBalance[r] - totalCosts[r];
+    netCoalitionBalance[r] = totalEcoIncome[r] + startingBalance[r]
+      - totalInfraCost[r] - totalMobCost[r] - totalUpkeepCost[r];
   }
 
   return {

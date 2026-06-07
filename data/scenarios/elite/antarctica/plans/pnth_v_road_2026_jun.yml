@@ -14,7 +14,7 @@ search:
 
 countries:
 
-  # --- AIR ROLE 1: 50 SASF + 18 UAV + 50 missiles + 100 warheads ---
+  # ── AIR ROLE 1: 50 SASF + 18 UAV + 50 cruise missiles + 100 warheads ──────
   # Indonesia — european doctrine
   # Jakarta: electronics pop6, air_base 1
   indonesia:
@@ -29,7 +29,7 @@ countries:
       - unitId: conventional_warhead
         count: 100  # batch_size: 4 — 25 mobilisation slots; competes with SASF/UAV for city slots
 
-  # --- AIR ROLE 2: 50 SASF + 10 AWACS ---
+  # ── AIR ROLE 2: 50 SASF + 10 AWACS ─────────────────────────────────────────
   # India — eastern doctrine
   # New Delhi: electronics pop6, air_base 1
   india:
@@ -40,10 +40,10 @@ countries:
       - unitId: awacs
         count: 10
 
-  # --- THEATRE DEFENCE: 40 TDS + 15 mobile radar + 15 commando ---
+  # ── THEATRE DEFENCE: 40 TDS + 15 mobile radar + 15 commando ─────────────────
   # Russia — eastern doctrine
   # Moscow: components pop6, air_base 1
-  # Note: commando mobilises from provinces (not city slots); mercenary_outpost required in city build chain
+  # commando mobilises from provinces (not city slots); mercenary_outpost required in city build chain
   russia:
     status: homeland
     demands:
@@ -55,33 +55,33 @@ countries:
         count: 15
         mobilisation_source: province
 
-  # --- MAAV ROLE: 100 MAAV each (european doctrine) ---
+  # ── MAAV: 100 MAAV each (european doctrine) ──────────────────────────────────
 
   italy:
-    # european — Rome: supplies pop6, air_base 1
+    # Rome: supplies pop6, air_base 1
     status: homeland
     demands:
       - unitId: mobile_anti_air_vehicle
         count: 100
 
   south_africa:
-    # european — Cape Town: rares pop6, air_base 1
+    # Cape Town: rares pop6, air_base 1 (no naval base)
     status: homeland
     demands:
       - unitId: mobile_anti_air_vehicle
         count: 100
 
-  madagascar:
-    # european — Antananarivo: rares pop4 (single city, occupied)
-    status: occupied
+  new_zealand:
+    # Wellington: supplies pop6, air_base 1
+    status: homeland
     demands:
       - unitId: mobile_anti_air_vehicle
         count: 100
 
-  # --- MRL ROLE: 72 MRL + 27 MAAV + 1 Tank Veteran each ---
+  # ── MRL: 72 MRL + 27 MAAV + 1 Tank Veteran each (western doctrine) ──────────
 
   japan:
-    # western — Tokyo: supplies pop6, air_base 1
+    # Tokyo: supplies pop6, air_base 1 (no naval base)
     status: homeland
     demands:
       - unitId: multiple_rocket_launcher
@@ -92,7 +92,7 @@ countries:
         count: 1
 
   pakistan:
-    # western — Islamabad: fuel pop6, air_base 1
+    # Islamabad: fuel pop6, air_base 1
     status: homeland
     demands:
       - unitId: multiple_rocket_launcher
@@ -102,9 +102,9 @@ countries:
       - unitId: tank_veteran
         count: 1
 
-  iran:
-    # eastern — Tehran: components pop5 (single city, occupied)
-    status: occupied
+  australia:
+    # Canberra: supplies pop6, air_base 1
+    status: homeland
     demands:
       - unitId: multiple_rocket_launcher
         count: 72
@@ -113,13 +113,35 @@ countries:
       - unitId: tank_veteran
         count: 1
 
-  # --- MECH INF + CRV: 40 Mechanized Infantry + 20 Combat Recon Vehicle ---
-  # Solomon Islands — european doctrine (single city, occupied)
-  # Honiara: electronics pop4
-  solomon_islands:
-    status: occupied
+  # ── MECH INF + CRV: 40 Mech Inf + 20 CRV ────────────────────────────────────
+  # Norway — western doctrine
+  # Oslo: fuel pop6, air_base 1
+  norway:
+    status: homeland
     demands:
       - unitId: mechanized_infantry
         count: 40
       - unitId: combat_recon_vehicle
         count: 20
+
+  # ── ECO ONLY (occupied, no military demands) ─────────────────────────────────
+
+  united_kingdom:
+    # London: supplies pop6, air_base 1 — captured player country
+    status: occupied
+    demands: []
+
+  iran:
+    # Tehran: components pop5 — captured AI nation (single city)
+    status: occupied
+    demands: []
+
+  madagascar:
+    # Antananarivo: rares pop4 — captured AI nation (single city, no air_base)
+    status: occupied
+    demands: []
+
+  solomon_islands:
+    # Honiara: electronics pop4 — captured AI nation (single city, no air_base)
+    status: occupied
+    demands: []

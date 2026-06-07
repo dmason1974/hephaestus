@@ -15,8 +15,8 @@ research:
   unlocked_through_day_at_start: 10
 
 coalition:
-  - argentina      # western
   - australia      # western
+  - india          # eastern
   - indonesia      # european
   - italy          # european
   - japan          # western

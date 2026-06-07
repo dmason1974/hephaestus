@@ -1,13 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import type { Resource } from "../../core/constants.js";
 import { scenarioStartAbsoluteHour } from "../../core/time.js";
 import { durationToHours } from "../../engine/timing/activity-duration.js";
-import { runCityEcoBeam } from "../../engine/eco/city-eco-beam.js";
+import { runCityEcoBeam, type CityEcoResult } from "../../engine/eco/city-eco-beam.js";
 import {
   computeFlipPoint,
   mobilisationWindowHours as computeMobWindow,
   requirementsToLevelMap,
+  type FlipPointResult,
 } from "../../engine/eco/flip-point-solver.js";
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
@@ -15,6 +17,8 @@ import { loadScenarioCoalitionPlan } from "../../scenarios/io/load-coalition-pla
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { loadMergedUnitCatalogForScenario } from "../../scenarios/io/load-unit-catalog.js";
 import type { CoalitionForcePlan, Demand } from "../../schemas/coalition-force-plan-schema.js";
+
+const RESOURCE_KEYS: Resource[] = ["supplies", "components", "fuel", "rares", "electronics", "cash", "manpower"];
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -99,6 +103,108 @@ function unitRequiredLevels(unitId: string, roLevel: number): Record<string, num
   return levels;
 }
 
+// ── Income & cost accounting ──────────────────────────────────────────────────
+
+function zeroResourceMap(): Record<Resource, number> {
+  return { supplies: 0, components: 0, fuel: 0, rares: 0, electronics: 0, cash: 0, manpower: 0 };
+}
+
+function addResources(a: Record<Resource, number>, b: Partial<Record<Resource, number>>): void {
+  for (const r of RESOURCE_KEYS) a[r] += b[r] ?? 0;
+}
+
+function scaleResources(src: Partial<Record<Resource, number>>, factor: number): Record<Resource, number> {
+  const out = zeroResourceMap();
+  for (const r of RESOURCE_KEYS) out[r] = (src[r] ?? 0) * factor;
+  return out;
+}
+
+/**
+ * Eco income from a single city up to (but not including) flipRelHour,
+ * then flat production for the remainder of the truce window.
+ * Does NOT include the coalition starting balance.
+ */
+function cityIncomeForConfig(city: CityEcoResult, flipRelHour: number): Record<Resource, number> {
+  const total = zeroResourceMap();
+  const flipH = Math.max(0, Math.min(Math.round(flipRelHour), hoursToSimulate));
+  // Eco-build phase: sum per-hour production up to flip point
+  for (let h = 0; h < flipH; h++) {
+    addResources(total, city.hourlyCityProduction[h] ?? zeroResourceMap());
+  }
+  // Post-flip phase: production continues flat at the rate at the flip point
+  const rateAtFlip = city.hourlyCityProduction[Math.max(0, flipH - 1)] ?? city.hourlyCityProduction[0] ?? zeroResourceMap();
+  const remainingHours = hoursToSimulate - flipH;
+  if (remainingHours > 0) {
+    addResources(total, scaleResources(rateAtFlip, remainingHours));
+  }
+  return total;
+}
+
+/** Full eco income from a city for the entire truce window (no flip). */
+function cityFullEcoIncome(city: CityEcoResult): Record<Resource, number> {
+  const total = zeroResourceMap();
+  for (const prod of city.hourlyCityProduction) addResources(total, prod);
+  return total;
+}
+
+/**
+ * Country income budget for a given configuration:
+ * military cities capped at flip point (then flat rate), eco cities full.
+ * Starting balance is separate (coalition-wide) and NOT included here.
+ */
+function countryEcoBudget(
+  cityResults: CityEcoResult[],
+  assignedCityIds: Set<string>,
+  fp: FlipPointResult,
+): Record<Resource, number> {
+  const total = zeroResourceMap();
+  for (const city of cityResults) {
+    const cityContrib = assignedCityIds.has(city.cityId)
+      ? cityIncomeForConfig(city, Math.max(0, fp.flipPointRelHour))
+      : cityFullEcoIncome(city);
+    addResources(total, cityContrib);
+  }
+  return total;
+}
+
+/** Cost of the military infra chain for one city × numCities. */
+function infraCostForChain(fp: FlipPointResult, numCities: number): Record<Resource, number> {
+  const total = zeroResourceMap();
+  for (const step of fp.remainingChain) {
+    const levelData = buildings.buildings[step.buildingId]?.levels[String(step.toLevel) as "1" | "2" | "3" | "4" | "5"];
+    if (levelData?.cost) addResources(total, levelData.cost as Partial<Record<Resource, number>>);
+  }
+  // Each of the numCities cities pays the full infra chain cost
+  return scaleResources(total, numCities);
+}
+
+/** L1 mobilisation cost for a demand (× effectiveCount units). */
+function mobCostForDemand(unitId: string, doctrine: string, effectiveCount: number): Record<Resource, number> {
+  const unit = catalog.units[unitId];
+  const l1mob = unit?.levels?.["1"]?.mobilisation as Record<string, { cost?: Partial<Record<Resource, number>> }> | undefined;
+  const docMob = l1mob?.[doctrine] ?? Object.values(l1mob ?? {}).find(Boolean);
+  if (!docMob?.cost) return zeroResourceMap();
+  return scaleResources(docMob.cost as Record<Resource, number>, effectiveCount);
+}
+
+/** L1 daily upkeep × effectiveCount × hours from mobilisation start to deadline. */
+function upkeepCostForDemand(unitId: string, doctrine: string, effectiveCount: number, mobStartRelHour: number): Record<Resource, number> {
+  const unit = catalog.units[unitId];
+  const l1upkeep = unit?.levels?.["1"]?.daily_upkeep as Record<string, { cost?: Partial<Record<Resource, number>> }> | undefined;
+  const docUpkeep = l1upkeep?.[doctrine] ?? Object.values(l1upkeep ?? {}).find(Boolean);
+  if (!docUpkeep?.cost) return zeroResourceMap();
+  const hoursActive = Math.max(0, hoursToSimulate - Math.max(0, mobStartRelHour));
+  const dailyFraction = hoursActive / 24;
+  return scaleResources(docUpkeep.cost as Record<Resource, number>, effectiveCount * dailyFraction);
+}
+
+/** Format a net resource balance as a compact shortfall/surplus string. */
+function formatNetBalance(net: Record<Resource, number>): string {
+  const shortfalls = RESOURCE_KEYS.filter(r => Math.round(net[r]) < 0).map(r => `-${r}:${Math.abs(Math.round(net[r])).toLocaleString()}`);
+  if (shortfalls.length === 0) return "✓ affordable";
+  return "⚠ " + shortfalls.join(" ");
+}
+
 // ── Per-country analysis ──────────────────────────────────────────────────────
 
 type CityEcoSummary = {
@@ -124,6 +230,13 @@ type FlipMatrix = {
   remainingChain: string;
   mobStartDay: string;
   feasible: string;
+  // income accounting
+  ecoIncome: Record<Resource, number>;
+  infraCost: Record<Resource, number>;
+  mobCost: Record<Resource, number>;
+  upkeepCost: Record<Resource, number>;
+  netBalance: Record<Resource, number>;
+  affordable: string;
 };
 
 type CountryAnalysis = {
@@ -148,7 +261,7 @@ function analyseCountry(countryId: string): CountryAnalysis {
     hoursToSimulate,
     beamWidth,
     topN,
-  });
+  }, countryPlan.status as "homeland" | "occupied");
 
   const ecoSummaries: CityEcoSummary[] = ecoResult.cityResults.map(city => ({
     cityId: city.cityId,
@@ -198,6 +311,14 @@ function analyseCountry(countryId: string): CountryAnalysis {
 
         const fp = computeFlipPoint(worstCity, requiredLevels, mobWindow, deadlineAbsHour, scenarioAbsHour, buildings);
 
+        const assignedCityIds = new Set(assignedCities.map(c => c.cityId));
+        const ecoIncome = countryEcoBudget(cityResults, assignedCityIds, fp);
+        const iCost = infraCostForChain(fp, numCities);
+        const mCost = mobCostForDemand(demand.unitId, doctrine, effectiveCount);
+        const uCost = upkeepCostForDemand(demand.unitId, doctrine, effectiveCount, Math.max(0, fp.mobilisationStartAbsHour - scenarioAbsHour));
+        const netBalance = zeroResourceMap();
+        for (const r of RESOURCE_KEYS) netBalance[r] = ecoIncome[r] - iCost[r] - mCost[r] - uCost[r];
+
         flipMatrixRows.push({
           unitId: demand.unitId,
           numCities,
@@ -214,6 +335,12 @@ function analyseCountry(countryId: string): CountryAnalysis {
           remainingChain: fp.remainingChain.map(s => `${s.buildingId} L${s.fromLevel}→${s.toLevel} (${s.buildTimeHours}h)`).join(" → "),
           mobStartDay: fmtHour(Math.max(fp.mobilisationStartAbsHour - scenarioAbsHour, 0)),
           feasible: fp.feasible ? "✓" : "✗ (flip before start)",
+          ecoIncome,
+          infraCost: iCost,
+          mobCost: mCost,
+          upkeepCost: uCost,
+          netBalance,
+          affordable: formatNetBalance(netBalance),
         });
       }
     }
@@ -259,6 +386,10 @@ function renderHtml(): string {
     beamWidth,
     maxRoLevel,
     maxCityCount,
+    "coalition starting balance": RESOURCE_KEYS
+      .filter(r => (scenario.starting_balance?.[r] ?? 0) > 0)
+      .map(r => `${r}:${(scenario.starting_balance?.[r] ?? 0).toLocaleString()}`)
+      .join(" "),
   }]));
 
   for (const analysis of analyses) {
@@ -281,19 +412,32 @@ function renderHtml(): string {
     }))));
 
     sections.push(`<h3>Flip-Point Matrix (per unit × city count × RO level)</h3>`);
-    sections.push(`<p>Each row: how early the city must stop eco-building to meet the mobilisation deadline.</p>`);
-    sections.push(htmlTable(analysis.flipMatrixRows.map(r => ({
-      unit: r.unitId,
-      cities: r.numCities,
-      "RO lv": r.roLevel,
-      "mob window": `${r.mobWindowHours}h (${r.mobWindowDays}d)`,
-      "flip day": r.flipDay,
-      "eco hrs": r.ecoHoursCaptured,
-      "eco bldgs at flip": r.ecoBuildingsAtFlip,
-      "remaining build": `${r.remainingBuildHours}h`,
-      "mob starts": r.mobStartDay,
-      feasible: r.feasible,
-    }))));
+    sections.push(`<p>Each row: how early the city must stop eco-building to meet the mobilisation deadline. ` +
+      `Income budget = country eco production only (coalition starting balance excluded — add separately). ` +
+      `Upkeep uses L1 rate for all hours (auto-upgrade steps not modelled).</p>`);
+    sections.push(htmlTable(analysis.flipMatrixRows.map(r => {
+      const fmt = (v: number) => v === 0 ? "0" : v > 0 ? `+${Math.round(v).toLocaleString()}` : `${Math.round(v).toLocaleString()}`;
+      const resourceSummary = (rec: Record<Resource, number>) =>
+        RESOURCE_KEYS.filter(k => Math.round(rec[k]) !== 0).map(k => `${k}:${Math.round(rec[k]).toLocaleString()}`).join(" ") || "—";
+      return {
+        unit: r.unitId,
+        cities: r.numCities,
+        "RO lv": r.roLevel,
+        "mob window": `${r.mobWindowHours}h (${r.mobWindowDays}d)`,
+        "flip day": r.flipDay,
+        "eco hrs": r.ecoHoursCaptured,
+        "eco bldgs at flip": r.ecoBuildingsAtFlip,
+        "remaining build": `${r.remainingBuildHours}h`,
+        "mob starts": r.mobStartDay,
+        feasible: r.feasible,
+        "eco income": resourceSummary(r.ecoIncome),
+        "infra cost": resourceSummary(r.infraCost),
+        "mob cost": resourceSummary(r.mobCost),
+        "upkeep cost": resourceSummary(r.upkeepCost),
+        "net balance": RESOURCE_KEYS.filter(k => Math.round(r.netBalance[k]) !== 0).map(k => `${k}:${fmt(r.netBalance[k])}`).join(" ") || "—",
+        affordable: r.affordable,
+      };
+    })));
   }
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>Coalition Force Plan — Flip-Point Analysis</title><style>

@@ -1,0 +1,125 @@
+schema_version: 1
+domain: coalition_force_plan
+name: PNTH V Road Jun 2026
+
+scenario: elite/antarctica
+truce_days: 28
+
+# Resources listed highest-to-lowest coalition priority.
+# Guides city selection order when the optimizer searches over which cities to flip.
+resource_priority: [electronics, rares, components, fuel, supplies]
+
+search:
+  top: 10
+
+countries:
+
+  # --- AIR ROLE 1: 50 SASF + 18 UAV + 50 missiles + 100 warheads ---
+  # Indonesia — european doctrine
+  # Jakarta: electronics pop6, air_base 1
+  indonesia:
+    status: homeland
+    demands:
+      - unitId: stealth_air_superiority_fighter
+        count: 50
+      - unitId: uav
+        count: 18
+      - unitId: conventional_cruise_missile
+        count: 50
+      - unitId: conventional_warhead
+        count: 100  # batch_size: 4 — 25 mobilisation slots; competes with SASF/UAV for city slots
+
+  # --- AIR ROLE 2: 50 SASF + 10 AWACS ---
+  # India — eastern doctrine
+  # New Delhi: electronics pop6, air_base 1
+  india:
+    status: homeland
+    demands:
+      - unitId: stealth_air_superiority_fighter
+        count: 50
+      - unitId: awacs
+        count: 10
+
+  # --- THEATRE DEFENCE: 40 TDS + 15 mobile radar + 15 commando ---
+  # Russia — eastern doctrine
+  # Moscow: components pop6, air_base 1
+  # Note: commando mobilises from provinces (not city slots); mercenary_outpost required in city build chain
+  russia:
+    status: homeland
+    demands:
+      - unitId: theatre_defense_system
+        count: 40
+      - unitId: mobile_radar
+        count: 15
+      - unitId: commando
+        count: 15
+        mobilisation_source: province
+
+  # --- MAAV ROLE: 100 MAAV each (european doctrine) ---
+
+  italy:
+    # european — Rome: supplies pop6, air_base 1
+    status: homeland
+    demands:
+      - unitId: mobile_anti_air_vehicle
+        count: 100
+
+  south_africa:
+    # european — Cape Town: rares pop6, air_base 1
+    status: homeland
+    demands:
+      - unitId: mobile_anti_air_vehicle
+        count: 100
+
+  madagascar:
+    # european — Antananarivo: rares pop4 (single city, occupied)
+    status: occupied
+    demands:
+      - unitId: mobile_anti_air_vehicle
+        count: 100
+
+  # --- MRL ROLE: 72 MRL + 27 MAAV + 1 Tank Veteran each ---
+
+  japan:
+    # western — Tokyo: supplies pop6, air_base 1
+    status: homeland
+    demands:
+      - unitId: multiple_rocket_launcher
+        count: 72
+      - unitId: mobile_anti_air_vehicle
+        count: 27
+      - unitId: tank_veteran
+        count: 1
+
+  pakistan:
+    # western — Islamabad: fuel pop6, air_base 1
+    status: homeland
+    demands:
+      - unitId: multiple_rocket_launcher
+        count: 72
+      - unitId: mobile_anti_air_vehicle
+        count: 27
+      - unitId: tank_veteran
+        count: 1
+
+  iran:
+    # eastern — Tehran: components pop5 (single city, occupied)
+    status: occupied
+    demands:
+      - unitId: multiple_rocket_launcher
+        count: 72
+      - unitId: mobile_anti_air_vehicle
+        count: 27
+      - unitId: tank_veteran
+        count: 1
+
+  # --- MECH INF + CRV: 40 Mechanized Infantry + 20 Combat Recon Vehicle ---
+  # Solomon Islands — european doctrine (single city, occupied)
+  # Honiara: electronics pop4
+  solomon_islands:
+    status: occupied
+    demands:
+      - unitId: mechanized_infantry
+        count: 40
+      - unitId: combat_recon_vehicle
+        count: 20

@@ -235,6 +235,7 @@ units:
     doctrine:
       - european
       - western
+      - eastern
     levels:
       "1":
         requirements:
@@ -251,6 +252,15 @@ units:
               rares: 2000
               cash: 3000
           western:
+            unlock_day: 5
+            time:
+              hours: 20
+              minutes: 15
+            cost:
+              supplies: 1750
+              rares: 2000
+              cash: 3000
+          eastern:
             unlock_day: 5
             time:
               hours: 20
@@ -276,6 +286,14 @@ units:
               electronics: 800
               cash: 1750
               manpower: 500
+          eastern:
+            time:
+              days: 1
+            cost:
+              supplies: 1500
+              electronics: 800
+              cash: 1750
+              manpower: 500
         daily_upkeep:
           european:
             cost:
@@ -284,6 +302,12 @@ units:
               cash: 125
               manpower: 30
           western:
+            cost:
+              supplies: 90
+              fuel: 30
+              cash: 125
+              manpower: 30
+          eastern:
             cost:
               supplies: 90
               fuel: 30
@@ -311,6 +335,14 @@ units:
               supplies: 1925
               rares: 2200
               cash: 3300
+          eastern:
+            unlock_day: 9
+            time:
+              hours: 21
+            cost:
+              supplies: 1925
+              rares: 2200
+              cash: 3300
         mobilisation:
           european:
             time:
@@ -330,6 +362,15 @@ units:
               electronics: 800
               cash: 1750
               manpower: 500
+          eastern:
+            time:
+              days: 1
+              hours: 1
+            cost:
+              supplies: 1500
+              electronics: 800
+              cash: 1750
+              manpower: 500
         daily_upkeep:
           european:
             cost:
@@ -338,6 +379,12 @@ units:
               cash: 135
               manpower: 40
           western:
+            cost:
+              supplies: 95
+              fuel: 40
+              cash: 135
+              manpower: 40
+          eastern:
             cost:
               supplies: 95
               fuel: 40
@@ -367,6 +414,15 @@ units:
               supplies: 2100
               rares: 2400
               cash: 3600
+          eastern:
+            unlock_day: 13
+            time:
+              hours: 23
+              minutes: 15
+            cost:
+              supplies: 2100
+              rares: 2400
+              cash: 3600
         mobilisation:
           european:
             time:
@@ -386,6 +442,15 @@ units:
               electronics: 800
               cash: 1750
               manpower: 500
+          eastern:
+            time:
+              days: 1
+              hours: 2
+            cost:
+              supplies: 1500
+              electronics: 800
+              cash: 1750
+              manpower: 500
         daily_upkeep:
           european:
             cost:
@@ -394,6 +459,12 @@ units:
               cash: 150
               manpower: 50
           western:
+            cost:
+              supplies: 100
+              fuel: 50
+              cash: 150
+              manpower: 50
+          eastern:
             cost:
               supplies: 100
               fuel: 50
@@ -423,6 +494,15 @@ units:
               supplies: 2275
               rares: 2600
               cash: 3900
+          eastern:
+            unlock_day: 17
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 2275
+              rares: 2600
+              cash: 3900
         mobilisation:
           european:
             time:
@@ -442,6 +522,15 @@ units:
               electronics: 1000
               cash: 2500
               manpower: 675
+          eastern:
+            time:
+              days: 1
+              hours: 4
+            cost:
+              supplies: 1750
+              electronics: 1000
+              cash: 2500
+              manpower: 675
         daily_upkeep:
           european:
             cost:
@@ -450,6 +539,12 @@ units:
               cash: 160
               manpower: 60
           western:
+            cost:
+              supplies: 110
+              fuel: 65
+              cash: 160
+              manpower: 60
+          eastern:
             cost:
               supplies: 110
               fuel: 65
@@ -481,6 +576,16 @@ units:
               supplies: 2450
               rares: 2800
               cash: 4200
+          eastern:
+            unlock_day: 27
+            time:
+              days: 1
+              hours: 6
+              minutes: 45
+            cost:
+              supplies: 2450
+              rares: 2800
+              cash: 4200
         mobilisation:
           european:
             time:
@@ -500,6 +605,15 @@ units:
               electronics: 1200
               cash: 3000
               manpower: 800
+          eastern:
+            time:
+              days: 1
+              hours: 6
+            cost:
+              supplies: 2250
+              electronics: 1200
+              cash: 3000
+              manpower: 800
         daily_upkeep:
           european:
             cost:
@@ -508,6 +622,12 @@ units:
               cash: 170
               manpower: 70
           western:
+            cost:
+              supplies: 120
+              fuel: 80
+              cash: 170
+              manpower: 70
+          eastern:
             cost:
               supplies: 120
               fuel: 80

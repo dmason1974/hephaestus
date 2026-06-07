@@ -194,7 +194,19 @@ The project's end goal is a **coalition-wide JIT force projection optimizer** fo
 
 ### Problem Decomposition: LHS vs RHS
 
-**LHS (Economy — largely solved):** Given N eco-build days, what resource flow does the coalition generate? The city and country beam search harnesses (`elite-ww3-city-beam-search.ts`, `elite-ww3-country-beam-search.ts`) answer this per country.
+**LHS (Economy — largely solved):** Given N eco-build days, what resource flow does the coalition generate?
+
+Two harnesses serve different purposes:
+- **`elite-ww3-city-beam-search.ts`** — per-city optimal eco path, each city optimised independently without reference to country balance. This is the correct tool for defining per-city optimal build orders. Run with `BS_CITY=all` to sweep all cities in one pass.
+- **`elite-ww3-country-beam-search.ts`** — global resource flow validation: given a shared country pool, what sequence of builds across all cities maximises total resource output? Answers a different question from the city search; useful for validating that a combined plan is self-funding. Produces three HTML files: ranking (`BSC_OUTPUT_FILE`), winning build plan (`BSC_PLAN_FILE`), and eco projection (`BSC_ECO_FILE`). Supports comma-separated `BSC_HQ_CITY` for multi-city HQ relocation candidates.
+
+**Eco planning workflow (settled architecture):**
+1. Run city beam search per city → per-city optimal `BuildAction[]` timeline
+2. Force projection determines flip point per city (latest moment city can switch from eco to military and still hit deadline)
+3. Trim eco plan at flip point; drop AI upgrades on resources the force plan doesn't consume
+4. Overlay all per-city plans on the shared country pool → affordability check (report shortfall by resource and hour)
+
+**Eco score weights** — beam search score weights should be derived from the force projection's resource footprint: `weight[resource] = Σ mobilisation_cost[resource] × count + Σ daily_upkeep[resource] × count × remaining_days`. This aligns eco optimization with what the force plan actually consumes. **Force projection code owns this computation; eco beam search consumes weights as input** (via env vars or config). This is not yet implemented — current weights are hardcoded (all resources = 1.0 except cash/manpower = 0.25).
 
 **RHS (Force Projection — flip-point analysis complete, income accounting pending):** Given a target force, work backwards to find the optimal **flip point** per city — the moment each city stops queuing eco buildings and starts queuing military infrastructure (air_base upgrades, secret_lab, recruiting_office). The flip point determines how much eco income is captured before the city goes dark for construction, and when mobilisation capacity comes online. The flip-point sweep harness (`coalition-force-plan.ts`) now answers this per country across the full search space (all RO levels, all cities).
 

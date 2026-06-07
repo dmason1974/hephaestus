@@ -77,6 +77,12 @@ export type CityEcoResult = {
   /** Hour at which the last eco build action completes (absolute) */
   lastEcoBuildCompletionAbsHour: number;
   endingBalances: Record<Resource, number>;
+  /**
+   * Per-hour resource production for this city under the best eco build sequence.
+   * Index 0 = scenario hour 0. Does NOT include starting balance or other cities.
+   * Length = hoursToSimulate.
+   */
+  hourlyCityProduction: Array<Record<Resource, number>>;
   top: CityEcoCandidate[];
   explored: number;
 };
@@ -103,14 +109,14 @@ function maxDefinedLevel(buildings: BuildingsFile, buildingId: EcoCandidateBuild
   return levels.length > 0 ? Math.max(...levels) : 0;
 }
 
-function buildCityState(country: Country, city: Country["cities"][number]): CityState {
+function buildCityState(country: Country, city: Country["cities"][number], countryStatus: "homeland" | "occupied"): CityState {
   return {
     cityId: `${country.country.id}:${city.id}`,
     countryId: country.country.id,
     capital: city.capital,
     resource: city.resource,
     startPop: city.population as StartingPopulation,
-    cityStatus: "homeland",
+    cityStatus: countryStatus,
     buildings: {
       army_base: 0,
       air_base: city.starting.air_base,
@@ -197,11 +203,12 @@ function beamSearchCity(
   buildings: BuildingsFile,
   baselineCountryHourly: Array<Record<Resource, number>>,
   config: CityEcoBeamConfig,
-  pool: EcoCandidateBuildingId[]
+  pool: EcoCandidateBuildingId[],
+  countryStatus: "homeland" | "occupied"
 ): CityEcoResult {
   const { hoursToSimulate, beamWidth, topN } = config;
   const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
-  const cityState = buildCityState(country, city);
+  const cityState = buildCityState(country, city, countryStatus);
   const startingLevels = startingLevelsForCity(city);
 
   const baselineCitySimulation = simulateBuildOrder({
@@ -498,6 +505,19 @@ function beamSearchCity(
     return levels;
   }
 
+  // Run one final simulation with the winning actions to get per-hour city production.
+  const bestSimulation = simulateBuildOrder({
+    cities: [cityState],
+    buildOrder: bestActions,
+    buildings,
+    scenario,
+    hoursToSimulate,
+  });
+  const hourlyCityProduction = Array.from({ length: hoursToSimulate }, (_, h) => {
+    const prod = bestSimulation.perHourAggregate[h]?.production;
+    return prod ? { ...prod } as Record<Resource, number> : zeroResources();
+  });
+
   return {
     cityId: cityState.cityId,
     cityName: city.name,
@@ -508,6 +528,7 @@ function beamSearchCity(
     buildingLevelsAtAbsHour,
     lastEcoBuildCompletionAbsHour,
     endingBalances: top[0]?.endingBalances ?? baseline.endingBalances,
+    hourlyCityProduction,
     top: top.map(r => ({
       sequenceLines: r.sequenceLines,
       timedOrderLines: r.timedOrderLines,
@@ -532,6 +553,7 @@ export function runCityEcoBeam(
   scenario: ScenarioFile,
   buildings: BuildingsFile,
   config: CityEcoBeamConfig,
+  countryStatus: "homeland" | "occupied" = "homeland",
   cityFilter?: string
 ): CountryEcoBeamResult {
   const { hoursToSimulate } = config;
@@ -556,7 +578,7 @@ export function runCityEcoBeam(
 
   const cityResults = selectedCities.map(city => {
     const pool = buildingPoolForCity(country, city, buildings, config.extraBuildingsForCity);
-    return beamSearchCity(country, city, scenario, buildings, baselineCountryHourly, config, pool);
+    return beamSearchCity(country, city, scenario, buildings, baselineCountryHourly, config, pool, countryStatus);
   });
 
   return { scenarioAbsHour, cityResults };

@@ -398,7 +398,7 @@ function evaluateTimedOrder(
       const startHourIndex = Math.floor(segment.startMinute / 60) - scenarioAbsHour;
       if (startHourIndex >= 0 && startHourIndex < hoursToSimulate) {
         for (const resource of RESOURCE_KEYS) {
-          adjustments[startHourIndex][resource] -= cost[resource];
+          adjustments[startHourIndex][resource] -= (cost[resource] ?? 0);
         }
       }
 
@@ -527,7 +527,7 @@ function beamSearchCity(city: typeof country.cities[number]) {
 
       for (let hour = minStartHour; hour < hoursToSimulate; hour++) {
         const available = currentEvaluation.balancesByHour[hour] ?? zeroResources();
-        if (RESOURCE_KEYS.every(resource => available[resource] >= cost[resource])) {
+        if (RESOURCE_KEYS.every(resource => available[resource] >= (cost[resource] ?? 0))) {
           scheduledStartHour = hour;
           break;
         }

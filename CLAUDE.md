@@ -238,7 +238,7 @@ When a city is building air_base L5 (32h) and then secret_weapons_lab (25h) in s
 
 ---
 
-## Antarctica Elite Scenario — Coalition Force Plan
+## Antarctica Elite Scenario — PNTH Coalition Force Plan
 
 **Scenario parameters:**
 - `truce_length_days: 28`
@@ -246,24 +246,67 @@ When a city is building air_base L5 (32h) and then secret_weapons_lab (25h) in s
 - Game starts day 1, hour 15
 - Speed: `4x`
 
-**Coalition countries (12 total, 10 active players):**
-```
-argentina (western), australia (western), indonesia (european),
-italy (european), japan (western), new_zealand (european),
-norway (western), pakistan (western), russia (eastern),
-south_africa (european), ukraine (eastern), united_kingdom (european)
+**Active coalition — PNTH V Road Jun 2026** (`data/scenarios/elite/antarctica/plans/pnth_v_road_2026_jun.yml`):
+
+| Country | Doctrine | Status | Role |
+|---|---|---|---|
+| Indonesia | european | homeland | Air 1: 50 SASF + 18 UAV + 50 cruise missiles + 100 warheads |
+| India | eastern | homeland | Air 2: 50 SASF + 10 AWACS |
+| Russia | eastern | homeland | TDS: 40 TDS + 15 mobile radar + 15 commando (province) |
+| Italy | european | homeland | MAAV: 100 MAAV |
+| South Africa | european | homeland | MAAV: 100 MAAV |
+| Madagascar | european | occupied | MAAV: 100 MAAV |
+| Japan | western | homeland | MRL: 72 MRL + 27 MAAV + 1 Tank Veteran |
+| Pakistan | western | homeland | MRL: 72 MRL + 27 MAAV + 1 Tank Veteran |
+| Iran | eastern | occupied | MRL: 72 MRL + 27 MAAV + 1 Tank Veteran |
+| Solomon Islands | european | occupied | Mech Inf: 40 Mech Inf + 20 CRV |
+
+Resources are **shared across all coalition countries**.
+
+### Coalition Force Plan YAML Schema (`domain: coalition_force_plan`)
+
+Plan files live in `data/scenarios/<tier>/<scenario>/plans/`. Fields:
+
+```yaml
+schema_version: 1
+domain: coalition_force_plan
+name: <human-readable name>
+scenario: elite/antarctica
+truce_days: 28
+resource_priority: [electronics, rares, components, fuel, supplies]  # coalition-level, highest priority first
+search:
+  top: 10
+countries:
+  <country_id>:
+    status: homeland | occupied   # affects morale/production yield for all cities
+    demands:
+      - unitId: <unit_id>
+        count: <n>
+        mobilisation_source: province  # optional — commando and other province-mobilised units
 ```
 
-**Target force composition (across coalition):**
-- 3 countries: MRL + MAAV builds
-- 1 country: SASF + UAV (50 stealth ASF, AWACS support)
-- 1 country: SASF + AWACS
-- 3 countries: MAAV build only
-- 1 country: Mech Inf + Combat Recon Vehicle
-- 1 country: Theatre Defense System
-- 1 air-build country: cruise missile warheads alongside air units
+**Key design decisions:**
+- No `city_roles` field — city assignment is **optimizer output**, not YAML input. All cities are candidates for any role the optimizer needs; none are locked as eco.
+- `resource_priority` is coalition-level (not split by queue type). Guides which cities to prefer flipping last (high-priority resource cities lose more eco income when flipped).
+- `mobilisation_source: province` marks units that mobilise from provinces rather than city slots (commando). These don't compete for city mobilisation capacity and don't require recruiting offices.
+- Warheads (`conventional_warhead`) have `batch_size: 4` — each mobilisation slot produces 4 units. They compete for the same city mobilisation slot as all other units. The slot is per-city, not per-building.
+- `mercenary_outpost` must be built in the city build queue as a prerequisite for commando research/mobilisation.
 
-Resources are **shared across all coalition countries**. Eco-specialist countries (particularly Russia and Ukraine with eastern doctrine) contribute resource generation throughout the 28 days while military-production countries flip their cities to unit production.
+### Mobilisation Model
+
+**Every city has one mobilisation slot**, regardless of buildings. Buildings affect:
+- **Recruiting office**: speeds up mobilisation (reduces time per unit)
+- **Prerequisite buildings** (secret_weapons_lab, mercenary_outpost, army_base etc.): unlock research/mobilisation for specific unit types
+
+RO L1 in every city is conventional practice (increases manpower income + speeds mobilisation from day 1). Whether it's strictly necessary in all cities is a question the optimizer should evaluate.
+
+### Objective Function
+
+```
+Minimise: InfrastructureCost + MobilisationCost + UpkeepCost
+```
+
+Minimising cost maximises force projection: every resource saved on upkeep, over-built infrastructure, or surplus eco that can't be spent → more resources converted to units. Over-producing eco infrastructure when output exceeds coalition absorption capacity is wasteful (build queue time better spent on military infra).
 
 ---
 
@@ -287,7 +330,7 @@ Invoke via YAML force plan file or env vars (`PLAN_COUNTRY`, `PLAN_DEMANDS`, `PL
 | **`arms_industry` level fixed at L1** | ✅ Fixed | `armsIndustryLevel` is now a search dimension alongside RO level and city count; default max is L1 (opt-in via `PLAN_MAX_AI_LEVEL` / `search.max_arms_industry_level`). Income from AI upgrades is now correctly modelled: `evaluateChoiceSet` runs a combined `simulateBuildOrder` over all cities with the force-plan build order and uses `dynamicHourlyIncomeFromSimulation`, matching the eco support path. Eco support candidate pruning also added: `arms_industry`/`air_base`/`naval_base` are only explored when they generate a resource currently in deficit; `underground_bunkers` and `relocate_headquarters` remain as candidates always (morale → production yield) |
 | **Prerequisite research chains not threaded** | ✅ Fixed | `planMobilizationBuild` now passes mobilisation-start deadlines to the JIT scheduler; the dependency graph (`expandTargetsWithUnitRequirements` + task successor links) propagates constraints so ASF L1–L4 is scheduled before SASF L1 and completes before mobilisation opens |
 | **No coalition shared resource pool** | ⬜ Open | Single-country only; no cross-country resource aggregation |
-| **Flip point not modelled** | ⬜ Open | City transitions from eco to military mode implicitly on day 1; there is no search over when to make that transition |
+| **Flip point not modelled** | ✅ Solved (eco harness) | `src/engine/eco/flip-point-solver.ts` computes the latest safe flip point per city via iterative convergence; `src/harness/smoke/coalition-force-plan.ts` sweeps (city count × RO level) and reports eco hours captured per configuration |
 | **Cross-queue city sharing not modelled** | ⬜ Open | A city assigned to SASF production and one assigned to AWACS are fully independent; the "switch mid-plan" pattern (AWACS during dead window → SASF after) is not found |
 
 ### Implementation Path
@@ -304,52 +347,60 @@ Invoke via YAML force plan file or env vars (`PLAN_COUNTRY`, `PLAN_DEMANDS`, `PL
 
 ### The Core Idea
 
-The current harness always starts the military build chain on day 1, which means every military city sacrifices its entire eco potential. In reality, the optimal plan looks like this for each city:
+The current harness always starts the military build chain on day 1, sacrificing all eco potential. The optimal plan has each city in eco mode until the latest possible moment, then flipping to military:
 
-1. **Eco phase**: city builds whatever the beam search says is optimal (arms_industry, air_base upgrades for production bonus, etc.)
-2. **Flip point**: city switches from eco mode to military mode
-3. **Military phase**: city builds the fixed infrastructure chain (air_base to required level → secret_weapons_lab → recruiting_office)
+1. **Eco phase**: city runs beam-search optimal build order (arms_industry, air_base for production bonus, etc.)
+2. **Flip point**: city switches from eco to military mode — derived, not searched
+3. **Military phase**: city builds the remaining infra chain from where the eco phase left off
 4. **Mobilisation phase**: units queue as soon as infrastructure is ready
 
-The flip point is **not** a free search variable — it is **derived** from the cheapest mobilisation footprint:
+The flip point is derived iteratively (not searched):
 
 ```
-flipPoint = deadline − requiredMobilisationWindow − infraBuildTime
+flipPoint = deadline − requiredMobilisationWindow − remainingInfraTime
 ```
 
-Where:
-- `requiredMobilisationWindow` = time to produce the required units given cityCount × RO level (already computed by `planMobilizationBuild`)
-- `infraBuildTime` = time to build the full military chain from the city's **starting** building levels (conservative: ignores eco-phase partial progress on shared buildings like air_base; slightly understates eco income but avoids circular dependency)
+Where `remainingInfraTime` is the delta between what the eco phase built and what the military chain requires. This is computed from the eco beam search's `BuildAction[]` timeline — if eco built `air_base L1→L2`, the military chain only needs `L2→L5`. Solved iteratively (1–2 rounds) to resolve the circular dependency.
+
+### Key Design Decisions (settled)
+
+- **No locked eco cities** — all cities are candidates for any military role. The optimizer assigns cities based on what the force plan requires. No city is protected as eco-only.
+- **City assignment is optimizer output** — the YAML specifies demands per country, not which cities produce which units. The optimizer finds the cheapest city subset to flip.
+- **Beam search extraction required** — `elite-ww3-city-beam-search.ts` is a standalone script with no exports. Must be extracted into `src/engine/eco/city-eco-beam.ts` as a callable function before chunk 5 can run.
+- **Single country first** — build for one country, validate, then extend to coalition.
+- **Shortfall reporting** — primary output is per-resource shortfall, not auto-patching. Eco support search opt-in via `PLAN_ECO_SUPPORT=true`.
 
 ### Two-Pass Algorithm
 
-**Pass 1 — Eco potential (pre-computed, reused across search iterations):**
-- Run city beam search for every city in scope → store per-city optimal eco build timeline
-- For each military city at a given flip point, truncate that city's timeline at the flip point → eco income and buildings completed before the city goes dark
+**Pass 1 — Eco pre-compute (per city, reused across search iterations):**
+- Run city beam search for all country cities → `BuildAction[]` per city
+- Store building levels achieved at each hour — needed to compute remaining infra delta at any flip point
 
-**Pass 2 — Force footprint search (existing search loop, augmented):**
-- For each (cityCount × RO × AI) combination:
-  1. Derive the flip point per military city (backward from deadline)
-  2. If flip point < game start: combination is infeasible (chain too long even at t=0)
-  3. Compute resource budget = truncated eco income (military cities) + full eco income (eco cities) + starting balance
-  4. Subtract infrastructure cost + mobilisation cost + upkeep
-  5. Report net by resource — positive means self-funding; negative is the shortfall
+**Pass 2 — Force footprint search:**
+- For each candidate city subset and RO level:
+  1. Compute `remainingInfraTime` from eco phase delta
+  2. Derive `flipPoint` = deadline − mobilisationWindow − remainingInfraTime
+  3. If flipPoint < game start: infeasible
+  4. Income budget = eco income up to flipPoint (military cities) + full eco income (non-military cities) + starting balance
+  5. Subtract infra cost + mobilisation cost + upkeep
+  6. Report net shortfall by resource
 
-### Shortfall Reporting vs Eco Support Search
+### New Harness
 
-Chunk 5 prioritises **shortfall visibility** over auto-patching. Instead of silently running the eco support beam search when unaffordable, the planner reports the gap by resource. The eco support search remains available as a secondary step but the primary output is: "this footprint needs X more components and Y more cash than the plan generates — here is where that gap comes from."
+New file: `src/harness/smoke/coalition-force-plan.ts`
+- Reads `coalition_force_plan` YAML (e.g. `pnth_v_road_2026_jun.yml`)
+- For target country: runs eco beam search for all cities
+- Runs flip-point force footprint search
+- Outputs: per-city build plan + country resource summary + (eventually) coalition aggregate
 
-### Design Decision: Conservative Flip Point
+### What Needs Building
 
-The eco phase may partially build shared buildings (e.g. air_base to L2 for production bonus). The military chain would then only need to continue from L2 to L5, making it shorter and pushing the flip point later. Modelling this correctly creates a circular dependency (flip point → eco phase outcome → infra build time → flip point). For chunk 5, we use the **conservative** approach: infra build time is always measured from the city's **starting** building levels, not from where the eco phase leaves them. This slightly understates eco income and slightly overstates infra build time, but it is unambiguous and correct to implement. The gap can be revisited in a follow-up.
-
-### What Changes in `force-build-plan.ts`
-
-- Pre-compute beam search results for all country cities at startup (reuse `elite-ww3-city-beam-search` logic)
-- Add `computeFlipPoint(city, requiredMobilisationWindow)` helper — backwards from deadline
-- Replace `baselineCountryHourly` in the resource budget with: sum of truncated beam-search income (military cities up to flip point) + full beam-search income (eco cities)
-- Add per-resource shortfall output alongside the existing affordability table
-- Eco support search becomes opt-in (`PLAN_ECO_SUPPORT=true`) rather than automatic
+1. ✅ **Extract city beam search** → `src/engine/eco/city-eco-beam.ts` (exported callable `runCityEcoBeam`); includes `buildingLevelsAtAbsHour` per city
+2. ✅ **Parse `coalition_force_plan` YAML** → `src/schemas/coalition-force-plan-schema.ts` + `src/scenarios/io/load-coalition-plan.ts`
+3. ✅ **Flip point solver** → `src/engine/eco/flip-point-solver.ts`; iterative convergence with `buildingLevelsAtAbsHour`; handles batch_size (warheads), RO speed bonuses, per-city remaining chain
+4. ✅ **New harness** → `src/harness/smoke/coalition-force-plan.ts`; sweeps city count × RO level for each demand; outputs flip-point matrix + eco beam results per city; run via `npm run smoke:coalition-force-plan`
+5. **`mercenary_outpost` in build planner** → same pattern as `secret_weapons_lab`: detect from unit YAML requirements, insert in city infra chain
+6. **Province mobilisation track** → commando (and future province units) excluded from city slot capacity; `mobilisation_source: province` in demand YAML (schema done, harness already skips province demands)
 
 ---
 
@@ -359,18 +410,20 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 
 | Unit | Status | Notes |
 |---|---|---|
-| `stealth_air_superiority_fighter` | ✓ Complete | european + western; L1 only (max level); requires `air_superiority_fighter level 4` + `air_base level 5` + `secret_weapons_lab level 1` |
-| `air_superiority_fighter` | ✓ Complete | european + western; 7 levels |
+| `stealth_air_superiority_fighter` | ✓ Complete | european + western + **eastern** (added); L1 only; requires `air_superiority_fighter level 4` + `air_base level 5` + `secret_weapons_lab level 1` |
+| `air_superiority_fighter` | ✓ Complete | european + eastern + western; 7 levels |
 | `awacs` | ✓ Complete | all doctrines; 6 levels |
 | `uav` | ✓ Complete | all doctrines; 6 levels |
 | `fixed_wing_veteran` | ✓ Complete | european + western; 7 levels |
 | `theatre_defense_system` | ✓ Complete | western + european + eastern; 6 levels; mob/upkeep verified from screenshots; eastern mob/upkeep pending screenshots (unlock days derived: W=5,7,11,13,20,25 / Eu=6,8,12,15,20,28 / Ea=7,10,14,17,20,28) |
-| `mobile_anti_air_vehicle` | ✓ Flat format | Western doctrine; 7 levels |
-| `multiple_rocket_launcher` | ✓ Flat format | Western doctrine; 5 levels |
-| `mechanized_infantry` | ⚠️ Ported | european; 6 levels; values ported from standard — needs screenshot verification |
-| `combat_recon_vehicle` | ⚠️ Stub | Structural placeholder only — no cost/time data; needs screenshots |
-| `conventional_cruise_missile` | ✓ Present | missile_units |
-| `conventional_warhead`, `chemical_warhead`, `nuclear_warhead` | ✓ Present | missile_units |
+| `mobile_anti_air_vehicle` | ✓ Flat format | all doctrines (western + european + eastern); 7 levels |
+| `multiple_rocket_launcher` | ✓ Complete | european + western + **eastern** (added); 5 levels |
+| `mechanized_infantry` | ✓ All doctrines | western + european + eastern; 6 levels; values ported from standard — needs screenshot verification |
+| `combat_recon_vehicle` | ✓ All doctrines | western + european + eastern; multi-level; armoured_units |
+| `mobile_radar` | ✓ Present | all doctrines; support_units |
+| `commando` | ✓ Present | all doctrines; seasonal_units; requires `mercenary_outpost level 1` + `special_forces level 1`; **province-mobilised** (not city slot) |
+| `conventional_cruise_missile` | ✓ Present | all doctrines; missile_units; 0 mobilisation cost (launcher platform) |
+| `conventional_warhead`, `chemical_warhead`, `nuclear_warhead` | ✓ Present | all doctrines; missile_units; `batch_size: 4` for warhead; uses city mobilisation slot |
 | `airborne_infantry`, `motorized_infantry`, `special_forces` | ✓ Present | infantry_units |
 | `tank_veteran` | ✓ Complete | all doctrines; multi-level; armoured_units |
 

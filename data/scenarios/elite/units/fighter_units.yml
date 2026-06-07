@@ -1282,6 +1282,7 @@ units:
     doctrine:
       - european
       - western
+      - eastern
     levels:
       "1":
         requirements:
@@ -1300,6 +1301,15 @@ units:
               rares: 4400
               cash: 8000
           western:
+            unlock_day: 16
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 3000
+              rares: 4400
+              cash: 8000
+          eastern:
             unlock_day: 16
             time:
               days: 1
@@ -1329,6 +1339,16 @@ units:
               rares: 450
               electronics: 1600
               cash: 7000
+          eastern:
+            time:
+              days: 1
+              hours: 12
+            cost:
+              components: 1500
+              manpower: 550
+              rares: 450
+              electronics: 1600
+              cash: 7000
         daily_upkeep:
           european:
             cost:
@@ -1337,6 +1357,12 @@ units:
               electronics: 75
               cash: 260
           western:
+            cost:
+              manpower: 70
+              fuel: 70
+              electronics: 75
+              cash: 260
+          eastern:
             cost:
               manpower: 70
               fuel: 70

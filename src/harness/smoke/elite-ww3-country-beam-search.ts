@@ -59,6 +59,7 @@ type RankedSequence = {
   sequenceKey: string;
   sequenceLines: string[];
   timedOrderLines: string[];
+  timedOrder: BuildAction[];
   deltas: Record<Resource, number>;
   endingBalances: Record<Resource, number>;
   score: number;
@@ -77,10 +78,17 @@ const daysToSimulate = parsePositiveInt(process.env.BSC_DAYS, 28);
 const progressEveryDepth = parsePositiveInt(process.env.BSC_PROGRESS_EVERY_DEPTH, 1);
 const includeRelocateHeadquarters =
   process.env.BSC_INCLUDE_HQ === "1" || process.env.BSC_INCLUDE_HQ === "true";
-const hqCityId = process.env.BSC_HQ_CITY ?? "medan";
+const hqCityIds = new Set(
+  (process.env.BSC_HQ_CITY ?? "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean)
+);
 const outputMode = (process.env.BSC_OUTPUT ?? "terminal").trim().toLowerCase();
 const isMarkdownOutput = outputMode === "markdown" || outputMode === "md" || outputMode === "notion";
 const outputFilePath = path.resolve(process.env.BSC_OUTPUT_FILE?.trim() || "tmp/beam-country-output.html");
+const buildPlanFilePath = path.resolve(process.env.BSC_PLAN_FILE?.trim() || `tmp/${countryId}-build-plan.html`);
+const ecoProjFilePath = path.resolve(process.env.BSC_ECO_FILE?.trim() || `tmp/${countryId}-eco-projection.html`);
 const hoursToSimulate = daysToSimulate * 24;
 
 const scenario = loadScenarioFile(scenarioId);
@@ -152,7 +160,7 @@ function buildingPoolForCity(city: typeof country.cities[number]): CandidateBuil
   if (city.starting.naval_base >= 1) {
     pool.push("naval_base");
   }
-  if (includeRelocateHeadquarters && city.id === hqCityId) {
+  if (includeRelocateHeadquarters && hqCityIds.has(city.id)) {
     pool.push("relocate_headquarters");
   }
   return pool;
@@ -295,7 +303,7 @@ ${htmlTable([{
   beamWidth,
   exploredFeasibleSequences: result.explored,
   includeRelocateHeadquarters,
-  hqCityId: includeRelocateHeadquarters ? hqCityId : "",
+  hqCityIds: includeRelocateHeadquarters ? [...hqCityIds].join(", ") : "",
   ranking: "balanced economy proxy",
 }])}
 <h2>Assumptions</h2>
@@ -306,7 +314,7 @@ ${htmlList([
   "Ranking uses a balanced economy proxy.",
   "Weights: supplies 1, components 1, fuel 1, rares 1, electronics 1, cash 0.25, manpower 0.25.",
   includeRelocateHeadquarters
-    ? `relocate_headquarters is allowed only for ${hqCityId}.`
+    ? `relocate_headquarters is allowed for: ${[...hqCityIds].join(", ")}.`
     : "relocate_headquarters is excluded.",
 ])}
 <h2>Top Sequences</h2>
@@ -331,6 +339,158 @@ function writeHtmlArtifact() {
   fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
   fs.writeFileSync(outputFilePath, rendered, "utf8");
   return outputFilePath;
+}
+
+function formatGameTime(relHour: number): string {
+  const absHour = scenario.start.hour + relHour;
+  const day = scenario.start.day + Math.floor(absHour / 24);
+  const hour = absHour % 24;
+  return `Day ${day}, ${String(hour).padStart(2, "0")}:00`;
+}
+
+function renderBuildPlanHtml(topPlan: RankedSequence): string {
+  const segments = scheduleBuildSegments({
+    cities: cities.map(city => ({
+      cityId: city.cityId,
+      countryId: city.countryId,
+      capital: city.capital,
+      cityStatus: city.cityStatus,
+      moraleParams: city.moraleParams,
+      buildings: city.buildings,
+    })),
+    buildOrder: topPlan.timedOrder,
+    buildings,
+    scenario,
+  });
+
+  const allSegments: Array<{
+    city: string;
+    building: string;
+    level: number;
+    startHour: number;
+    endHour: number;
+  }> = [];
+  for (const [cityId, buildingSegments] of segments.entries()) {
+    const cityName = cityById.get(cityId)?.name ?? cityId;
+    for (const [buildingId, segs] of Object.entries(buildingSegments) as Array<[string, any[]]>) {
+      for (const seg of segs) {
+        allSegments.push({
+          city: cityName,
+          building: buildingId,
+          level: seg.toLevel,
+          startHour: Math.round((seg.startMinute / 60) - scenarioAbsHour),
+          endHour: Math.round((seg.endMinute / 60) - scenarioAbsHour),
+        });
+      }
+    }
+  }
+  allSegments.sort((a, b) => a.startHour - b.startHour || a.city.localeCompare(b.city));
+
+  const byCityRows: Array<Record<string, unknown>> = [];
+  for (const city of country.cities) {
+    const cityId = `${country.country.id}:${city.id}`;
+    const citySegs = allSegments.filter(s => s.city === city.name);
+    if (citySegs.length === 0) {
+      byCityRows.push({ city: city.name, queue: "(no builds)" });
+    } else {
+      byCityRows.push({
+        city: city.name,
+        queue: citySegs.map(s => `L${s.level} ${s.building} — ${formatGameTime(s.startHour)} → ${formatGameTime(s.endHour)}`).join("\n"),
+      });
+    }
+  }
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Build Plan — ${country.country.name}</title><style>
+body{font-family:ui-sans-serif,system-ui,sans-serif;line-height:1.4;padding:24px;max-width:1400px;margin:0 auto}
+table{border-collapse:collapse;width:100%;margin:12px 0 24px}
+th,td{border:1px solid #d0d7de;padding:8px 10px;vertical-align:top;text-align:left}
+th{background:#f6f8fa}
+h1,h2{margin:20px 0 8px}
+</style></head><body>
+<h1>Build Plan — ${escapeHtml(country.country.name)}</h1>
+${htmlTable([{
+  scenario: `${scenario.id} (${scenario.speed})`,
+  country: country.country.name,
+  doctrine: country.country.doctrine,
+  windowDays: daysToSimulate,
+  rank: 1,
+  score: topPlan.score,
+}])}
+<h2>Chronological Build Order</h2>
+${htmlTable(allSegments.map((s, i) => ({
+  step: i + 1,
+  city: s.city,
+  building: s.building,
+  level: s.level,
+  starts: formatGameTime(s.startHour),
+  completes: formatGameTime(s.endHour),
+  duration_h: s.endHour - s.startHour,
+})))}
+<h2>Per-City Queues</h2>
+${htmlTable(byCityRows)}
+</body></html>`;
+}
+
+function renderEcoProjectionHtml(topPlan: RankedSequence): string {
+  const planEval = evaluateTimedOrder(topPlan.timedOrder);
+  const DAY_HOURS = Array.from({ length: daysToSimulate + 1 }, (_, i) => i * 24);
+
+  const rows = DAY_HOURS.map(h => {
+    const planBal = planEval.balancesByHour[h] ?? planEval.endingBalances;
+    const baseBal = baseline.balancesByHour[h] ?? baseline.endingBalances;
+    return {
+      day: h === 0 ? "Start" : `Day ${Math.floor(h / 24)}`,
+      supplies: Math.round(planBal.supplies),
+      components: Math.round(planBal.components),
+      fuel: Math.round(planBal.fuel),
+      rares: Math.round(planBal.rares),
+      electronics: Math.round(planBal.electronics),
+      cash: Math.round(planBal.cash),
+      manpower: Math.round(planBal.manpower),
+      vs_baseline_score: Math.round(
+        RESOURCE_KEYS.reduce((sum, r) => sum + ((planBal[r] - baseBal[r]) * SCORE_WEIGHTS[r]), 0)
+      ),
+    };
+  });
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Eco Projection — ${country.country.name}</title><style>
+body{font-family:ui-sans-serif,system-ui,sans-serif;line-height:1.4;padding:24px;max-width:1400px;margin:0 auto}
+table{border-collapse:collapse;width:100%;margin:12px 0 24px}
+th,td{border:1px solid #d0d7de;padding:8px 10px;vertical-align:top;text-align:right}
+th{background:#f6f8fa;text-align:left}
+td:first-child{text-align:left}
+h1,h2{margin:20px 0 8px}
+</style></head><body>
+<h1>Eco Projection — ${escapeHtml(country.country.name)}</h1>
+${htmlTable([{
+  scenario: `${scenario.id} (${scenario.speed})`,
+  country: country.country.name,
+  doctrine: country.country.doctrine,
+  windowDays: daysToSimulate,
+  plan_score: topPlan.score,
+  note: "Cumulative balance at end of each day under winning build plan",
+}])}
+<h2>Daily Resource Balance (Winning Plan)</h2>
+${htmlTable(rows)}
+<h2>Winning Build Sequence (reference)</h2>
+${htmlTable([{ sequence: topPlan.sequenceLines.join("\n") }])}
+</body></html>`;
+}
+
+function writeBuildPlanArtifact(topPlan: RankedSequence) {
+  if (!topPlan) return null;
+  const rendered = renderBuildPlanHtml(topPlan);
+  fs.mkdirSync(path.dirname(buildPlanFilePath), { recursive: true });
+  fs.writeFileSync(buildPlanFilePath, rendered, "utf8");
+  return buildPlanFilePath;
+}
+
+function writeEcoProjArtifact(topPlan: RankedSequence) {
+  if (!topPlan) return null;
+  const rendered = renderEcoProjectionHtml(topPlan);
+  fs.mkdirSync(path.dirname(ecoProjFilePath), { recursive: true });
+  fs.writeFileSync(ecoProjFilePath, rendered, "utf8");
+  return ecoProjFilePath;
 }
 
 function hourlyDeltasFromCountryTable(table: ReturnType<typeof buildCountryHourlyResourceBalanceTable>) {
@@ -404,7 +564,7 @@ function evaluateTimedOrder(timedOrder: BuildAction[]): Evaluation {
         const startHourIndex = Math.floor(segment.startMinute / 60) - scenarioAbsHour;
         if (startHourIndex >= 0 && startHourIndex < hoursToSimulate) {
           for (const resource of RESOURCE_KEYS) {
-            adjustments[startHourIndex][resource] -= cost[resource];
+            adjustments[startHourIndex][resource] -= cost[resource] ?? 0;
           }
         }
 
@@ -473,6 +633,7 @@ function rank(tokens: CountryTokenAction[], evaluation: Evaluation): RankedSeque
     sequenceKey: sequenceKey(tokens),
     sequenceLines: formatSequenceLines(tokens),
     timedOrderLines: formatTimedOrderLines(evaluation.timedOrder),
+    timedOrder: evaluation.timedOrder,
     deltas,
     endingBalances: evaluation.endingBalances,
     score,
@@ -515,7 +676,7 @@ function countryBeamSearch() {
       let scheduledStartHour: number | undefined;
       for (let hour = minStartHour; hour < hoursToSimulate; hour++) {
         const available = currentEvaluation.balancesByHour[hour] ?? zeroResources();
-        if (RESOURCE_KEYS.every(resource => available[resource] >= cost[resource])) {
+        if (RESOURCE_KEYS.every(resource => available[resource] >= (cost[resource] ?? 0))) {
           scheduledStartHour = hour;
           break;
         }
@@ -630,7 +791,7 @@ function printMarkdownOutput() {
     beamWidth,
     exploredFeasibleSequences: result.explored,
     includeRelocateHeadquarters,
-    hqCityId: includeRelocateHeadquarters ? hqCityId : "",
+    hqCityIds: includeRelocateHeadquarters ? [...hqCityIds].join(", ") : "",
     ranking: "balanced economy proxy",
   }]);
   console.log("");
@@ -643,7 +804,7 @@ function printMarkdownOutput() {
     "Ranking uses a balanced economy proxy.",
     "Weights: supplies 1, components 1, fuel 1, rares 1, electronics 1, cash 0.25, manpower 0.25.",
     includeRelocateHeadquarters
-      ? `relocate_headquarters is allowed only for ${hqCityId}.`
+      ? `relocate_headquarters is allowed for: ${[...hqCityIds].join(", ")}.`
       : "relocate_headquarters is excluded.",
   ]);
   console.log("");
@@ -667,10 +828,15 @@ function printMarkdownOutput() {
 }
 
 const htmlArtifactPath = writeHtmlArtifact();
+const topPlan = result.top[0];
+const buildPlanPath = topPlan ? writeBuildPlanArtifact(topPlan) : null;
+const ecoProjPath = topPlan ? writeEcoProjArtifact(topPlan) : null;
 
 if (isMarkdownOutput) {
   printMarkdownOutput();
   console.error(`[beam-country] html written to ${htmlArtifactPath}`);
+  if (buildPlanPath) console.error(`[beam-country] build plan written to ${buildPlanPath}`);
+  if (ecoProjPath) console.error(`[beam-country] eco projection written to ${ecoProjPath}`);
 } else {
   console.log("Elite WW3 country beam search");
   console.log(`Scenario: ${scenario.id} (${scenario.speed})`);
@@ -685,7 +851,7 @@ if (isMarkdownOutput) {
   console.log("- weights: supplies 1, components 1, fuel 1, rares 1, electronics 1, cash 0.25, manpower 0.25");
   console.log(
     includeRelocateHeadquarters
-      ? `- relocate_headquarters is allowed only for ${hqCityId}`
+      ? `- relocate_headquarters is allowed for: ${[...hqCityIds].join(", ")}`
       : "- relocate_headquarters is excluded"
   );
 
@@ -704,4 +870,6 @@ if (isMarkdownOutput) {
     console.log("");
   });
   console.error(`[beam-country] html written to ${htmlArtifactPath}`);
+  if (buildPlanPath) console.error(`[beam-country] build plan written to ${buildPlanPath}`);
+  if (ecoProjPath) console.error(`[beam-country] eco projection written to ${ecoProjPath}`);
 }

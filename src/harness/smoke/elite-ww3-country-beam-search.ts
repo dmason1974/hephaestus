@@ -513,6 +513,7 @@ const baselineCountryTable = buildCountryHourlyResourceBalanceTable(
   {
     buildingsFile: buildings,
     scenario,
+    startingBalances: scenario.starting_balance,
     startAbsoluteHour: scenarioAbsHour,
   }
 );

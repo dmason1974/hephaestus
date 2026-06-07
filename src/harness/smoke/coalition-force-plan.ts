@@ -247,6 +247,7 @@ type CountryAnalysis = {
   demands: Demand[];
   ecoSummaries: CityEcoSummary[];
   flipMatrixRows: FlipMatrix[];
+  cityResults: CityEcoResult[];
 };
 
 function analyseCountry(countryId: string): CountryAnalysis {
@@ -354,6 +355,173 @@ function analyseCountry(countryId: string): CountryAnalysis {
     demands: countryPlan.demands,
     ecoSummaries,
     flipMatrixRows,
+    cityResults,
+  };
+}
+
+// ── Coalition aggregation ─────────────────────────────────────────────────────
+
+type SelectedConfig = {
+  demand: Demand;
+  row: FlipMatrix | null;
+  skipped: boolean; // launcher platform or province demand
+};
+
+type CountryCoalitionRow = {
+  countryId: string;
+  countryName: string;
+  doctrine: string;
+  selectedConfigs: SelectedConfig[];
+  ecoIncome: Record<Resource, number>;
+  infraCost: Record<Resource, number>;
+  mobCost: Record<Resource, number>;
+  upkeepCost: Record<Resource, number>;
+  netBalance: Record<Resource, number>;
+  hasInfeasible: boolean;
+};
+
+type CoalitionSummary = {
+  countries: CountryCoalitionRow[];
+  totalEcoIncome: Record<Resource, number>;
+  totalInfraCost: Record<Resource, number>;
+  totalMobCost: Record<Resource, number>;
+  totalUpkeepCost: Record<Resource, number>;
+  startingBalance: Record<Resource, number>;
+  netCoalitionBalance: Record<Resource, number>;
+};
+
+function selectBestRow(rows: FlipMatrix[]): FlipMatrix | null {
+  if (rows.length === 0) return null;
+  const feasible = rows.filter(r => r.feasible === "✓");
+  if (feasible.length > 0) {
+    // Prefer most eco hours captured; break ties by fewest cities (cheaper infra)
+    return feasible.slice().sort((a, b) =>
+      b.ecoHoursCaptured - a.ecoHoursCaptured || a.numCities - b.numCities
+    )[0];
+  }
+  // No feasible rows: pick the one with the smallest total shortfall
+  return rows.slice().sort((a, b) => {
+    const shortfall = (r: FlipMatrix) =>
+      RESOURCE_KEYS.reduce((s, k) => s + Math.min(0, r.netBalance[k]), 0);
+    return shortfall(b) - shortfall(a); // less negative = better
+  })[0];
+}
+
+/**
+ * Country eco income accounting for all demand city assignments.
+ * Each city's flip point is the minimum across all demands that use it
+ * (capital-first city ordering, same as analyseCountry).
+ */
+function countryEcoIncomeForSelections(
+  cityResults: CityEcoResult[],
+  selectedRows: Array<{ row: FlipMatrix }>,
+): Record<Resource, number> {
+  const sorted = [...cityResults].sort((a, b) => (b.capital ? 1 : 0) - (a.capital ? 1 : 0));
+  // Map city index → earliest flip hour across all demands using that city
+  const cityFlipMap = new Map<number, number>();
+  for (const { row } of selectedRows) {
+    for (let i = 0; i < row.numCities; i++) {
+      const prev = cityFlipMap.get(i) ?? Infinity;
+      cityFlipMap.set(i, Math.min(prev, row.flipRelHour));
+    }
+  }
+  const total = zeroResourceMap();
+  for (let i = 0; i < sorted.length; i++) {
+    const city = sorted[i];
+    const flip = cityFlipMap.get(i);
+    addResources(total,
+      flip !== undefined
+        ? cityIncomeForConfig(city, Math.max(0, flip))
+        : cityFullEcoIncome(city)
+    );
+  }
+  return total;
+}
+
+function computeCoalitionSummary(analyses: CountryAnalysis[]): CoalitionSummary {
+  const startingBalance = zeroResourceMap();
+  for (const r of RESOURCE_KEYS) startingBalance[r] = scenario.starting_balance?.[r] ?? 0;
+
+  const totalEcoIncome = zeroResourceMap();
+  const totalInfraCost = zeroResourceMap();
+  const totalMobCost = zeroResourceMap();
+  const totalUpkeepCost = zeroResourceMap();
+
+  const countries: CountryCoalitionRow[] = [];
+
+  for (const analysis of analyses) {
+    const selectedConfigs: SelectedConfig[] = [];
+    const rowsForEco: Array<{ row: FlipMatrix }> = [];
+
+    for (const demand of analysis.demands) {
+      if (demand.mobilisation_source === "province") {
+        selectedConfigs.push({ demand, row: null, skipped: true });
+        continue;
+      }
+      const mobTimePerUnit = unitMobTimeHours(demand.unitId, analysis.doctrine);
+      if (mobTimePerUnit === 0) {
+        selectedConfigs.push({ demand, row: null, skipped: true });
+        continue;
+      }
+      const demandRows = analysis.flipMatrixRows.filter(r => r.unitId === demand.unitId);
+      const best = selectBestRow(demandRows);
+      selectedConfigs.push({ demand, row: best, skipped: false });
+      if (best) rowsForEco.push({ row: best });
+    }
+
+    const ecoIncome = countryEcoIncomeForSelections(analysis.cityResults, rowsForEco);
+    const infraCost = zeroResourceMap();
+    const mobCost = zeroResourceMap();
+    const upkeepCost = zeroResourceMap();
+
+    for (const cfg of selectedConfigs) {
+      if (!cfg.row) continue;
+      addResources(infraCost, cfg.row.infraCost);
+      addResources(mobCost, cfg.row.mobCost);
+      addResources(upkeepCost, cfg.row.upkeepCost);
+    }
+
+    const netBalance = zeroResourceMap();
+    for (const r of RESOURCE_KEYS) {
+      netBalance[r] = ecoIncome[r] - infraCost[r] - mobCost[r] - upkeepCost[r];
+    }
+
+    addResources(totalEcoIncome, ecoIncome);
+    addResources(totalInfraCost, infraCost);
+    addResources(totalMobCost, mobCost);
+    addResources(totalUpkeepCost, upkeepCost);
+
+    countries.push({
+      countryId: analysis.countryId,
+      countryName: analysis.countryName,
+      doctrine: analysis.doctrine,
+      selectedConfigs,
+      ecoIncome,
+      infraCost,
+      mobCost,
+      upkeepCost,
+      netBalance,
+      hasInfeasible: selectedConfigs.some(c => !c.skipped && (c.row === null || c.row.feasible !== "✓")),
+    });
+  }
+
+  const totalCosts = zeroResourceMap();
+  for (const r of RESOURCE_KEYS) {
+    totalCosts[r] = totalInfraCost[r] + totalMobCost[r] + totalUpkeepCost[r];
+  }
+  const netCoalitionBalance = zeroResourceMap();
+  for (const r of RESOURCE_KEYS) {
+    netCoalitionBalance[r] = totalEcoIncome[r] + startingBalance[r] - totalCosts[r];
+  }
+
+  return {
+    countries,
+    totalEcoIncome,
+    totalInfraCost,
+    totalMobCost,
+    totalUpkeepCost,
+    startingBalance,
+    netCoalitionBalance,
   };
 }
 
@@ -374,7 +542,7 @@ for (const countryId of countriesToAnalyse) {
 
 // ── HTML output ───────────────────────────────────────────────────────────────
 
-function renderHtml(): string {
+function renderHtml(coalition: CoalitionSummary | null): string {
   const sections: string[] = [];
   sections.push(`<h1>Coalition Force Plan — Eco Flip-Point Analysis</h1>`);
   sections.push(htmlTable([{
@@ -391,6 +559,93 @@ function renderHtml(): string {
       .map(r => `${r}:${(scenario.starting_balance?.[r] ?? 0).toLocaleString()}`)
       .join(" "),
   }]));
+
+  // ── Coalition summary ──
+  if (coalition) {
+    sections.push(`<h2>Coalition Aggregation — Best-Pick Summary</h2>`);
+    sections.push(`<p>For each country demand, the best feasible configuration is selected (most eco hours captured). ` +
+      `Coalition eco income is computed per country accounting for all demand city assignments (per-city flip = earliest flip across demands using that city). ` +
+      `Starting balance added once. Costs exclude province demands (commando) and launcher platforms (cruise missile).</p>`);
+
+    // Per-country selected configs
+    const configRows: Array<Record<string, unknown>> = [];
+    for (const c of coalition.countries) {
+      const activeCfgs = c.selectedConfigs.filter(cfg => !cfg.skipped);
+      if (activeCfgs.length === 0) {
+        configRows.push({
+          country: `${c.countryName} (${c.countryId})`,
+          doctrine: c.doctrine,
+          demand: "—",
+          count: "—",
+          "best config": "eco only",
+          "flip day": "—",
+          "eco hrs": "—",
+          feasible: "N/A",
+        });
+      }
+      for (const cfg of activeCfgs) {
+        configRows.push({
+          country: `${c.countryName} (${c.countryId})`,
+          doctrine: c.doctrine,
+          demand: cfg.demand.unitId,
+          count: cfg.demand.count,
+          "best config": cfg.row ? `${cfg.row.numCities}c RO${cfg.row.roLevel}` : "none",
+          "flip day": cfg.row ? cfg.row.flipDay : "—",
+          "eco hrs": cfg.row ? cfg.row.ecoHoursCaptured : "—",
+          feasible: cfg.row ? cfg.row.feasible : "✗ (no rows)",
+        });
+      }
+    }
+    sections.push(htmlTable(configRows));
+
+    // Per-country cost/income breakdown
+    const fmt = (v: number) => v === 0 ? "0" : v > 0 ? `+${Math.round(v).toLocaleString()}` : `${Math.round(v).toLocaleString()}`;
+    const resSummary = (rec: Record<Resource, number>) =>
+      RESOURCE_KEYS.filter(k => Math.round(rec[k]) !== 0).map(k => `${k}:${Math.round(rec[k]).toLocaleString()}`).join(" ") || "—";
+    const netSummary = (rec: Record<Resource, number>) =>
+      RESOURCE_KEYS.filter(k => Math.round(rec[k]) !== 0).map(k => `${k}:${fmt(rec[k])}`).join(" ") || "balanced";
+
+    sections.push(`<h3>Per-Country Income &amp; Cost Breakdown</h3>`);
+    sections.push(htmlTable(coalition.countries.map(c => ({
+      country: `${c.countryName} (${c.countryId})`,
+      "⚠": c.hasInfeasible ? "⚠ infeasible demand" : "",
+      "eco income": resSummary(c.ecoIncome),
+      "infra cost": resSummary(c.infraCost),
+      "mob cost": resSummary(c.mobCost),
+      "upkeep cost": resSummary(c.upkeepCost),
+      "net (excl. starting balance)": netSummary(c.netBalance),
+    }))));
+
+    // Coalition balance sheet
+    const totalCosts = zeroResourceMap();
+    for (const r of RESOURCE_KEYS) {
+      totalCosts[r] = coalition.totalInfraCost[r] + coalition.totalMobCost[r] + coalition.totalUpkeepCost[r];
+    }
+    const grossAvailable = zeroResourceMap();
+    for (const r of RESOURCE_KEYS) {
+      grossAvailable[r] = coalition.totalEcoIncome[r] + coalition.startingBalance[r];
+    }
+
+    sections.push(`<h3>Coalition Balance Sheet</h3>`);
+    sections.push(htmlTable(
+      [
+        { line: "Total eco income", ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(coalition.totalEcoIncome[r]).toLocaleString()])) },
+        { line: "+ Starting balance", ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(coalition.startingBalance[r]).toLocaleString()])) },
+        { line: "= Gross available", ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(grossAvailable[r]).toLocaleString()])) },
+        { line: "− Infra cost", ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(coalition.totalInfraCost[r]).toLocaleString()])) },
+        { line: "− Mob cost", ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(coalition.totalMobCost[r]).toLocaleString()])) },
+        { line: "− Upkeep cost", ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(coalition.totalUpkeepCost[r]).toLocaleString()])) },
+        { line: "= Net coalition balance", ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, fmt(coalition.netCoalitionBalance[r])])) },
+      ]
+    ));
+
+    const shortfalls = RESOURCE_KEYS.filter(r => Math.round(coalition.netCoalitionBalance[r]) < 0);
+    if (shortfalls.length === 0) {
+      sections.push(`<p style="color:#1a7f37;font-weight:600">✓ Coalition is affordable across all resources.</p>`);
+    } else {
+      sections.push(`<p style="color:#cf222e;font-weight:600">⚠ Shortfall in: ${shortfalls.map(r => `${r} (${Math.abs(Math.round(coalition.netCoalitionBalance[r])).toLocaleString()})`).join(", ")}</p>`);
+    }
+  }
 
   for (const analysis of analyses) {
     sections.push(`<h2>${escapeHtml(analysis.countryName)} (${analysis.countryId}) — ${analysis.doctrine} / ${analysis.status}</h2>`);
@@ -450,8 +705,12 @@ p{margin:4px 0 12px;color:#57606a}
 </style></head><body>${sections.join("")}</body></html>`;
 }
 
+const coalition = countryFilter === "all" && analyses.length > 0
+  ? computeCoalitionSummary(analyses)
+  : null;
+
 fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
-fs.writeFileSync(outputFilePath, renderHtml(), "utf8");
+fs.writeFileSync(outputFilePath, renderHtml(coalition), "utf8");
 console.log(`\n[cfp] html written to ${outputFilePath}`);
 
 // ── Terminal summary ──────────────────────────────────────────────────────────

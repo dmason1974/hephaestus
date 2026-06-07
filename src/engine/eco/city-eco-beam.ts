@@ -373,61 +373,38 @@ function beamSearchCity(
     }, 0);
   }
 
-  const cache = new Map<string, Evaluation>();
-  cache.set("", baseline);
+  function evaluateOneMore(
+    parentEval: Evaluation,
+    parentTimedOrder: BuildAction[],
+    token: TokenAction
+  ): Evaluation {
+    const cost = levelData(buildings, token.buildingId, token.targetLevel).cost;
+    const minStartHour = Math.ceil(parentEval.nextFreeRelHour);
+    let scheduledStartHour: number | undefined;
 
-  function evaluateTokens(tokens: TokenAction[]): Evaluation {
-    const key = tokenSequenceKey(tokens);
-    const cached = cache.get(key);
-    if (cached) return cached;
-
-    let timedOrder: BuildAction[] = [];
-    let currentEvaluation = baseline;
-    const currentTokens: TokenAction[] = [];
-
-    for (const token of tokens) {
-      currentTokens.push(token);
-      const prefixKey = tokenSequenceKey(currentTokens);
-      const prefixCached = cache.get(prefixKey);
-      if (prefixCached) {
-        timedOrder = prefixCached.timedOrder;
-        currentEvaluation = prefixCached;
-        continue;
+    for (let h = minStartHour; h < hoursToSimulate; h++) {
+      const available = parentEval.balancesByHour[h] ?? zeroResources();
+      if (RESOURCE_KEYS.every(r => available[r] >= (cost[r] ?? 0))) {
+        scheduledStartHour = h;
+        break;
       }
-
-      const cost = levelData(buildings, token.buildingId, token.targetLevel).cost;
-      const minStartHour = Math.ceil(currentEvaluation.nextFreeRelHour);
-      let scheduledStartHour: number | undefined;
-
-      for (let h = minStartHour; h < hoursToSimulate; h++) {
-        const available = currentEvaluation.balancesByHour[h] ?? zeroResources();
-        if (RESOURCE_KEYS.every(resource => available[resource] >= (cost[resource] ?? 0))) {
-          scheduledStartHour = h;
-          break;
-        }
-      }
-
-      if (scheduledStartHour === undefined) {
-        const failed: Evaluation = {
-          feasible: false,
-          timedOrder,
-          balancesByHour: currentEvaluation.balancesByHour,
-          endingBalances: currentEvaluation.endingBalances,
-          nextFreeRelHour: currentEvaluation.nextFreeRelHour,
-        };
-        cache.set(prefixKey, failed);
-        return failed;
-      }
-
-      timedOrder = [
-        ...timedOrder,
-        { cityId: cityState.cityId, buildingId: token.buildingId as BuildingId, targetLevel: token.targetLevel, startHour: scheduledStartHour },
-      ];
-      currentEvaluation = evaluateTimedOrder(timedOrder);
-      cache.set(prefixKey, currentEvaluation);
     }
 
-    return currentEvaluation;
+    if (scheduledStartHour === undefined) {
+      return {
+        feasible: false,
+        timedOrder: parentTimedOrder,
+        balancesByHour: parentEval.balancesByHour,
+        endingBalances: parentEval.endingBalances,
+        nextFreeRelHour: parentEval.nextFreeRelHour,
+      };
+    }
+
+    const timedOrder: BuildAction[] = [
+      ...parentTimedOrder,
+      { cityId: cityState.cityId, buildingId: token.buildingId as BuildingId, targetLevel: token.targetLevel, startHour: scheduledStartHour },
+    ];
+    return evaluateTimedOrder(timedOrder);
   }
 
   const seen = new Set<string>([""]);
@@ -450,7 +427,7 @@ function beamSearchCity(
         if (seen.has(key)) continue;
         seen.add(key);
 
-        const evaluation = evaluateTokens(tokens);
+        const evaluation = evaluateOneMore(plan.evaluation, plan.evaluation.timedOrder, action);
         if (!evaluation.feasible) continue;
 
         const ranked = rank(tokens, evaluation);

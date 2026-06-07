@@ -424,7 +424,7 @@ Where `remainingInfraTime` is the delta between what the eco phase built and wha
 3. ✅ **Flip point solver** → `src/engine/eco/flip-point-solver.ts`; iterative convergence with `buildingLevelsAtAbsHour`; handles batch_size (warheads), RO speed bonuses, per-city remaining chain
 4. ✅ **New harness** → `src/harness/smoke/coalition-force-plan.ts`; sweeps all city counts × all RO levels (1–5) for each demand; outputs flip-point matrix + eco beam results per city; run via `npm run smoke:coalition-force-plan`
 5. ✅ **Income accounting** — per-row: eco income (military cities capped at flip then flat rate; eco cities full), infra cost, mob cost (L1), upkeep cost (L1 rate), net balance per resource
-6. **Coalition aggregation (chunk 7)** — run all countries, sum eco income and costs into one balance sheet against the shared starting pool; identify binding resource constraints across the full coalition
+6. ✅ **Coalition aggregation (chunk 7)** — run all countries, sum eco income and costs into one balance sheet against the shared starting pool; identify binding resource constraints across the full coalition
 7. **Optimal city subset search** — currently capital-first ordering; combinatorial search over which N cities to flip is needed for the true optimum
 8. **`mercenary_outpost` in build planner** → same pattern as `secret_weapons_lab`: detect from unit YAML requirements, insert in city infra chain (Russia/commando cities)
 9. **Province mobilisation track** → commando excluded from city slot capacity; `mobilisation_source: province` in demand YAML (schema done, harness already skips province demands)
@@ -446,7 +446,25 @@ Where `remainingInfraTime` is the delta between what the eco phase built and wha
 
 - **Best-row selection is independent per demand**: for multi-demand countries (e.g. Indonesia SASF+UAV+warheads), the "best UAV row" shows 636h eco but those cities are already constrained to flip at 278h by SASF. The balance sheet is computed correctly (using per-city flip), but the per-demand flip shown in the config table can be misleading.
 - **Capital-first city ordering**: not optimal; combinatorial city-subset search is future work.
-- **OOM**: full run (beam_width=50, 14 countries) requires `node --max-old-space-size=8192 --import tsx ...`
+- **OOM fixed**: coalition contribution now computed inline in `analyseCountry` (cityResults not retained); `--max-old-space-size=8192` baked into npm script as safety net for single-country beam peaks.
+
+### First-Run Results (beam_width=50, best feasible row per demand)
+
+```
+                  supplies    components    fuel      rares     electronics  cash        manpower
+Total eco income  1,417,743   1,179,741   690,474   411,013   508,764      3,929,861   315,639
++ Starting bal       35,748      26,810    13,406     9,830     9,830        134,062    13,406
+= Gross available 1,453,491   1,206,551   703,880   420,843   518,594      4,063,923   329,045
+− Infra cost        372,250     294,150   405,250    46,500   237,875      1,661,475         0
+− Mob cost          816,750     684,100    12,500    67,500   391,850      1,759,875   380,900
+− Upkeep cost       291,421         428   192,455         0    63,282        668,974   191,784
+= Net balance       -26,930    +227,873   +93,675  +306,843  -174,413       -26,401  -243,639
+```
+
+Binding shortfalls: **electronics (-174k)**, **manpower (-244k)**, supplies (-27k), cash (-26k).
+Components/fuel/rares all surplus. Manpower eco income is structural (population, not eco builds) —
+shortfall cannot be fixed by better eco planning; must reduce mob/upkeep cost or increase manpower
+income via RO/arms_industry paths.
 
 ### Next Steps (Chunk 8+)
 

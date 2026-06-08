@@ -188,6 +188,54 @@ function unitRequiredLevels(unitId: string, roLevel: number): Record<string, num
   return levels;
 }
 
+// ── Resource weights from force projection footprint ─────────────────────────
+
+/**
+ * Derives per-resource importance weights from the plan's demand footprint:
+ *   weight[r] = Σ (mob_cost[r] × effectiveCount) + (daily_upkeep[r] × effectiveCount × truce_days)
+ * Normalised so max = 1.0. Manpower is excluded (not pooled).
+ * These weights guide the eco beam to invest in resources the force plan actually consumes.
+ */
+function computeForceProjectionWeights(): Partial<Record<Resource, number>> {
+  const raw = zeroResourceMap();
+  for (const [countryId, countryPlan] of Object.entries(plan.countries)) {
+    let doctrine: string;
+    try {
+      doctrine = loadScenarioCountry(scenarioId, countryId).country.doctrine;
+    } catch { continue; }
+    for (const demand of countryPlan.demands) {
+      if (demand.mobilisation_source === "province") continue;
+      const unit = catalog.units[demand.unitId];
+      if (!unit) continue;
+      if (unitMobTimeHours(demand.unitId, doctrine) === 0) continue;
+      const batchSize = (unit.levels?.["1"] as { batch_size?: number } | undefined)?.batch_size ?? 1;
+      const effectiveCount = Math.ceil(demand.count / batchSize);
+      const l1mob = unit.levels?.["1"]?.mobilisation as Record<string, { cost?: Partial<Record<Resource, number>> }> | undefined;
+      const docMob = l1mob?.[doctrine] ?? Object.values(l1mob ?? {}).find(Boolean);
+      if (docMob?.cost) {
+        for (const r of RESOURCE_KEYS) raw[r] += (docMob.cost[r as Resource] ?? 0) * effectiveCount;
+      }
+      const l1upkeep = unit.levels?.["1"]?.daily_upkeep as Record<string, { cost?: Partial<Record<Resource, number>> }> | undefined;
+      const docUpkeep = l1upkeep?.[doctrine] ?? Object.values(l1upkeep ?? {}).find(Boolean);
+      if (docUpkeep?.cost) {
+        for (const r of RESOURCE_KEYS) raw[r] += (docUpkeep.cost[r as Resource] ?? 0) * effectiveCount * plan.truce_days;
+      }
+    }
+  }
+  raw.manpower = 0; // manpower is not pooled — exclude from coalition eco scoring
+  const maxVal = Math.max(...RESOURCE_KEYS.map(r => raw[r]));
+  if (maxVal === 0) return {};
+  const weights: Partial<Record<Resource, number>> = {};
+  for (const r of RESOURCE_KEYS) {
+    if (raw[r] > 0) weights[r] = raw[r] / maxVal;
+  }
+  return weights;
+}
+
+const resourceWeights = computeForceProjectionWeights();
+console.log("[cfp] Force projection resource weights:",
+  Object.entries(resourceWeights).map(([r, w]) => `${r}:${(w as number).toFixed(3)}`).join("  "));
+
 // ── Income & cost accounting ──────────────────────────────────────────────────
 
 function zeroResourceMap(): Record<Resource, number> {
@@ -342,12 +390,15 @@ function analyseCountry(countryId: string): CountryAnalysis {
   const country = loadScenarioCountry(scenarioId, countryId);
   const doctrine = country.country.doctrine;
 
-  console.log(`\n[${countryId}] Running eco beam search for ${country.cities.length} cities...`);
+  // Occupied countries are assumed captured from start of game day 4.
+  const captureAbsHour = countryPlan.status === "occupied" ? toAbsoluteHour(4, 0) : undefined;
+  console.log(`\n[${countryId}] Running eco beam search for ${country.cities.length} cities${captureAbsHour !== undefined ? ` (captured day 4, captureRelHour=${captureAbsHour - scenarioAbsHour})` : ""}...`);
   const ecoResult = runCityEcoBeam(country, scenario, buildings, {
     hoursToSimulate,
     beamWidth,
     topN,
-  }, countryPlan.status as "homeland" | "occupied");
+    resourceWeights,
+  }, countryPlan.status as "homeland" | "occupied", undefined, captureAbsHour);
 
   const ecoSummaries: CityEcoSummary[] = ecoResult.cityResults.map(city => ({
     cityId: city.cityId,
@@ -449,6 +500,8 @@ function analyseCountry(countryId: string): CountryAnalysis {
     if (best) rowsForEco.push({ row: best });
   }
   const coEcoIncome = countryEcoIncomeForSelections(cityResults, rowsForEco);
+  const coEcoBuildCost = zeroResourceMap();
+  for (const city of cityResults) addResources(coEcoBuildCost, city.totalEcoBuildCost);
   const coInfra = zeroResourceMap();
   const coMob = zeroResourceMap();
   const coUpkeep = zeroResourceMap();
@@ -459,26 +512,29 @@ function analyseCountry(countryId: string): CountryAnalysis {
     addResources(coUpkeep, cfg.row.upkeepCost);
   }
   const coNetBalance = zeroResourceMap();
-  for (const r of RESOURCE_KEYS) coNetBalance[r] = coEcoIncome[r] - coInfra[r] - coMob[r] - coUpkeep[r];
+  for (const r of RESOURCE_KEYS) coNetBalance[r] = coEcoIncome[r] - coEcoBuildCost[r] - coInfra[r] - coMob[r] - coUpkeep[r];
   // Starting balance only applies when we are actively playing this country.
   const countryStartingBalance: Partial<Record<Resource, number>> =
     countryPlan.status === "homeland" ? (country.starting_balance ?? {}) : {};
   const manpowerNetBalance =
     coEcoIncome.manpower
     + (countryStartingBalance.manpower ?? 0)
-    - coInfra.manpower - coMob.manpower - coUpkeep.manpower;
+    - coEcoBuildCost.manpower - coInfra.manpower - coMob.manpower - coUpkeep.manpower;
+  const hourlyNetFlow = countryHourlyNetFlow(cityResults, rowsForEco, coalSelectedConfigs);
   const coalitionContribution: CountryCoalitionContribution = {
     countryId,
     countryName: country.country.name,
     doctrine,
     selectedConfigs: coalSelectedConfigs,
     ecoIncome: coEcoIncome,
+    ecoBuildCost: coEcoBuildCost,
     infraCost: coInfra,
     mobCost: coMob,
     upkeepCost: coUpkeep,
     netBalance: coNetBalance,
     countryStartingBalance,
     manpowerNetBalance,
+    hourlyNetFlow,
     hasInfeasible: coalSelectedConfigs.some(c => !c.skipped && (c.row === null || c.row.feasible !== "✓")),
   };
 
@@ -514,6 +570,13 @@ type CountryCoalitionContribution = {
   netBalance: Record<Resource, number>;
   /** Per-country starting balance for pooled resources (zero for occupied/AI countries). */
   countryStartingBalance: Partial<Record<Resource, number>>;
+  /** Sum of eco building costs paid across all city eco beam sequences. */
+  ecoBuildCost: Record<Resource, number>;
+  /**
+   * Per-hour net resource flow for this country (eco income - all costs).
+   * Length = hoursToSimulate. Starting balance NOT included (added separately at coalition level).
+   */
+  hourlyNetFlow: Array<Record<Resource, number>>;
   /** Manpower is not pooled: per-country check including country starting manpower. */
   manpowerNetBalance: number;
   hasInfeasible: boolean;
@@ -527,8 +590,11 @@ type CoalitionSummary = {
   totalUpkeepCost: Record<Resource, number>;
   /** Sum of per-country starting balances for pooled resources only (manpower excluded). */
   startingBalance: Record<Resource, number>;
+  totalEcoBuildCost: Record<Resource, number>;
   /** Net balance for pooled resources only; manpower stays zero here. */
   netCoalitionBalance: Record<Resource, number>;
+  /** For each pooled resource: the hour at which the running balance is lowest, and its value. */
+  resourceMinima: Partial<Record<Resource, { relHour: number; value: number }>>;
 };
 
 function selectBestRow(rows: FlipMatrix[]): FlipMatrix | null {
@@ -579,11 +645,81 @@ function countryEcoIncomeForSelections(
   return total;
 }
 
+/**
+ * Computes the per-hour net resource flow for a country:
+ *   eco income (with flip-point caps) − eco build costs − infra costs (at flip) − mob costs − upkeep.
+ * Starting balance is NOT included here — added at coalition level.
+ */
+function countryHourlyNetFlow(
+  cityResults: CityEcoResult[],
+  selectedRows: Array<{ row: FlipMatrix }>,
+  selectedConfigs: SelectedConfig[],
+): Array<Record<Resource, number>> {
+  const flow = Array.from({ length: hoursToSimulate }, () => zeroResourceMap());
+
+  // 1. Eco income with flip-point cap per city
+  const sorted = [...cityResults].sort((a, b) => (b.capital ? 1 : 0) - (a.capital ? 1 : 0));
+  const cityFlipMap = new Map<number, number>();
+  for (const { row } of selectedRows) {
+    for (let i = 0; i < row.numCities; i++) {
+      const prev = cityFlipMap.get(i) ?? Infinity;
+      cityFlipMap.set(i, Math.min(prev, row.flipRelHour));
+    }
+  }
+  for (let i = 0; i < sorted.length; i++) {
+    const city = sorted[i];
+    const flipH = cityFlipMap.get(i);
+    const flipIndex = flipH !== undefined ? Math.max(0, Math.round(flipH)) : Infinity;
+    const flatRate = flipIndex < hoursToSimulate
+      ? (city.hourlyCityProduction[Math.max(0, flipIndex - 1)] ?? zeroResourceMap())
+      : null;
+    for (let h = 0; h < hoursToSimulate; h++) {
+      const prod = h < flipIndex
+        ? (city.hourlyCityProduction[h] ?? zeroResourceMap())
+        : (flatRate ?? zeroResourceMap());
+      addResources(flow[h], prod);
+    }
+  }
+
+  // 2. Eco build costs: one-time deduction at the action's scheduled start hour
+  for (const city of cityResults) {
+    for (const action of city.bestActions) {
+      const h = Math.max(0, Math.min(Math.round(action.startHour ?? 0), hoursToSimulate - 1));
+      const lvl = buildings.buildings[action.buildingId]?.levels[String(action.targetLevel) as "1" | "2" | "3" | "4" | "5"];
+      if (lvl?.cost) {
+        for (const r of RESOURCE_KEYS) flow[h][r] -= (lvl.cost as Partial<Record<Resource, number>>)[r] ?? 0;
+      }
+    }
+  }
+
+  // 3. Military costs from selected configs: infra at flip, mob at mob start, upkeep hourly
+  for (const cfg of selectedConfigs) {
+    if (!cfg.row) continue;
+    const row = cfg.row;
+    const flipH = Math.max(0, Math.min(Math.round(row.flipRelHour), hoursToSimulate - 1));
+    const mobH = Math.max(0, Math.min(Math.round(row.flipRelHour + row.remainingBuildHours), hoursToSimulate - 1));
+    const upkeepHours = hoursToSimulate - mobH;
+    // Infra: lump at flip
+    for (const r of RESOURCE_KEYS) flow[flipH][r] -= row.infraCost[r];
+    // Mob: at mob start
+    for (const r of RESOURCE_KEYS) flow[mobH][r] -= row.mobCost[r];
+    // Upkeep: distribute evenly from mob start to deadline
+    if (upkeepHours > 0) {
+      for (let h = mobH; h < hoursToSimulate; h++) {
+        for (const r of RESOURCE_KEYS) flow[h][r] -= row.upkeepCost[r] / upkeepHours;
+      }
+    }
+  }
+
+  return flow;
+}
+
 function computeCoalitionSummary(analyses: CountryAnalysis[]): CoalitionSummary {
   // Starting balance: sum per-country values for pooled resources only.
   // Only homeland countries contribute (occupied/AI nations have no starting_balance).
   const startingBalance = zeroResourceMap();
   const totalEcoIncome = zeroResourceMap();
+  const totalEcoBuildCost = zeroResourceMap();
   const totalInfraCost = zeroResourceMap();
   const totalMobCost = zeroResourceMap();
   const totalUpkeepCost = zeroResourceMap();
@@ -595,6 +731,7 @@ function computeCoalitionSummary(analyses: CountryAnalysis[]): CoalitionSummary 
       startingBalance[r] += contrib.countryStartingBalance[r] ?? 0;
     }
     addResources(totalEcoIncome, contrib.ecoIncome);
+    addResources(totalEcoBuildCost, contrib.ecoBuildCost);
     addResources(totalInfraCost, contrib.infraCost);
     addResources(totalMobCost, contrib.mobCost);
     addResources(totalUpkeepCost, contrib.upkeepCost);
@@ -605,17 +742,41 @@ function computeCoalitionSummary(analyses: CountryAnalysis[]): CoalitionSummary 
   const netCoalitionBalance = zeroResourceMap();
   for (const r of POOLED_RESOURCES) {
     netCoalitionBalance[r] = totalEcoIncome[r] + startingBalance[r]
-      - totalInfraCost[r] - totalMobCost[r] - totalUpkeepCost[r];
+      - totalEcoBuildCost[r] - totalInfraCost[r] - totalMobCost[r] - totalUpkeepCost[r];
+  }
+
+  // Cash flow minima: aggregate hourly net flows, seed with starting balance at hour 0, find minimum.
+  const coalitionHourlyFlow = Array.from({ length: hoursToSimulate }, () => zeroResourceMap());
+  for (const contrib of countries) {
+    for (let h = 0; h < hoursToSimulate; h++) {
+      addResources(coalitionHourlyFlow[h], contrib.hourlyNetFlow[h]);
+    }
+  }
+  // Seed hour 0 with the coalition starting balance (pooled resources only)
+  for (const r of POOLED_RESOURCES) coalitionHourlyFlow[0][r] += startingBalance[r];
+
+  // Compute running cumulative balance and find minimum per pooled resource
+  const resourceMinima: CoalitionSummary["resourceMinima"] = {};
+  const running = zeroResourceMap();
+  for (let h = 0; h < hoursToSimulate; h++) {
+    for (const r of POOLED_RESOURCES) {
+      running[r] += coalitionHourlyFlow[h][r];
+      if (running[r] < (resourceMinima[r]?.value ?? Infinity)) {
+        resourceMinima[r] = { relHour: h, value: running[r] };
+      }
+    }
   }
 
   return {
     countries,
     totalEcoIncome,
+    totalEcoBuildCost,
     totalInfraCost,
     totalMobCost,
     totalUpkeepCost,
     startingBalance,
     netCoalitionBalance,
+    resourceMinima,
   };
 }
 
@@ -697,13 +858,14 @@ function renderHtml(coalition: CoalitionSummary | null, analysisSlice: CountryAn
       grossAvailable[r] = coalition.totalEcoIncome[r] + coalition.startingBalance[r];
     }
     const balRows: Array<Record<string, string>> = [
-      { "": "Total eco income",    ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(coalition.totalEcoIncome[r]).toLocaleString()])) },
-      { "": "+ Starting balance",  ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(coalition.startingBalance[r]).toLocaleString()])) },
-      { "": "= Gross available",   ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(grossAvailable[r]).toLocaleString()])) },
-      { "": "− Infra cost",        ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(coalition.totalInfraCost[r]).toLocaleString()])) },
-      { "": "− Mob cost",          ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(coalition.totalMobCost[r]).toLocaleString()])) },
-      { "": "− Upkeep cost",       ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(coalition.totalUpkeepCost[r]).toLocaleString()])) },
-      { "": "= Net coalition balance", ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, fmt(coalition.netCoalitionBalance[r])])) },
+      { "": "Total eco income (gross)", ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(coalition.totalEcoIncome[r]).toLocaleString()])) },
+      { "": "+ Starting balance",       ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(coalition.startingBalance[r]).toLocaleString()])) },
+      { "": "= Gross available",        ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(grossAvailable[r]).toLocaleString()])) },
+      { "": "− Eco build costs",        ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(coalition.totalEcoBuildCost[r]).toLocaleString()])) },
+      { "": "− Infra cost",             ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(coalition.totalInfraCost[r]).toLocaleString()])) },
+      { "": "− Mob cost",               ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(coalition.totalMobCost[r]).toLocaleString()])) },
+      { "": "− Upkeep cost",            ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, Math.round(coalition.totalUpkeepCost[r]).toLocaleString()])) },
+      { "": "= Net coalition balance",  ...Object.fromEntries(POOLED_RESOURCES.map(r => [r, fmt(coalition.netCoalitionBalance[r])])) },
     ];
     sections.push(`<h3>Coalition Balance Sheet (Pooled Resources)</h3>`);
     sections.push(htmlBalanceSheet(balRows, "= Net coalition balance", POOLED_RESOURCES));
@@ -712,6 +874,91 @@ function renderHtml(coalition: CoalitionSummary | null, analysisSlice: CountryAn
       sections.push(`<p style="color:#1a7f37;font-weight:600">✓ Coalition pooled resources are affordable.</p>`);
     } else {
       sections.push(`<p style="color:#cf222e;font-weight:600">⚠ Shortfall in: ${shortfalls.map(r => `${r} (${Math.abs(Math.round(coalition.netCoalitionBalance[r])).toLocaleString()})`).join(", ")}</p>`);
+    }
+
+    // Eco income by country — columns ordered by resource_priority then cash + manpower
+    const priorityResources: Resource[] = (plan.resource_priority ?? POOLED_RESOURCES) as Resource[];
+    const ecoColOrder: Resource[] = [
+      ...priorityResources,
+      ...RESOURCE_KEYS.filter(r => !priorityResources.includes(r)),
+    ];
+    sections.push(`<h3>Coalition Eco Income by Country (Gross)</h3>`);
+    sections.push(htmlTable(coalition.countries.map(c => ({
+      country: `${c.countryName} (${c.countryId})`,
+      status: c.doctrine + (c.selectedConfigs.every(cfg => cfg.skipped || !cfg.row) && c.selectedConfigs.length === 0 ? " / eco-only" : ""),
+      ...Object.fromEntries(ecoColOrder.map(r => [r, Math.round(c.ecoIncome[r]).toLocaleString()])),
+    }))));
+
+    // Per-country net balance — resource columns in priority order (binding constraints leftmost)
+    // All 7 resources shown; manpower labelled as not pooled
+    sections.push(`<h3>Coalition Balance Sheet by Country</h3>`);
+    sections.push(`<p><em>Net balance per country (eco income − eco build costs − infra − mob − upkeep + starting balance). ` +
+      `Columns ordered by coalition resource priority. Manpower is <strong>not pooled</strong>.</em></p>`);
+    const allResColOrder: Resource[] = [
+      ...priorityResources,
+      ...RESOURCE_KEYS.filter(r => !priorityResources.includes(r)),
+    ];
+    const countryNetRows: Array<Record<string, string>> = coalition.countries.map(c => {
+      const row: Record<string, string> = {
+        country: `${c.countryName} (${c.countryId})`,
+      };
+      for (const r of allResColOrder) {
+        row[r === "manpower" ? "manpower (not pooled)" : r] = fmt(c.netBalance[r]);
+      }
+      return row;
+    });
+    // Custom render with red/green on all cells (not just net row)
+    {
+      const headers = Object.keys(countryNetRows[0] ?? {});
+      const head = `<tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr>`;
+      const body = countryNetRows.map(row =>
+        `<tr>${headers.map(h => {
+          const val = row[h] ?? "";
+          const n = parseFormattedNumber(val);
+          const isNum = h !== "country";
+          const style = isNum && n < 0 ? ` style="color:#cf222e;font-weight:600"` : isNum && n > 0 ? ` style="color:#1a7f37;font-weight:600"` : "";
+          return `<td${style}>${escapeHtml(val)}</td>`;
+        }).join("")}</tr>`
+      ).join("");
+      sections.push(`<table><thead>${head}</thead><tbody>${body}</tbody></table>`);
+    }
+
+    // Cash flow minima: earliest hour any pooled resource goes negative
+    sections.push(`<h3>Cash Flow — Resource Minima (Pooled)</h3>`);
+    sections.push(`<p><em>Cumulative coalition balance by hour (starting balance + hourly net inflows − costs). ` +
+      `Shows the nadir for each resource and when it occurs. Red = ever goes negative.</em></p>`);
+    const minimaRows = POOLED_RESOURCES.map(r => {
+      const m = coalition.resourceMinima[r];
+      const neverNegative = !m || m.value >= 0;
+      const valStr = m ? Math.round(m.value).toLocaleString() : "n/a";
+      const whenStr = m ? fmtHour(m.relHour) : "—";
+      return {
+        resource: r,
+        "minimum balance": neverNegative
+          ? `+${Math.round(m?.value ?? 0).toLocaleString()}`
+          : valStr,
+        "nadir hour": whenStr,
+        solvent: neverNegative ? "✓ always solvent" : "⚠ goes negative",
+        _negative: !neverNegative,
+      };
+    });
+    const minimaHeaders = ["resource", "minimum balance", "nadir hour", "solvent"];
+    const minimaHead = `<tr>${minimaHeaders.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr>`;
+    const minimaBody = minimaRows.map(row =>
+      `<tr>${minimaHeaders.map(h => {
+        const val = String(row[h as keyof typeof row] ?? "");
+        const style = row._negative && h !== "resource"
+          ? ` style="color:#cf222e;font-weight:600"`
+          : !row._negative && h === "solvent"
+            ? ` style="color:#1a7f37;font-weight:600"`
+            : "";
+        return `<td${style}>${escapeHtml(val)}</td>`;
+      }).join("")}</tr>`
+    ).join("");
+    sections.push(`<table><thead>${minimaHead}</thead><tbody>${minimaBody}</tbody></table>`);
+    const anyNegative = POOLED_RESOURCES.some(r => (coalition.resourceMinima[r]?.value ?? 0) < 0);
+    if (!anyNegative) {
+      sections.push(`<p style="color:#1a7f37;font-weight:600">✓ Coalition pooled resources never go negative during the plan horizon.</p>`);
     }
   }
 
@@ -729,13 +976,51 @@ function renderHtml(coalition: CoalitionSummary | null, analysisSlice: CountryAn
       const provinceCfgs = analysis.coalitionContribution.selectedConfigs.filter(cfg => cfg.skipped && cfg.demand.mobilisation_source === "province");
 
       if (activeCfgs.length === 0) {
-        // Eco-only country — numbered timed build sequences
-        sections.push(`<h3>City Build Sequences (eco only — full ${plan.truce_days} days)</h3>`);
+        // 1. Demands
+        sections.push(`<h3>Demands — Selected Configurations</h3>`);
+        sections.push(`<p><em>No military demands — eco only.</em></p>`);
+        if (provinceCfgs.length > 0) {
+          sections.push(`<p><em>Province-mobilised (not city-slotted): ` +
+            provinceCfgs.map(cfg => `${cfg.demand.unitId} × ${cfg.demand.count}`).join(", ") + `</em></p>`);
+        }
+
+        // 2. Country Balance Sheet
+        {
+          const gross = zeroResourceMap();
+          for (const r of RESOURCE_KEYS) gross[r] = c.ecoIncome[r] + (c.countryStartingBalance[r] ?? 0);
+          const net = zeroResourceMap();
+          for (const r of RESOURCE_KEYS) net[r] = gross[r] - c.ecoBuildCost[r] - c.infraCost[r] - c.mobCost[r] - c.upkeepCost[r];
+          sections.push(`<h3>Country Balance Sheet</h3>`);
+          sections.push(`<p><em>Manpower (rightmost) is <strong>not pooled</strong> — country-specific. All other resources contribute to the coalition pool.</em></p>`);
+          sections.push(htmlBalanceSheet([
+            { "": "Eco income (gross)",  ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.ecoIncome[r]).toLocaleString()])) },
+            { "": "+ Starting balance",  ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.countryStartingBalance[r] ?? 0).toLocaleString()])) },
+            { "": "= Gross available",   ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(gross[r]).toLocaleString()])) },
+            { "": "− Eco build costs",   ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.ecoBuildCost[r]).toLocaleString()])) },
+            { "": "− Infra cost",        ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.infraCost[r]).toLocaleString()])) },
+            { "": "− Mob cost",          ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.mobCost[r]).toLocaleString()])) },
+            { "": "− Upkeep cost",       ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.upkeepCost[r]).toLocaleString()])) },
+            { "": "= Net balance",       ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, fmt(net[r])])) },
+          ], "= Net balance", RESOURCE_KEYS));
+        }
+
+        // 3. Research Plan
+        sections.push(`<h3>Research Plan</h3>`);
+        sections.push(`<p><em>None — no military demands.</em></p>`);
+
+        // 4. City Build Plans
+        sections.push(`<h3>City Build Plans</h3>`);
+        sections.push(`<p><em>Full eco build sequence for all ${plan.truce_days} days (eco only country).</em></p>`);
         sections.push(htmlTable(sortedCities.map(city => ({
           city: (city.capital ? "★ " : "") + city.cityName,
           resource: city.resource,
           "build sequence": city.timedOrderLines.join("\n"),
         }))));
+
+        // 5. Mobilisation
+        sections.push(`<h3>Mobilisation</h3>`);
+        sections.push(`<p><em>None — no military demands.</em></p>`);
+
       } else {
         // 1. Demands summary
         sections.push(`<h3>Demands — Selected Configurations</h3>`);
@@ -759,18 +1044,19 @@ function renderHtml(coalition: CoalitionSummary | null, analysisSlice: CountryAn
         const gross = zeroResourceMap();
         for (const r of RESOURCE_KEYS) gross[r] = c.ecoIncome[r] + (c.countryStartingBalance[r] ?? 0);
         const net = zeroResourceMap();
-        for (const r of RESOURCE_KEYS) net[r] = gross[r] - c.infraCost[r] - c.mobCost[r] - c.upkeepCost[r];
+        for (const r of RESOURCE_KEYS) net[r] = gross[r] - c.ecoBuildCost[r] - c.infraCost[r] - c.mobCost[r] - c.upkeepCost[r];
 
         sections.push(`<h3>Country Balance Sheet</h3>`);
         sections.push(`<p><em>Manpower (rightmost) is <strong>not pooled</strong> — country-specific. All other resources contribute to the coalition pool.</em></p>`);
         sections.push(htmlBalanceSheet([
-          { "": "Eco income",         ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.ecoIncome[r]).toLocaleString()])) },
-          { "": "+ Starting balance", ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.countryStartingBalance[r] ?? 0).toLocaleString()])) },
-          { "": "= Gross available",  ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(gross[r]).toLocaleString()])) },
-          { "": "− Infra cost",       ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.infraCost[r]).toLocaleString()])) },
-          { "": "− Mob cost",         ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.mobCost[r]).toLocaleString()])) },
-          { "": "− Upkeep cost",      ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.upkeepCost[r]).toLocaleString()])) },
-          { "": "= Net balance",      ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, fmt(net[r])])) },
+          { "": "Eco income (gross)",  ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.ecoIncome[r]).toLocaleString()])) },
+          { "": "+ Starting balance",  ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.countryStartingBalance[r] ?? 0).toLocaleString()])) },
+          { "": "= Gross available",   ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(gross[r]).toLocaleString()])) },
+          { "": "− Eco build costs",   ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.ecoBuildCost[r]).toLocaleString()])) },
+          { "": "− Infra cost",        ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.infraCost[r]).toLocaleString()])) },
+          { "": "− Mob cost",          ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.mobCost[r]).toLocaleString()])) },
+          { "": "− Upkeep cost",       ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.upkeepCost[r]).toLocaleString()])) },
+          { "": "= Net balance",       ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, fmt(net[r])])) },
         ], "= Net balance", RESOURCE_KEYS));
 
         // 3. Research plan — L1 ASAP by constraining each L1 to its earliest possible completion
@@ -863,26 +1149,6 @@ function renderHtml(coalition: CoalitionSummary | null, analysisSlice: CountryAn
           }
           return row;
         })));
-      }
-
-      // Balance sheet for eco-only countries (military countries already rendered it above)
-      if (activeCfgs.length === 0) {
-        const gross = zeroResourceMap();
-        for (const r of RESOURCE_KEYS) gross[r] = c.ecoIncome[r] + (c.countryStartingBalance[r] ?? 0);
-        const net = zeroResourceMap();
-        for (const r of RESOURCE_KEYS) net[r] = gross[r] - c.infraCost[r] - c.mobCost[r] - c.upkeepCost[r];
-
-        sections.push(`<h3>Country Balance Sheet</h3>`);
-        sections.push(`<p><em>Manpower (rightmost) is <strong>not pooled</strong> — country-specific. All other resources contribute to the coalition pool.</em></p>`);
-        sections.push(htmlBalanceSheet([
-          { "": "Eco income",         ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.ecoIncome[r]).toLocaleString()])) },
-          { "": "+ Starting balance", ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.countryStartingBalance[r] ?? 0).toLocaleString()])) },
-          { "": "= Gross available",  ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(gross[r]).toLocaleString()])) },
-          { "": "− Infra cost",       ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.infraCost[r]).toLocaleString()])) },
-          { "": "− Mob cost",         ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.mobCost[r]).toLocaleString()])) },
-          { "": "− Upkeep cost",      ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, Math.round(c.upkeepCost[r]).toLocaleString()])) },
-          { "": "= Net balance",      ...Object.fromEntries(RESOURCE_KEYS.map(r => [r, fmt(net[r])])) },
-        ], "= Net balance", RESOURCE_KEYS));
       }
 
     }

@@ -44,6 +44,15 @@ export type CityEcoBeamConfig = {
   topN: number;
   /** Extra buildings to allow in the search (e.g. relocate_headquarters for specific city) */
   extraBuildingsForCity?: Record<string, EcoCandidateBuildingId[]>;
+  /**
+   * Per-resource importance weights derived from the force projection's resource footprint.
+   * Guides which resources are worth investing eco buildings on.
+   * arms_industry / air_base / naval_base are only added to the candidate pool when the city's
+   * native resource has a weight above WEIGHT_THRESHOLD (0.1).
+   * Candidate scoring uses a weighted sum over all resources rather than single-resource endBalance.
+   * If absent, all resources are treated equally (no pruning).
+   */
+  resourceWeights?: Partial<Record<Resource, number>>;
 };
 
 export type CityEcoCandidate = {
@@ -83,6 +92,8 @@ export type CityEcoResult = {
    * Length = hoursToSimulate.
    */
   hourlyCityProduction: Array<Record<Resource, number>>;
+  /** Total one-time resource cost of all eco build actions (gross; not netted into hourlyCityProduction). */
+  totalEcoBuildCost: Record<Resource, number>;
   top: CityEcoCandidate[];
   explored: number;
 };
@@ -141,15 +152,25 @@ function startingLevelsForCity(city: Country["cities"][number]): Partial<Record<
   return levels;
 }
 
+const WEIGHT_THRESHOLD = 0.1;
+
 function buildingPoolForCity(
   country: Country,
   city: Country["cities"][number],
   buildings: BuildingsFile,
-  extraBuildingsForCity?: Record<string, EcoCandidateBuildingId[]>
+  extraBuildingsForCity?: Record<string, EcoCandidateBuildingId[]>,
+  resourceWeights?: Partial<Record<Resource, number>>
 ): EcoCandidateBuildingId[] {
   const cityId = `${country.country.id}:${city.id}`;
-  const pool: EcoCandidateBuildingId[] = ["arms_industry", "air_base", "military_hospital", "underground_bunkers"];
-  if (city.starting.naval_base >= 1) pool.push("naval_base");
+  // Morale and HQ buildings are always candidates — they benefit all production.
+  const pool: EcoCandidateBuildingId[] = ["military_hospital", "underground_bunkers", "relocate_headquarters"];
+  // Production buildings only when this city's resource is needed by the force plan.
+  const hasWeights = resourceWeights && Object.keys(resourceWeights).length > 0;
+  const cityResourceWeighted = !hasWeights || (resourceWeights![city.resource as Resource] ?? 0) >= WEIGHT_THRESHOLD;
+  if (cityResourceWeighted) {
+    pool.push("arms_industry", "air_base");
+    if (city.starting.naval_base >= 1) pool.push("naval_base");
+  }
   const extras = extraBuildingsForCity?.[cityId] ?? [];
   for (const extra of extras) {
     if (!pool.includes(extra) && maxDefinedLevel(buildings, extra) > 0) pool.push(extra);
@@ -204,7 +225,9 @@ function beamSearchCity(
   baselineCountryHourly: Array<Record<Resource, number>>,
   config: CityEcoBeamConfig,
   pool: EcoCandidateBuildingId[],
-  countryStatus: "homeland" | "occupied"
+  countryStatus: "homeland" | "occupied",
+  captureRelHour = 0,
+  resourceWeights?: Partial<Record<Resource, number>>
 ): CityEcoResult {
   const { hoursToSimulate, beamWidth, topN } = config;
   const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
@@ -296,11 +319,12 @@ function beamSearchCity(
     for (let h = 0; h < hoursToSimulate; h++) {
       const previous = balancesByHour[h - 1] ?? zeroResources();
       const balances = zeroResources();
+      const captured = h >= captureRelHour;
       for (const resource of RESOURCE_KEYS) {
         balances[resource] =
           previous[resource] +
-          (simulation.perHourAggregate[h]?.production[resource] ?? 0) +
-          (otherCountryHourly[h]?.[resource] ?? 0) +
+          (captured ? (simulation.perHourAggregate[h]?.production[resource] ?? 0) : 0) +
+          (captured ? (otherCountryHourly[h]?.[resource] ?? 0) : 0) +
           adjustments[h][resource];
         endingBalances[resource] = balances[resource];
       }
@@ -355,8 +379,17 @@ function beamSearchCity(
     };
   }
 
+  function weightedEndScore(balances: Record<Resource, number>): number {
+    if (!resourceWeights || Object.keys(resourceWeights).length === 0) {
+      return balances[city.resource] ?? 0;
+    }
+    let score = 0;
+    for (const r of RESOURCE_KEYS) score += (resourceWeights[r] ?? 0) * (balances[r] ?? 0);
+    return score;
+  }
+
   function compareRanked(a: RankedSequence, b: RankedSequence): number {
-    return (b.endResource - a.endResource) || a.sequenceKey.localeCompare(b.sequenceKey);
+    return (weightedEndScore(b.endingBalances) - weightedEndScore(a.endingBalances)) || a.sequenceKey.localeCompare(b.sequenceKey);
   }
 
   function nextActions(tokens: TokenAction[]): TokenAction[] {
@@ -379,7 +412,7 @@ function beamSearchCity(
     token: TokenAction
   ): Evaluation {
     const cost = levelData(buildings, token.buildingId, token.targetLevel).cost;
-    const minStartHour = Math.ceil(parentEval.nextFreeRelHour);
+    const minStartHour = Math.max(Math.ceil(parentEval.nextFreeRelHour), captureRelHour);
     let scheduledStartHour: number | undefined;
 
     for (let h = minStartHour; h < hoursToSimulate; h++) {
@@ -482,6 +515,17 @@ function beamSearchCity(
     return levels;
   }
 
+  // Sum one-time costs of every eco build action (not reflected in hourlyCityProduction).
+  const totalEcoBuildCost = zeroResources();
+  for (const action of bestActions) {
+    const bId = action.buildingId as EcoCandidateBuildingId;
+    if (!ECO_CANDIDATE_BUILDINGS.includes(bId)) continue;
+    const cost = levelData(buildings, bId, action.targetLevel).cost;
+    for (const resource of RESOURCE_KEYS) {
+      totalEcoBuildCost[resource] += cost[resource] ?? 0;
+    }
+  }
+
   // Run one final simulation with the winning actions to get per-hour city production.
   const bestSimulation = simulateBuildOrder({
     cities: [cityState],
@@ -491,6 +535,7 @@ function beamSearchCity(
     hoursToSimulate,
   });
   const hourlyCityProduction = Array.from({ length: hoursToSimulate }, (_, h) => {
+    if (h < captureRelHour) return zeroResources();
     const prod = bestSimulation.perHourAggregate[h]?.production;
     return prod ? { ...prod } as Record<Resource, number> : zeroResources();
   });
@@ -506,6 +551,7 @@ function beamSearchCity(
     lastEcoBuildCompletionAbsHour,
     endingBalances: top[0]?.endingBalances ?? baseline.endingBalances,
     hourlyCityProduction,
+    totalEcoBuildCost,
     top: top.map(r => ({
       sequenceLines: r.sequenceLines,
       timedOrderLines: r.timedOrderLines,
@@ -531,10 +577,12 @@ export function runCityEcoBeam(
   buildings: BuildingsFile,
   config: CityEcoBeamConfig,
   countryStatus: "homeland" | "occupied" = "homeland",
-  cityFilter?: string
+  cityFilter?: string,
+  captureAbsHour?: number
 ): CountryEcoBeamResult {
   const { hoursToSimulate } = config;
   const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
+  const captureRelHour = captureAbsHour !== undefined ? Math.max(0, captureAbsHour - scenarioAbsHour) : 0;
 
   const baselineCountryTable = buildCountryHourlyResourceBalanceTable(
     country,
@@ -554,8 +602,8 @@ export function runCityEcoBeam(
     : country.cities;
 
   const cityResults = selectedCities.map(city => {
-    const pool = buildingPoolForCity(country, city, buildings, config.extraBuildingsForCity);
-    return beamSearchCity(country, city, scenario, buildings, baselineCountryHourly, config, pool, countryStatus);
+    const pool = buildingPoolForCity(country, city, buildings, config.extraBuildingsForCity, config.resourceWeights);
+    return beamSearchCity(country, city, scenario, buildings, baselineCountryHourly, config, pool, countryStatus, captureRelHour, config.resourceWeights);
   });
 
   return { scenarioAbsHour, cityResults };

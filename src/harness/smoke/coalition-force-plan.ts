@@ -636,7 +636,7 @@ for (const countryId of countriesToAnalyse) {
 
 // ── HTML output ───────────────────────────────────────────────────────────────
 
-function renderHtml(coalition: CoalitionSummary | null): string {
+function renderHtml(coalition: CoalitionSummary | null, analysisSlice: CountryAnalysis[]): string {
   const fmt = (v: number) => v === 0 ? "0" : v > 0 ? `+${Math.round(v).toLocaleString()}` : `${Math.round(v).toLocaleString()}`;
 
   const sections: string[] = [];
@@ -715,11 +715,9 @@ function renderHtml(coalition: CoalitionSummary | null): string {
     }
   }
 
-  // ── Per-country sections (single-country mode only) ──
-  // When running CFP_COUNTRY=all the coalition summary is the output; per-country
-  // detail lives in its own single-country HTML run.
+  // ── Per-country sections ──
   if (!coalition) {
-    for (const analysis of analyses) {
+    for (const analysis of analysisSlice) {
       const c = analysis.coalitionContribution;
       const infeasibleTag = c.hasInfeasible ? ` <span style="color:#cf222e">⚠ infeasible demand</span>` : "";
       sections.push(`<h2>${escapeHtml(analysis.countryName)} (${analysis.countryId}) — ${analysis.doctrine} / ${analysis.status}${infeasibleTag}</h2>`);
@@ -910,8 +908,17 @@ const coalition = countryFilter === "all" && analyses.length > 0
   : null;
 
 fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
-fs.writeFileSync(outputFilePath, renderHtml(coalition), "utf8");
+fs.writeFileSync(outputFilePath, renderHtml(coalition, analyses), "utf8");
 console.log(`\n[cfp] html written to ${outputFilePath}`);
+
+if (countryFilter === "all") {
+  const dir = path.dirname(outputFilePath);
+  for (const analysis of analyses) {
+    const countryPath = path.join(dir, `cfp-${analysis.countryId}.html`);
+    fs.writeFileSync(countryPath, renderHtml(null, [analysis]), "utf8");
+    console.log(`[cfp] country html → ${countryPath}`);
+  }
+}
 
 // ── Terminal summary ──────────────────────────────────────────────────────────
 

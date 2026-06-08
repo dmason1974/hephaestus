@@ -11,6 +11,12 @@ export type Resource =
   | "cash"
   | "manpower";
 
+/** Resources shared across the coalition pool (can be transferred between countries). */
+export const POOLED_RESOURCES: Resource[] = ["supplies", "components", "fuel", "rares", "electronics", "cash"];
+
+/** Resources that are country-specific and cannot be pooled or transferred. */
+export const PER_COUNTRY_RESOURCES: Resource[] = ["manpower"];
+
 export const BASE_RESOURCE_PRODUCTION: Record<Exclude<Resource, "manpower">, number> = {
   supplies: 2100,
   components: 1800,

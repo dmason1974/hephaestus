@@ -75,3 +75,12 @@ cities:
       air_base: 0
       naval_base: 1
       underground_bunkers: 0
+
+starting_balance:
+  supplies: 35748
+  components: 26810
+  fuel: 13406
+  rares: 9830
+  electronics: 9830
+  cash: 134062
+  manpower: 13406

@@ -36,6 +36,16 @@ export function buildCountrySchema(enums: Enumerations) {
     electronics: NonNegativeInt,
   });
 
+  const StartingBalanceSchema = z.object({
+    supplies: z.number().min(0),
+    components: z.number().min(0),
+    fuel: z.number().min(0),
+    rares: z.number().min(0),
+    electronics: z.number().min(0),
+    cash: z.number().min(0),
+    manpower: z.number().min(0),
+  }).partial();
+
   const CountrySchema = z.object({
     version: z.number().int().min(1),
     country: z.object({
@@ -52,6 +62,7 @@ export function buildCountrySchema(enums: Enumerations) {
       rares: 0,
       electronics: 0,
     }),
+    starting_balance: StartingBalanceSchema.optional(),
   });
 
   return CountrySchema;

@@ -36,7 +36,7 @@ export const scenarioFileSchema = z
     }).strict(),
     truce_length_days: z.number().int().min(0).optional(),
     speed: gameSpeedSchema,
-    starting_balance: resourceAmountsSchema,
+    starting_balance: resourceAmountsSchema.optional(),
     research: z.object({
       unlocked_through_day_at_start: z.number().int().min(0).optional(),
     }).strict().optional(),

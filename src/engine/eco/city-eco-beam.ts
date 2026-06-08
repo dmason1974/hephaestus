@@ -543,7 +543,7 @@ export function runCityEcoBeam(
     {
       buildingsFile: buildings,
       scenario,
-      startingBalances: scenario.starting_balance,
+      startingBalances: country.starting_balance ?? scenario.starting_balance,
       startAbsoluteHour: scenarioAbsHour,
     }
   );

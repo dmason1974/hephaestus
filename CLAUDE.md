@@ -91,6 +91,15 @@ cities:
       air_base: 1          # 1 if the city has an Air Base, else 0
       naval_base: 0        # 1 if the city has a Harbor, else 0
       underground_bunkers: 0  # always 0 at scenario start
+
+starting_balance:          # optional; present on all 7-city (playable) countries
+  supplies: 35748          # per-country starting resources — same for all coalition members
+  components: 26810        # only realised when country is actively played (status: homeland)
+  fuel: 13406              # occupied/AI nations contribute 0 to the coalition pool
+  rares: 9830
+  electronics: 9830
+  cash: 134062
+  manpower: 13406          # NOTE: manpower is NOT pooled — must be checked per-country
 ```
 
 **Key rules:**
@@ -98,6 +107,7 @@ cities:
 - The capital city is the one with the HQ building in-game (`capital: true`). Capital cities also tend to have `air_base: 1` but this is not universal (e.g. South Africa's Cape Town has no naval base).
 - Resource amounts in-game vary by resource type and population tier but are not stored in the YAML — only the resource type is recorded.
 - Single-city "AI nations" (e.g. Solomon Islands, Oman) follow the same schema with one city entry.
+- `starting_balance` is a **per-country** value present on all 7-city (playable) countries. The coalition pool for pooled resources = sum across all `homeland` countries. Occupied and AI-nation countries contribute 0. All 26 seven-city country YAMLs in the Antarctica scenario carry this field.
 
 ---
 
@@ -357,7 +367,7 @@ Invoke via YAML force plan file or env vars (`PLAN_COUNTRY`, `PLAN_DEMANDS`, `PL
 4. ✅ **Add `arms_industry` level as a search dimension** — `QueueChoice.armsIndustryLevel` + `QueueProfileSummary.armsIndustryTargetLevel`; `buildPlanActionsForCity` builds AI to the target level; search loops over 1..`maxArmsIndustryLevel` (default 1, overridable via `PLAN_MAX_AI_LEVEL` env var or `search.max_arms_industry_level` in plan YAML); display strings include `@AI{n}`; income from AI upgrades modelled correctly via `dynamicHourlyIncomeFromSimulation`; eco support candidate pruning by deficit resource
 5. ✅ **Eco-first flip-point planner** — see Chunk 5 Architecture below; flip-point sweep complete
 6. ✅ **Income accounting (chunk 6)** — per-row: eco income (military cities capped at flip point then flat rate; eco cities full), infra cost, mob cost (L1), upkeep cost (L1 rate); net balance per resource with shortfall/surplus; coalition starting balance shown in header separately
-7. ✅ **Coalition aggregation (chunk 7)** — for each country, best feasible row per demand (most eco hours captured); per-city flip = min across all demands using that city (prevents income double-counting); coalition balance sheet in HTML: total eco income + starting balance − total costs, with shortfall/surplus highlighting per resource. Only runs with `CFP_COUNTRY=all`. **OOM note**: full run (beam_width=50) requires `--max-old-space-size=8192` for 14 countries.
+7. ✅ **Coalition aggregation (chunk 7)** — for each country, best feasible row per demand (most eco hours captured); per-city flip = min across all demands using that city (prevents income double-counting); coalition balance sheet (pooled resources only) + per-country manpower check + per-demand city queue tables in HTML. Starting balance summed from per-country YAML values for homeland countries only. Only runs with `CFP_COUNTRY=all`. **OOM note**: full run (beam_width=50) requires `--max-old-space-size=8192` for 14 countries.
 
 ---
 
@@ -415,7 +425,7 @@ Where `remainingInfraTime` is the delta between what the eco phase built and wha
 - Handles `batch_size` (warheads: 100 units = 25 mob events), launcher platforms (cruise missile: skipped), province demands (commando: skipped)
 - Per-row income accounting: eco income (with post-flip flat-rate extrapolation), infra/mob/upkeep costs, net resource balance, affordable/shortfall summary
 - `countryStatus` (homeland/occupied) correctly flows into city morale for eco beam (bug fixed chunk 6)
-- **Chunk 7 complete**: coalition-level aggregation across all countries against the shared pool — coalition balance sheet in HTML output
+- **Chunk 7 complete**: coalition-level aggregation across all countries against the shared pool — coalition balance sheet (pooled resources) + per-country manpower check + per-demand city queue tables in HTML output
 
 ### What Needs Building
 
@@ -439,32 +449,43 @@ Where `remainingInfraTime` is the delta between what the eco phase built and wha
 - For each country demand, selects the best feasible flip-point row (most eco hours captured; fewest cities as tiebreaker).
 - Multi-demand countries: per-city flip = min flip across all demands using that city, preventing income double-counting.
 - Eco-only countries (UK, Iran, Madagascar, Solomon Islands): contribute full 28-day eco income (no flip).
-- Sums eco income + costs across all countries; adds starting balance once.
-- HTML output: selected-config table, per-country income/cost breakdown, coalition balance sheet with shortfall/surplus highlighting.
+- Sums eco income + costs across all countries; coalition starting balance = sum of per-country `starting_balance` for `homeland` countries only.
+- HTML output: per-demand city queue tables (eco phase → military build chain → mob), coalition balance sheet (pooled resources only), per-country manpower check.
+
+### Resource Pooling Rules
+
+- **Pooled resources** (`POOLED_RESOURCES` in `src/core/constants.ts`): supplies, components, fuel, rares, electronics, cash — shared across the coalition pool.
+- **Non-pooled resources** (`PER_COUNTRY_RESOURCES`): manpower — country-specific, cannot be transferred. Checked per-country separately in the HTML output.
+- Coalition balance sheet only shows pooled resources. Manpower has its own "Per-Country Manpower Check" table.
 
 ### Known Limitations
 
 - **Best-row selection is independent per demand**: for multi-demand countries (e.g. Indonesia SASF+UAV+warheads), the "best UAV row" shows 636h eco but those cities are already constrained to flip at 278h by SASF. The balance sheet is computed correctly (using per-city flip), but the per-demand flip shown in the config table can be misleading.
 - **Capital-first city ordering**: not optimal; combinatorial city-subset search is future work.
 - **OOM fixed**: coalition contribution now computed inline in `analyseCountry` (cityResults not retained); `--max-old-space-size=8192` baked into npm script as safety net for single-country beam peaks.
+- **Eco buildings at flip are worst-city only**: `ecoBuildingsAtFlip` in city queue tables shows the state of the constrained (worst) city; other assigned cities may have more eco buildings at the same flip point.
 
-### First-Run Results (beam_width=50, best feasible row per demand)
+### Corrected Coalition Results (beam_width=50)
+
+Starting balance = per-country value × 10 homeland countries (pooled resources); manpower per-country.
 
 ```
-                  supplies    components    fuel      rares     electronics  cash        manpower
-Total eco income  1,417,743   1,179,741   690,474   411,013   508,764      3,929,861   315,639
-+ Starting bal       35,748      26,810    13,406     9,830     9,830        134,062    13,406
-= Gross available 1,453,491   1,206,551   703,880   420,843   518,594      4,063,923   329,045
-− Infra cost        372,250     294,150   405,250    46,500   237,875      1,661,475         0
-− Mob cost          816,750     684,100    12,500    67,500   391,850      1,759,875   380,900
-− Upkeep cost       291,421         428   192,455         0    63,282        668,974   191,784
-= Net balance       -26,930    +227,873   +93,675  +306,843  -174,413       -26,401  -243,639
+                  supplies    components    fuel      rares     electronics  cash
+Total eco income  1,417,743   1,176,534   690,474   408,327   506,063      3,905,547
++ Starting bal      357,480     268,100   134,060    98,300    98,300      1,340,620
+= Gross available 1,775,223   1,444,634   824,534   506,627   604,363      5,246,167
+− Infra cost        372,250     294,150   405,250    46,500   237,875      1,661,475
+− Mob cost          816,750     684,100    12,500    67,500   391,850      1,759,875
+− Upkeep cost       291,421         428   192,455         0    63,282        668,974
+= Net balance      +294,802    +465,956  +214,329  +392,627   -88,644     +1,155,843
 ```
 
-Binding shortfalls: **electronics (-174k)**, **manpower (-244k)**, supplies (-27k), cash (-26k).
-Components/fuel/rares all surplus. Manpower eco income is structural (population, not eco builds) —
-shortfall cannot be fixed by better eco planning; must reduce mob/upkeep cost or increase manpower
-income via RO/arms_industry paths.
+**Single binding pooled shortfall: electronics (−88,644).** All other pooled resources surplus.
+
+Manpower per-country (eco income + 13,406 starting − mob − upkeep):
+- Russia, UK: surplus. All other homeland countries: shortfall ~−11k to −25k each.
+- Manpower shortfall is structural (driven by mob + upkeep costs exceeding eco income + starting).
+  Cannot be fixed by eco optimization; must reduce unit counts or accept the shortfall.
 
 ### Next Steps (Chunk 8+)
 
@@ -472,6 +493,7 @@ income via RO/arms_industry paths.
 - **Optimal city subset search**: combinatorial rather than capital-first ordering
 - **`mercenary_outpost` in build planner**: Russia/commando cities need it in the infra chain
 - **Province mobilisation costs**: commando mob cost not yet included in balance sheet
+- **Electronics shortfall (−88k)**: investigate which demands/countries drive it; consider reducing UAV count or finding an electronics eco city that can stay longer
 
 ---
 

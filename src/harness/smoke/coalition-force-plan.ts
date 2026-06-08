@@ -1155,17 +1155,17 @@ function renderHtml(coalition: CoalitionSummary | null, analysisSlice: CountryAn
   }
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>Coalition Force Plan — Flip-Point Analysis</title><style>
-body{font-family:ui-sans-serif,system-ui,sans-serif;line-height:1.5;padding:24px;max-width:1800px;margin:0 auto}
-table{border-collapse:collapse;width:100%;margin:12px 0 24px;font-size:13px}
-th,td{border:1px solid #d0d7de;padding:6px 10px;vertical-align:top;text-align:left;white-space:pre-wrap}
-th{background:#f6f8fa;font-weight:600}
+body{font-family:ui-monospace,"Cascadia Code","Fira Mono","Courier New",monospace;font-size:12px;line-height:1.5;padding:24px;max-width:1800px;margin:0 auto}
+table{border-collapse:collapse;width:100%;margin:12px 0 24px;font-size:12px}
+th,td{border:1px solid #d0d7de;padding:4px 8px;vertical-align:top;text-align:left;white-space:pre-wrap}
+th{background:#f6f8fa;font-weight:600;font-size:11px}
 h1,h2,h3,h4{margin:16px 0 6px}
 h2{border-bottom:2px solid #d0d7de;padding-bottom:4px;margin-top:32px}
 h3{margin-top:24px}
-h4{font-size:14px;color:#24292f}
+h4{font-size:13px;color:#24292f}
 p{margin:4px 0 12px;color:#57606a}
 details{margin:8px 0 24px}
-details summary{font-size:13px;user-select:none}
+details summary{font-size:12px;user-select:none}
 </style></head><body>${sections.join("")}</body></html>`;
 }
 

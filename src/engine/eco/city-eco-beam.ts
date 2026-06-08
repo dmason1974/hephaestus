@@ -23,16 +23,20 @@ const RESOURCE_KEYS: Resource[] = [
 
 export type EcoCandidateBuildingId =
   | "air_base"
+  | "annex_city"
   | "arms_industry"
   | "military_hospital"
   | "naval_base"
+  | "recruiting_office"
   | "relocate_headquarters"
   | "underground_bunkers";
 
 const ECO_CANDIDATE_BUILDINGS: readonly EcoCandidateBuildingId[] = [
+  "annex_city",
   "arms_industry",
   "air_base",
   "military_hospital",
+  "recruiting_office",
   "underground_bunkers",
   "naval_base",
   "relocate_headquarters",
@@ -53,6 +57,13 @@ export type CityEcoBeamConfig = {
    * If absent, all resources are treated equally (no pruning).
    */
   resourceWeights?: Partial<Record<Resource, number>>;
+  /**
+   * When true, skip resource-affordability feasibility checks in the beam.
+   * Builds are scheduled immediately when the build queue is free (and captureRelHour is met).
+   * Use for the eco planner (Unit 1) where the question is "optimal build path assuming
+   * resources are available" rather than "can we afford this?"
+   */
+  unconstrained?: boolean;
 };
 
 export type CityEcoCandidate = {
@@ -158,13 +169,21 @@ function buildingPoolForCity(
   country: Country,
   city: Country["cities"][number],
   buildings: BuildingsFile,
+  countryStatus: "homeland" | "occupied",
   extraBuildingsForCity?: Record<string, EcoCandidateBuildingId[]>,
   resourceWeights?: Partial<Record<Resource, number>>
 ): EcoCandidateBuildingId[] {
   const cityId = `${country.country.id}:${city.id}`;
-  // Morale and HQ buildings are always candidates — they benefit all production.
-  const pool: EcoCandidateBuildingId[] = ["military_hospital", "underground_bunkers", "relocate_headquarters"];
-  // Production buildings only when this city's resource is needed by the force plan.
+  // Manpower and morale buildings are always candidates.
+  const pool: EcoCandidateBuildingId[] = ["military_hospital", "underground_bunkers", "recruiting_office"];
+  if (countryStatus === "occupied") {
+    // Occupied cities must annex before producing at scale; no HQ relocation possible.
+    pool.push("annex_city");
+  } else {
+    pool.push("relocate_headquarters");
+  }
+  // Production buildings: always included when no weights (unconstrained eco planner),
+  // or when the city's resource is weighted above the threshold (force-plan weighted mode).
   const hasWeights = resourceWeights && Object.keys(resourceWeights).length > 0;
   const cityResourceWeighted = !hasWeights || (resourceWeights![city.resource as Resource] ?? 0) >= WEIGHT_THRESHOLD;
   if (cityResourceWeighted) {
@@ -230,6 +249,7 @@ function beamSearchCity(
   resourceWeights?: Partial<Record<Resource, number>>
 ): CityEcoResult {
   const { hoursToSimulate, beamWidth, topN } = config;
+  const unconstrained = config.unconstrained ?? false;
   const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
   const cityState = buildCityState(country, city, countryStatus);
   const startingLevels = startingLevelsForCity(city);
@@ -411,15 +431,19 @@ function beamSearchCity(
     parentTimedOrder: BuildAction[],
     token: TokenAction
   ): Evaluation {
-    const cost = levelData(buildings, token.buildingId, token.targetLevel).cost;
     const minStartHour = Math.max(Math.ceil(parentEval.nextFreeRelHour), captureRelHour);
     let scheduledStartHour: number | undefined;
 
-    for (let h = minStartHour; h < hoursToSimulate; h++) {
-      const available = parentEval.balancesByHour[h] ?? zeroResources();
-      if (RESOURCE_KEYS.every(r => available[r] >= (cost[r] ?? 0))) {
-        scheduledStartHour = h;
-        break;
+    if (unconstrained) {
+      if (minStartHour < hoursToSimulate) scheduledStartHour = minStartHour;
+    } else {
+      const cost = levelData(buildings, token.buildingId, token.targetLevel).cost;
+      for (let h = minStartHour; h < hoursToSimulate; h++) {
+        const available = parentEval.balancesByHour[h] ?? zeroResources();
+        if (RESOURCE_KEYS.every(r => available[r] >= (cost[r] ?? 0))) {
+          scheduledStartHour = h;
+          break;
+        }
       }
     }
 
@@ -437,7 +461,9 @@ function beamSearchCity(
       ...parentTimedOrder,
       { cityId: cityState.cityId, buildingId: token.buildingId as BuildingId, targetLevel: token.targetLevel, startHour: scheduledStartHour },
     ];
-    return evaluateTimedOrder(timedOrder);
+    const result = evaluateTimedOrder(timedOrder);
+    if (unconstrained) return { ...result, feasible: true };
+    return result;
   }
 
   const seen = new Set<string>([""]);
@@ -602,7 +628,7 @@ export function runCityEcoBeam(
     : country.cities;
 
   const cityResults = selectedCities.map(city => {
-    const pool = buildingPoolForCity(country, city, buildings, config.extraBuildingsForCity, config.resourceWeights);
+    const pool = buildingPoolForCity(country, city, buildings, countryStatus, config.extraBuildingsForCity, config.resourceWeights);
     return beamSearchCity(country, city, scenario, buildings, baselineCountryHourly, config, pool, countryStatus, captureRelHour, config.resourceWeights);
   });
 

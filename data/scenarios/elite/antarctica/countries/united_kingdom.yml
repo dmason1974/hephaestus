@@ -4,6 +4,7 @@ country:
   id: united_kingdom
   name: United Kingdom
   doctrine: european
+  status: occupied
 
 cities:
   - id: london

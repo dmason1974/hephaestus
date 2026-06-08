@@ -52,6 +52,7 @@ export function buildCountrySchema(enums: Enumerations) {
       id: SnakeCaseId,
       name: z.string().min(1),
       doctrine: DoctrineEnum,
+      status: z.enum(["homeland", "occupied"]).optional().default("homeland"),
     }),
     cities: z.array(CitySchema).min(1),
     provinces: ProvinceSchema.optional().default({

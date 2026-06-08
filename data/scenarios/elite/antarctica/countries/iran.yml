@@ -4,6 +4,7 @@ country:
   id: iran
   name: Iran
   doctrine: eastern
+  status: occupied
 
 cities:
   - id: tehran

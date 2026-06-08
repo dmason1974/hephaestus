@@ -4,6 +4,7 @@ country:
   id: solomon_islands
   name: Solomon Islands
   doctrine: european
+  status: occupied
 
 cities:
   - id: honiara

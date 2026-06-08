@@ -4,6 +4,7 @@ country:
   id: madagascar
   name: Madagascar
   doctrine: european
+  status: occupied
 
 cities:
   - id: antananarivo

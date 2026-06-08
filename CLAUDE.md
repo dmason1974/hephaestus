@@ -595,14 +595,14 @@ Unit 1 — Eco Planner                    ✅ COMPLETE
   Question: "What is the best economy this city can achieve over the full truce window?"
 
 Unit 2 — Force Projection               ⬜ NEXT
-  Input:  coalition_force_plan YAML, eco plans from Unit 1 (for flip-point derivation)
-  Output: per-country flip points, research schedule, city build plans, mob tables
-  Question: "Given our demands and eco baseline, when does each city flip to military, and what does it build?"
+  Input:  coalition_force_plan YAML, scenario, buildings + unit data
+  Output: per-demand JIT research schedule + minimum-cost mobilisation plan (city count, RO level, timing, cost breakdown)
+  Question: "What is the cheapest way to field this force by the deadline?"
 
 Unit 3 — Resource Projection            ⬜ FUTURE
   Input:  Unit 1 eco plans + Unit 2 force plans + coalition starting balances
-  Output: hourly coalition resource flows, net balance per resource, shortfalls
-  Question: "Can the coalition afford this combined plan? Where does it go insolvent?"
+  Output: per-city flip points, hourly coalition resource flows, net balance per resource, shortfalls
+  Question: "Given eco income and force costs, when must each city flip, and can the coalition afford it?"
 ```
 
 ---
@@ -658,34 +658,39 @@ Four Antarctica occupied countries have `status: occupied`: `united_kingdom`, `i
 
 ## Unit 2 — Force Projection ⬜ NEXT
 
-**Goal**: given a `coalition_force_plan` YAML and the eco plans from Unit 1, produce per-country force plans — flip points, research schedules, city build sequences, mobilisation tables.
+**Goal**: given a `coalition_force_plan` YAML, produce the minimum-cost JIT research schedule and mobilisation plan per country. No eco phase, no flip points — purely the military side.
 
-### What it must produce (per country)
+### What it must produce (per country, per demand)
 
-1. **Flip point per city** — when each city transitions from eco to military mode (derived from `flipPoint = deadline − mobWindow − remainingInfraTime`)
-2. **Research schedule** — JIT for all levels (L1 ASAP only if required for mob before deadline)
-3. **City build plan** — eco steps completed before flip → military infra chain → recruiting office
-4. **Mobilisation table** — units per city per demand, timing
+1. **JIT research schedule** — all levels scheduled JIT (as late as possible before deadline); L1 placed ASAP only when required to open mobilisation before the deadline
+2. **Mobilisation plan** — how many units mobilise per city, at what hour, across how many cities, at what RO level — minimising total cost (infra + mob + upkeep)
+3. **Cost breakdown** — infra cost, mob cost, upkeep cost per demand
 
 ### Key inputs
 
-- `coalition_force_plan` YAML (demands per country)
-- Eco plans from Unit 1 via `runCityEcoBeam` → `buildingLevelsAtAbsHour(H)` per city
+- `coalition_force_plan` YAML (demands per country — unit ID, count, doctrine, deadline)
 - Scenario (truce days, start hour, unlock credit)
 - Buildings and unit YAML data
 
+### What Unit 2 does NOT do
+
+- No flip points — that is Unit 3's job
+- No eco income — that is Unit 1 (eco) and Unit 3 (resource projection)
+- No affordability checking against a resource pool — that is Unit 3
+
 ### Relationship to existing code
 
-`src/engine/eco/flip-point-solver.ts` already computes flip points given a demand.
-`src/harness/smoke/coalition-force-plan.ts` already does most of this per-country sweep — Unit 2 will reorganise it into a clean callable function rather than an HTML harness, so the outputs can be composed with Unit 3.
+`src/harness/smoke/force-build-plan.ts` is the closest existing code — it does JIT research scheduling and mobilisation planning for a single country. Unit 2 will wrap this into a clean callable function per demand, producing typed output that Unit 3 can compose against Unit 1's eco income.
+
+`optimizeResearchSchedule` + `optimizeBatchAllocation` in `src/engine/optimization/` already implement the core JIT scheduling and city/RO search. Unit 2 harness calls these per demand and aggregates.
 
 ### Design constraints
 
-- Province demands (`mobilisation_source: province`) are excluded from city slot accounting — commando doesn't compete for city capacity
+- Province demands (`mobilisation_source: province`) excluded from city slot — commando doesn't compete for city capacity
 - Batch units (`batch_size: 4` for warheads) — 100 warheads = 25 mob events
-- Launcher platforms (cruise_missile) have zero mob cost and are skipped for city slot
-- `mercenary_outpost` must appear in city infra chain for commando cities (Russia) — same pattern as `secret_weapons_lab`
-- Multi-demand countries: per-city flip = min across all demands sharing that city
+- Launcher platforms (cruise_missile) have zero mob cost — skip
+- `mercenary_outpost` in city infra chain for commando cities (same pattern as `secret_weapons_lab`)
+- Multi-demand countries: city infra chain must be consistent across demands sharing a city
 
 ---
 

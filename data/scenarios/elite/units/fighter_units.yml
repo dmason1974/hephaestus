@@ -14,6 +14,7 @@ units:
     category: Air
     doctrine:
       - european
+      - eastern
       - western
     levels:
       "1":
@@ -22,6 +23,15 @@ units:
           - arms_industry level 1
         research:
           european:
+            unlock_day: 1
+            time:
+              minutes: 22
+              seconds: 30
+            cost:
+              supplies: 1800
+              rares: 1900
+              cash: 4000
+          eastern:
             unlock_day: 1
             time:
               minutes: 22
@@ -48,6 +58,14 @@ units:
               manpower: 425
               electronics: 950
               cash: 3500
+          eastern:
+            time:
+              hours: 23
+            cost:
+              components: 1000
+              manpower: 425
+              electronics: 950
+              cash: 3500
           western:
             time:
               days: 1
@@ -58,6 +76,12 @@ units:
               manpower: 375
         daily_upkeep:
           european:
+            cost:
+              manpower: 35
+              fuel: 35
+              electronics: 35
+              cash: 100
+          eastern:
             cost:
               manpower: 35
               fuel: 35
@@ -84,6 +108,15 @@ units:
               supplies: 1980
               rares: 2090
               cash: 4400
+          eastern:
+            unlock_day: 3
+            time:
+              hours: 18
+              minutes: 45
+            cost:
+              supplies: 1980
+              rares: 2090
+              cash: 4400
           western:
             unlock_day: 3
             time:
@@ -95,6 +128,14 @@ units:
               cash: 4400
         mobilisation:
           european:
+            time:
+              days: 1
+            cost:
+              components: 1000
+              manpower: 425
+              electronics: 950
+              cash: 3500
+          eastern:
             time:
               days: 1
             cost:
@@ -117,6 +158,12 @@ units:
               fuel: 40
               electronics: 40
               cash: 105
+          eastern:
+            cost:
+              manpower: 40
+              fuel: 40
+              electronics: 40
+              cash: 105
           western:
             cost:
               fuel: 40
@@ -130,6 +177,15 @@ units:
           - air_superiority_fighter level 2
         research:
           european:
+            unlock_day: 6
+            time:
+              hours: 19
+              minutes: 30
+            cost:
+              supplies: 2160
+              rares: 2280
+              cash: 4800
+          eastern:
             unlock_day: 6
             time:
               hours: 19
@@ -157,6 +213,15 @@ units:
               manpower: 425
               electronics: 950
               cash: 3500
+          eastern:
+            time:
+              days: 1
+              hours: 1
+            cost:
+              components: 1000
+              manpower: 425
+              electronics: 950
+              cash: 3500
           western:
             time:
               days: 1
@@ -168,6 +233,12 @@ units:
               manpower: 375
         daily_upkeep:
           european:
+            cost:
+              fuel: 45
+              electronics: 45
+              cash: 110
+              manpower: 45
+          eastern:
             cost:
               fuel: 45
               electronics: 45
@@ -186,6 +257,15 @@ units:
           - air_superiority_fighter level 3
         research:
           european:
+            unlock_day: 11
+            time:
+              hours: 23
+              minutes: 15
+            cost:
+              supplies: 2340
+              rares: 2470
+              cash: 5200
+          eastern:
             unlock_day: 11
             time:
               hours: 23
@@ -213,6 +293,15 @@ units:
               manpower: 600
               electronics: 1100
               cash: 4000
+          eastern:
+            time:
+              days: 1
+              hours: 3
+            cost:
+              components: 1175
+              manpower: 600
+              electronics: 1100
+              cash: 4000
           western:
             time:
               days: 1
@@ -224,6 +313,12 @@ units:
               manpower: 550
         daily_upkeep:
           european:
+            cost:
+              fuel: 55
+              electronics: 50
+              cash: 150
+              manpower: 50
+          eastern:
             cost:
               fuel: 55
               electronics: 50
@@ -242,6 +337,16 @@ units:
           - air_superiority_fighter level 4
         research:
           european:
+            unlock_day: 16
+            time:
+              days: 1
+              hours: 1
+              minutes: 30
+            cost:
+              supplies: 2520
+              rares: 2660
+              cash: 5600
+          eastern:
             unlock_day: 16
             time:
               days: 1
@@ -271,6 +376,15 @@ units:
               manpower: 600
               electronics: 1100
               cash: 4000
+          eastern:
+            time:
+              days: 1
+              hours: 4
+            cost:
+              components: 1175
+              manpower: 600
+              electronics: 1100
+              cash: 4000
           western:
             time:
               days: 1
@@ -282,6 +396,12 @@ units:
               manpower: 550
         daily_upkeep:
           european:
+            cost:
+              fuel: 60
+              electronics: 55
+              cash: 160
+              manpower: 55
+          eastern:
             cost:
               fuel: 60
               electronics: 55
@@ -300,6 +420,16 @@ units:
           - air_superiority_fighter level 5
         research:
           european:
+            unlock_day: 22
+            time:
+              days: 1
+              hours: 5
+              minutes: 15
+            cost:
+              supplies: 2700
+              rares: 2850
+              cash: 6000
+          eastern:
             unlock_day: 22
             time:
               days: 1
@@ -329,6 +459,15 @@ units:
               manpower: 800
               electronics: 1250
               cash: 5000
+          eastern:
+            time:
+              days: 1
+              hours: 6
+            cost:
+              components: 1400
+              manpower: 800
+              electronics: 1250
+              cash: 5000
           western:
             time:
               days: 1
@@ -340,6 +479,12 @@ units:
               manpower: 725
         daily_upkeep:
           european:
+            cost:
+              fuel: 70
+              electronics: 60
+              cash: 175
+              manpower: 65
+          eastern:
             cost:
               fuel: 70
               electronics: 60
@@ -358,6 +503,16 @@ units:
           - air_superiority_fighter level 6
         research:
           european:
+            unlock_day: 24
+            time:
+              days: 1
+              hours: 7
+              minutes: 30
+            cost:
+              supplies: 2700
+              rares: 2850
+              cash: 6000
+          eastern:
             unlock_day: 24
             time:
               days: 1
@@ -387,6 +542,15 @@ units:
               manpower: 800
               electronics: 1250
               cash: 5000
+          eastern:
+            time:
+              days: 1
+              hours: 2
+            cost:
+              components: 1400
+              manpower: 800
+              electronics: 1250
+              cash: 5000
           western:
             time:
               days: 1
@@ -398,6 +562,12 @@ units:
               manpower: 725
         daily_upkeep:
           european:
+            cost:
+              fuel: 80
+              electronics: 65
+              cash: 190
+              manpower: 70
+          eastern:
             cost:
               fuel: 80
               electronics: 65

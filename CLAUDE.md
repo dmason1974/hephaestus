@@ -566,7 +566,7 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 | Unit | Status | Notes |
 |---|---|---|
 | `stealth_air_superiority_fighter` | ✓ Complete | european + western + **eastern** (added); L1 only; requires `air_superiority_fighter level 4` + `air_base level 5` + `secret_weapons_lab level 1` |
-| `air_superiority_fighter` | ✓ Complete | european + eastern + western; 7 levels |
+| `air_superiority_fighter` | ✓ Complete | european + eastern + western; 7 levels; eastern = european baseline (placeholder pending screenshots) |
 | `awacs` | ✓ Complete | all doctrines; 6 levels |
 | `uav` | ✓ Complete | all doctrines; 6 levels |
 | `fixed_wing_veteran` | ✓ Complete | european + western; 7 levels |
@@ -582,3 +582,28 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 | `airborne_infantry`, `motorized_infantry`, `special_forces` | ✓ Present | infantry_units |
 | `tank_veteran` | ✓ Complete | all doctrines; multi-level; armoured_units |
 
+---
+
+## Post-UAT Task List
+
+Tasks deferred until after UAT of the current coalition force plan engine output.
+
+### Testing
+
+1. **Strengthen morale tests** — current coverage is thin (3 tests, ~5 assertions). Add: occupied city morale curve, assertions anchored to real day-1 and day-28 values, edge cases for the D (decay) parameter.
+
+2. **Anchored production test** — add one test that chains the full morale × population → hourly output stack to a known real-world value. Example: pop-6 homeland supplies city, day 1, 4x speed, no buildings → assert exact hourly output. Guards against silent regressions in the core production formula.
+
+3. **Engine regression test** — run `coalition-force-plan` harness on the PNTH plan and assert key numeric outputs: no NaN values, all non-province demands feasible, electronics net balance in expected range (currently −88k). Catches silent regressions in the flip-point solver and coalition aggregation without requiring human HTML review.
+
+4. **README update** — document the new per-country HTML output from coalition runs: `CFP_COUNTRY=all` now writes `tmp/coalition-force-plan.html` (aggregate) + `tmp/cfp-<countryId>.html` per country; `CFP_COUNTRY=<id>` writes a single country file.
+
+### Engine gaps (from Known Gaps table)
+
+5. **Joint demand optimisation per country** — multi-demand countries (Indonesia: SASF+UAV+warheads) are currently optimised independently. The per-demand flip shown in the config table can be misleading when demands share cities.
+
+6. **Optimal city subset search** — currently capital-first ordering; combinatorial city-subset search needed for the true optimum.
+
+7. **`mercenary_outpost` in build planner** — Russia/commando cities need it inserted in the infra chain (same pattern as `secret_weapons_lab`).
+
+8. **Province mobilisation costs** — commando mob cost not yet included in the coalition balance sheet.

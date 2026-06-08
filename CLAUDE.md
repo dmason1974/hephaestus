@@ -584,6 +584,111 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 
 ---
 
+## Modular Architecture — Three-Unit Rebuild
+
+The coalition force projection engine is being rebuilt as three discrete, independently-runnable units. Each unit has a clean data contract and can be tested in isolation.
+
+```
+Unit 1 — Eco Planner                    ✅ COMPLETE
+  Input:  scenario, country (resource, population, starting buildings, status)
+  Output: EcoPlan — optimal eco build sequence per city, hourly production array
+  Question: "What is the best economy this city can achieve over the full truce window?"
+
+Unit 2 — Force Projection               ⬜ NEXT
+  Input:  coalition_force_plan YAML, eco plans from Unit 1 (for flip-point derivation)
+  Output: per-country flip points, research schedule, city build plans, mob tables
+  Question: "Given our demands and eco baseline, when does each city flip to military, and what does it build?"
+
+Unit 3 — Resource Projection            ⬜ FUTURE
+  Input:  Unit 1 eco plans + Unit 2 force plans + coalition starting balances
+  Output: hourly coalition resource flows, net balance per resource, shortfalls
+  Question: "Can the coalition afford this combined plan? Where does it go insolvent?"
+```
+
+---
+
+## Unit 1 — Eco Planner ✅ COMPLETE
+
+### What Was Built
+
+`src/harness/smoke/eco-plan.ts` — standalone eco harness, `npm run smoke:eco-plan`.
+
+Writes `tmp/eco-<countryId>.html` per country. Three sections per country:
+1. **City Eco Build Plans** — step-by-step build sequence per city with day/hour timestamps
+2. **City Production Summary** — total resource flow per city over the full truce window (gross, no flip)
+3. **Eco Build Costs** — one-time resource costs for all eco builds
+
+**Run syntax:**
+```
+ECO_SCENARIO=elite/antarctica ECO_COUNTRY=all npm run smoke:eco-plan    # all countries, no plan required
+ECO_COUNTRY=norway npm run smoke:eco-plan                                # single country
+ECO_PLAN=pnth_v_road_2026_jun ECO_COUNTRY=all npm run smoke:eco-plan    # coalition members only
+ECO_BEAM_WIDTH=50 ECO_TOP_N=3 ECO_COUNTRY=indonesia npm run smoke:eco-plan
+```
+
+**Config env vars:** `ECO_SCENARIO` (default: `elite/antarctica`), `ECO_PLAN` (optional — narrows country list to coalition members), `ECO_COUNTRY` (default: `all`), `ECO_BEAM_WIDTH` (default: 50), `ECO_TOP_N` (default: 3).
+
+### Key Design Decisions
+
+- **Unconstrained mode** (`unconstrained: true` in `CityEcoBeamConfig`): no affordability check — each build is scheduled at the earliest free hour. Score = `endBalance[city.resource]` (native resource net of costs). This ensures every city gets a real plan regardless of starting balance.
+- **No resource weights**: coalition weights distorted the beam (cash weight=1.0 made AI L4-5 score-negative). Eco planner is purely single-resource — it doesn't know or care about coalition demand.
+- **`annex_city` for occupied cities**: candidate pool includes `annex_city` for occupied; excludes it for homeland. All occupied cities always build annex first (production doubles 25%→50%; always ROI-positive over the ~600h window).
+- **`recruiting_office` always in pool**: for all cities. L1 RO is 30 min and gives manpower bonus from that hour.
+- **Status from country YAML**: `country.country.status` (`homeland` | `occupied`, default `homeland`). Not read from the force plan YAML — eco planner is plan-independent.
+- **Country list without a plan**: scans `data/scenarios/<scenarioId>/countries/*.yml` via `fs.readdirSync`.
+- **Truce days without a plan**: from `scenarioTruceLengthDays(scenario)` (falls back to 28 if absent from scenario YAML).
+
+### Scoring Behaviour
+
+Beam stops adding buildings when no remaining build provides net positive return in the native resource. Cross-resource costs (e.g. air_base L3 costs components/electronics but Oslo only produces fuel) are borne by the score — only the native-resource component matters. Cities stop early because the pool is finite and late-game builds stop paying back: Oslo (fuel, pop-6) stops at AI L5 + air_base L2 + hospital because air_base L3's extra +5% fuel production over ~460h comes in just under the 2000 fuel cost.
+
+### Country YAML — `status` Field
+
+```yaml
+country:
+  id: solomon_islands
+  name: Solomon Islands
+  doctrine: european
+  status: occupied    # homeland (default) | occupied
+```
+
+Four Antarctica occupied countries have `status: occupied`: `united_kingdom`, `iran`, `madagascar`, `solomon_islands`.
+
+---
+
+## Unit 2 — Force Projection ⬜ NEXT
+
+**Goal**: given a `coalition_force_plan` YAML and the eco plans from Unit 1, produce per-country force plans — flip points, research schedules, city build sequences, mobilisation tables.
+
+### What it must produce (per country)
+
+1. **Flip point per city** — when each city transitions from eco to military mode (derived from `flipPoint = deadline − mobWindow − remainingInfraTime`)
+2. **Research schedule** — JIT for all levels (L1 ASAP only if required for mob before deadline)
+3. **City build plan** — eco steps completed before flip → military infra chain → recruiting office
+4. **Mobilisation table** — units per city per demand, timing
+
+### Key inputs
+
+- `coalition_force_plan` YAML (demands per country)
+- Eco plans from Unit 1 via `runCityEcoBeam` → `buildingLevelsAtAbsHour(H)` per city
+- Scenario (truce days, start hour, unlock credit)
+- Buildings and unit YAML data
+
+### Relationship to existing code
+
+`src/engine/eco/flip-point-solver.ts` already computes flip points given a demand.
+`src/harness/smoke/coalition-force-plan.ts` already does most of this per-country sweep — Unit 2 will reorganise it into a clean callable function rather than an HTML harness, so the outputs can be composed with Unit 3.
+
+### Design constraints
+
+- Province demands (`mobilisation_source: province`) are excluded from city slot accounting — commando doesn't compete for city capacity
+- Batch units (`batch_size: 4` for warheads) — 100 warheads = 25 mob events
+- Launcher platforms (cruise_missile) have zero mob cost and are skipped for city slot
+- `mercenary_outpost` must appear in city infra chain for commando cities (Russia) — same pattern as `secret_weapons_lab`
+- Multi-demand countries: per-city flip = min across all demands sharing that city
+
+---
+
 ## Post-UAT Task List
 
 Tasks deferred until after UAT of the current coalition force plan engine output.

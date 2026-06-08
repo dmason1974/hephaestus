@@ -421,11 +421,24 @@ Where `remainingInfraTime` is the delta between what the eco phase built and wha
 - Reads `coalition_force_plan` YAML (default: `pnth_v_road_2026_jun.yml`)
 - For each country (or one via `CFP_COUNTRY=<id>`): runs eco beam search for all cities
 - Sweeps all city counts (1..N) × all RO levels (1..5) for each non-province demand
-- Outputs HTML flip-point matrix: eco hours captured, remaining build chain, mob window per configuration
 - Handles `batch_size` (warheads: 100 units = 25 mob events), launcher platforms (cruise missile: skipped), province demands (commando: skipped)
 - Per-row income accounting: eco income (with post-flip flat-rate extrapolation), infra/mob/upkeep costs, net resource balance, affordable/shortfall summary
 - `countryStatus` (homeland/occupied) correctly flows into city morale for eco beam (bug fixed chunk 6)
-- **Chunk 7 complete**: coalition-level aggregation across all countries against the shared pool — coalition balance sheet (pooled resources) + per-country manpower check + per-demand city queue tables in HTML output
+- **Chunk 7 complete**: coalition-level aggregation across all countries against the shared pool — coalition balance sheet (pooled resources) + per-country manpower check
+- **Chunk 8 complete**: HTML output restructured for human readability (see below)
+
+**HTML output modes (chunk 8):**
+
+*Coalition run (`CFP_COUNTRY=all`)*: aggregate-only HTML — scenario parameters + Best-Pick Summary table + Coalition Balance Sheet (pooled resources only; net row in red/green).
+
+*Single-country run (`CFP_COUNTRY=<id>`)*: per-country HTML with 5 sections per military country:
+1. **Demands — Selected Configurations** — best flip config per demand (most eco hours captured)
+2. **Country Balance Sheet** — all 7 resources including manpower (manpower labelled as not pooled); net row red/green
+3. **Research Plan** — L1 ASAP for each demand unit (Slot 1/2 assignment; correct start/complete times)
+4. **City Build Plans** — one row per city; military cities show numbered eco steps completed before flip → `→ FLIP: day X` → remaining infra chain; eco cities show full beam sequence; where multiple demands share a city the earliest flip determines the shown sequence
+5. **Mobilisation** — consolidated table: one row per city, one column per demand (`~N units` or `—`); no resource column
+
+Eco-only countries (UK, Iran, Madagascar, Solomon Islands) show only their balance sheet (eco income, no military sections).
 
 ### What Needs Building
 
@@ -487,13 +500,62 @@ Manpower per-country (eco income + 13,406 starting − mob − upkeep):
 - Manpower shortfall is structural (driven by mob + upkeep costs exceeding eco income + starting).
   Cannot be fixed by eco optimization; must reduce unit counts or accept the shortfall.
 
-### Next Steps (Chunk 8+)
+### Next Steps (Chunk 9+)
 
 - **Joint demand optimisation per country**: treat multi-demand countries as a single optimisation problem (shared city pool)
 - **Optimal city subset search**: combinatorial rather than capital-first ordering
 - **`mercenary_outpost` in build planner**: Russia/commando cities need it in the infra chain
 - **Province mobilisation costs**: commando mob cost not yet included in balance sheet
 - **Electronics shortfall (−88k)**: investigate which demands/countries drive it; consider reducing UAV count or finding an electronics eco city that can stay longer
+
+---
+
+## Chunk 8 — HTML Output Restructuring ✅ COMPLETE
+
+### What Was Built
+
+`renderHtml` in `coalition-force-plan.ts` restructured for human readability. Two distinct rendering modes based on whether `CFP_COUNTRY=all` or a single country.
+
+**New helper functions:**
+- `htmlBalanceSheet(rows, netRowLabel, resources)` — renders a labelled balance-sheet table; net row cells are coloured red (shortfall) or green (surplus) via inline style
+- `ecoStepsAtFlip(timedOrderLines, ecoBuildingsAtFlip)` — filters the full eco beam sequence to only steps completed by flip, using `ecoBuildingsAtFlip` as ground truth; renumbers to avoid gaps
+- `militaryBuildSequence(timedOrderLines, ecoBuildingsAtFlip, flipDay, remainingChain, remainingBuildHours)` — assembles the full "build sequence" cell: eco steps → `→ FLIP: day X` → remaining infra chain with build hours
+- `parseFormattedNumber` / `parseEcoBuildingsMap` — parsing helpers
+
+**Research plan L1-ASAP scheduling:**
+
+`simulateUnitResearchTargets` with `enableJitScheduling: false` by itself does NOT produce ASAP scheduling — the backward scheduler still places all tasks as late as possible relative to the deadline.
+
+To force L1 ASAP, compute `latestCompletionByUnitLevel` per unit and pass it in opts:
+```typescript
+const dur = Math.ceil(durationToHours(level1Research.time));  // must ceil to match sim's normalization
+latestCompletionByUnitLevel[`${uid}:1`] = unlockAbsHour + dur;
+```
+`unlockAbsHour` = `effectiveUnlockDay <= scenario.start.day ? scenarioAbsHour : toAbsoluteHour(effectiveUnlockDay, 0)`.
+The constraint forces the backward scheduler to place L1 at exactly `releaseHour` (ASAP). **Critical**: use `Math.ceil` on the raw `durationToHours` result — the sim normalises durations with `Math.ceil` internally; without it the constraint is off by the fractional hour and the task fails the feasibility check and is silently skipped.
+
+Required imports added to harness:
+- `toAbsoluteHour` from `../../core/time.js`
+- `scenarioResearchUnlockedThroughDayAtStart` from `../../schemas/scenario-schema.js`
+
+**City constraint map:**
+
+For countries with multiple demands sharing cities, the city build sequence shown is determined by the demand with the earliest `flipRelHour`:
+```typescript
+const cityConstraint = new Map<number, FlipMatrix>();
+for (const cfg of activeCfgs) {
+  for (let i = 0; i < cfg.row!.numCities; i++) {
+    const prev = cityConstraint.get(i);
+    if (!prev || cfg.row!.flipRelHour < prev.flipRelHour) cityConstraint.set(i, cfg.row!);
+  }
+}
+```
+
+### Known Limitations
+
+- **`ecoBuildingsAtFlip` is worst-city only**: the eco steps shown for all assigned cities reflect the constrained (worst) city's state at flip; other cities may have more eco buildings completed at the same flip point
+- **Research plan shows L1 only**: higher levels are not shown since optimal level depends on final force planning decisions not yet made
+- **Flip-point matrix removed from per-country HTML**: still printed to terminal; redundant in the country HTML given the Demands section already shows the selected config
 
 ---
 

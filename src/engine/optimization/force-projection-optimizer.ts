@@ -5,7 +5,7 @@ import type { Country } from "../../schemas/country-schema.js";
 import { generateMobilizationConfigs, filterFeasibleConfigs } from "./mobilization-config-generator.js";
 import { optimizeResearchSchedule } from "./research-schedule-optimizer.js";
 import { optimizeBatchAllocation } from "./batch-allocation-optimizer.js";
-import { calculateTotalCost } from "./cost-calculator.js";
+import { calculateTotalCost, calculateMobilizationDuration } from "./cost-calculator.js";
 import type { MobilizationConfig, BatchAllocation, ResearchSchedule, CostBreakdown } from "./types.js";
 
 export type ForceProjectionInput = {
@@ -17,7 +17,11 @@ export type ForceProjectionInput = {
   buildings: BuildingsFile;
   deadlineHour: number;
   maxROLevel?: number;
+  /** Minimum RO level required by the unit (from its building requirements). Defaults to 1. */
+  minROLevel?: number;
   moralePct?: number;
+  /** Additional scalar building cost per city (e.g. army_base), included in config ranking. */
+  extraBuildingCostPerCity?: number;
 };
 
 export type ForceProjectionSolution = {
@@ -66,7 +70,9 @@ export function optimizeForceProjection(input: ForceProjectionInput): ForceProje
     buildings,
     deadlineHour,
     maxROLevel = 5,
+    minROLevel = 1,
     moralePct = 90,
+    extraBuildingCostPerCity = 0,
   } = input;
 
   // Extract city IDs and doctrine from country
@@ -89,25 +95,18 @@ export function optimizeForceProjection(input: ForceProjectionInput): ForceProje
   // Step 1: Generate all possible city/RO configurations
   const configs = generateMobilizationConfigs(
     cityIds,
-    cityIds.length, // maxCities = all available cities
+    cityIds.length,
     maxROLevel,
     unitCount,
-    { buildings }
+    { buildings, additionalCostPerCity: extraBuildingCostPerCity, minROLevel }
   );
 
   const configurationsGenerated = configs.length;
   const allSolutions: ForceProjectionSolution[] = [];
 
-  // Research schedule is independent of city/RO configuration — compute once
-  const researchResult = optimizeResearchSchedule({
-    unitId,
-    unitCatalog,
-    scenario,
-    deadlineHour,
-    doctrine,
-  });
-
-  if (!researchResult.feasible || researchResult.maxLevelAchievable === 0) {
+  // Quick check: is L1 research feasible at all (ASAP)?
+  const asapCheck = optimizeResearchSchedule({ unitId, unitCatalog, scenario, deadlineHour, doctrine });
+  if (!asapCheck.feasible) {
     return {
       bestSolution: null,
       allSolutions: [],
@@ -120,8 +119,28 @@ export function optimizeForceProjection(input: ForceProjectionInput): ForceProje
     };
   }
 
-  // Step 2: For each configuration, optimize batch allocation
+  // Step 2: For each configuration, compute JIT L1 research schedule and optimize batch allocation.
+  // L1 is scheduled as late as possible so mob finishes exactly at deadline (zero upkeep).
   for (const config of configs) {
+    const cityCount = config.cities.length;
+    const roLevel = config.cities[0]?.roLevel ?? 1;
+
+    // Mob window for this config at L1 → derives the latest point L1 must end
+    const mobWindow = calculateMobilizationDuration(
+      unitId, 1, unitCount, cityCount, roLevel, unitCatalog, buildings, doctrine, moralePct
+    );
+    const latestL1EndHour = deadlineHour - mobWindow;
+
+    const researchResult = optimizeResearchSchedule({
+      unitId,
+      unitCatalog,
+      scenario,
+      deadlineHour,
+      doctrine,
+      latestL1EndHour,
+    });
+
+    if (!researchResult.feasible || researchResult.maxLevelAchievable === 0) continue;
 
     // Optimize batch allocation
     const batchResult = optimizeBatchAllocation({
@@ -136,9 +155,7 @@ export function optimizeForceProjection(input: ForceProjectionInput): ForceProje
       moralePct,
     });
 
-    if (!batchResult.feasible) {
-      continue; // Skip if allocation not feasible
-    }
+    if (!batchResult.feasible) continue;
 
     // Calculate total cost including building costs
     const costBreakdown = calculateTotalCost(
@@ -153,9 +170,7 @@ export function optimizeForceProjection(input: ForceProjectionInput): ForceProje
       moralePct
     );
 
-    if (!costBreakdown.feasible) {
-      continue; // Skip if mobilization doesn't meet deadline
-    }
+    if (!costBreakdown.feasible) continue;
 
     allSolutions.push({
       config,

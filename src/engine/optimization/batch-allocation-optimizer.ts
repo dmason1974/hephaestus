@@ -2,7 +2,7 @@ import type { UnitCatalog } from "../../schemas/unit-schema.js";
 import type { BuildingsFile } from "../../schemas/building-schema.js";
 import { getAvailableLevels, createEmptyBatchAllocation, getTotalUnitsFromBatch } from "./types.js";
 import type { BatchAllocation, MobilizationConfig, ResearchSchedule } from "./types.js";
-import { calculateMobilizationCost, calculateUpkeepCost, resourceCostToScalar, calculateCompletionHour } from "./cost-calculator.js";
+import { calculateMobilizationCost, resourceCostToScalar, calculateCompletionHour, calculateTriangularUpkeepForConfig } from "./cost-calculator.js";
 
 export type BatchAllocationInput = {
   unitId: string;
@@ -82,22 +82,25 @@ export function optimizeBatchAllocation(input: BatchAllocationInput): BatchAlloc
     const research = researchSchedule.find(r => r.level === level);
     if (!research) continue;
 
-    // Upkeep starts after mobilization completes, not after research ends
+    // Feasibility: all totalUnits must complete mob by deadline
     const completionHour = calculateCompletionHour(
-      unitId, config, { [level]: 1 }, researchSchedule, unitCatalog, buildings, doctrine, moralePct
+      unitId, config, { [level]: totalUnits }, researchSchedule, unitCatalog, buildings, doctrine, moralePct
     );
     if (completionHour > deadlineHour) continue;
 
     const mobCost = calculateMobilizationCost(unitId, level, 1, unitCatalog, doctrine);
     const mobScalar = resourceCostToScalar(mobCost);
 
-    const upkeepDuration = deadlineHour - completionHour;
-    const upkeepCost = calculateUpkeepCost(unitId, level, 1, upkeepDuration, unitCatalog, doctrine);
-    const upkeepScalar = resourceCostToScalar(upkeepCost);
+    // Triangular upkeep: units mobilise sequentially, paying upkeep from when each finishes.
+    // Per-unit cost = totalTriangularUpkeep / totalUnits.
+    const triangularUpkeep = calculateTriangularUpkeepForConfig(
+      unitId, level, totalUnits, config, research.endHour, deadlineHour, unitCatalog, buildings, doctrine, moralePct
+    );
+    const upkeepScalar = resourceCostToScalar(triangularUpkeep);
 
     levelCosts.push({
       level,
-      costPerUnit: mobScalar + upkeepScalar,
+      costPerUnit: mobScalar + upkeepScalar / totalUnits,
       researchEndHour: research.endHour,
     });
   }
@@ -133,11 +136,9 @@ export function optimizeBatchAllocation(input: BatchAllocationInput): BatchAlloc
     const mobScalar = resourceCostToScalar(mobCost);
     mobilizationByLevel[level] = mobScalar;
 
-    const completionHour = calculateCompletionHour(
-      unitId, config, { [level]: count }, researchSchedule, unitCatalog, buildings, doctrine, moralePct
+    const upkeepCost = calculateTriangularUpkeepForConfig(
+      unitId, level, count, config, research.endHour, deadlineHour, unitCatalog, buildings, doctrine, moralePct
     );
-    const upkeepDuration = Math.max(0, deadlineHour - completionHour);
-    const upkeepCost = calculateUpkeepCost(unitId, level, count, upkeepDuration, unitCatalog, doctrine);
     const upkeepScalar = resourceCostToScalar(upkeepCost);
     upkeepByLevel[level] = upkeepScalar;
 
@@ -283,8 +284,9 @@ function evaluateAllocation(
     const mobScalar = resourceCostToScalar(mobCost);
     mobilizationByLevel[level] = mobScalar;
 
-    const upkeepDuration = Math.max(0, deadlineHour - completionHour);
-    const upkeepCost = calculateUpkeepCost(unitId, level, count, upkeepDuration, unitCatalog, doctrine);
+    const upkeepCost = calculateTriangularUpkeepForConfig(
+      unitId, level, count, config, research.endHour, deadlineHour, unitCatalog, buildings, doctrine, moralePct
+    );
     const upkeepScalar = resourceCostToScalar(upkeepCost);
     upkeepByLevel[level] = upkeepScalar;
 

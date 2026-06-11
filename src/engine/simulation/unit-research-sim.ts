@@ -274,20 +274,12 @@ function unitLevelImpactScore(
     throw new Error(`missing unit data for ${unitId} level ${level}`);
   }
 
-  const previous = level > 1 ? unit.levels[String(level - 1)] : undefined;
-  const mobilisationResources = Object.values(current.mobilisation[doctrine]?.cost ?? {}).reduce((sum, value) => sum + value, 0);
+  // Impact = total economic weight of one unit at this level (mob + daily upkeep).
+  // Multiplied by demand count (p × q) in taskPriority to get total demand weight.
+  // Higher total weight → more important to be JIT (later research → lower upkeep cost).
+  const mobResources = Object.values(current.mobilisation[doctrine]?.cost ?? {}).reduce((sum, value) => sum + value, 0);
   const upkeepResources = Object.values(current.daily_upkeep[doctrine]?.cost ?? {}).reduce((sum, value) => sum + value, 0);
-
-  if (!previous) {
-    return mobilisationResources + (upkeepResources * 24);
-  }
-
-  const previousMobilisation = Object.values(previous.mobilisation[doctrine]?.cost ?? {}).reduce((sum, value) => sum + value, 0);
-  const previousUpkeep = Object.values(previous.daily_upkeep[doctrine]?.cost ?? {}).reduce((sum, value) => sum + value, 0);
-
-  const deltaMobilisation = mobilisationResources - previousMobilisation;
-  const deltaUpkeep = (upkeepResources - previousUpkeep) * 24;
-  return Math.max(1, deltaMobilisation + deltaUpkeep);
+  return Math.max(1, mobResources + upkeepResources * 24);
 }
 
 function expandTargetsWithUnitRequirements(
@@ -684,10 +676,9 @@ export function simulateUnitResearchTargets(
   }
 
   function taskPriority(task: PlannedTask) {
-    // For higher levels (>1), reduce priority for high-count units to delay expensive mobilization
-    // This pushes high-count unit's higher levels later in the schedule
-    const levelPenalty = task.level > 1 ? (task.demandCount * task.level * 100) : 0;
-    return (task.demandCount * task.impactScore * 1000) + (task.level * 10) + task.impactScore - levelPenalty;
+    // Total demand weight: count × (mob + upkeep) per unit at this level.
+    // Higher weight → more important to be JIT → gets the later research slot.
+    return task.demandCount * task.impactScore;
   }
 
   function candidateBeatsCurrent(args: {
@@ -704,27 +695,25 @@ export function simulateUnitResearchTargets(
     const selectedTask = plannedTasks.get(args.selectedTaskId);
     if (!selectedTask) return true;
 
+    // Compare by end hour (start + duration): both tasks ideally end at the deadline.
+    // A short-duration task placed at the deadline has a later start but the same end as
+    // a long-duration task — comparing ends prevents short tasks from crowding out high-
+    // count tasks purely because they have a later computed start hour.
+    const candidateEndHour = args.candidateStartHour + args.candidateTask.durationHours;
+    const selectedEndHour = args.selectedStartHour + selectedTask.durationHours;
+
+    if (Math.abs(candidateEndHour - selectedEndHour) >= 1) {
+      return candidateEndHour > selectedEndHour;
+    }
+
+    // Same end hour: break tie by total demand weight (count × mob+upkeep).
+    // Higher weight = more economic impact of being late → gets the JIT slot.
     const candidateWeight = taskPriority(args.candidateTask);
     const selectedWeight = taskPriority(selectedTask);
-    const startHourGap = Math.abs(args.candidateStartHour - args.selectedStartHour);
+    if (candidateWeight !== selectedWeight) return candidateWeight > selectedWeight;
 
-    // In a backward planner, heavier research should be kept later when the timing gap is modest.
-    if (startHourGap <= 24 && candidateWeight !== selectedWeight) {
-      return candidateWeight > selectedWeight;
-    }
-
-    if (args.candidateStartHour !== args.selectedStartHour) {
-      return args.candidateStartHour > args.selectedStartHour;
-    }
-
-    if (candidateWeight !== selectedWeight) {
-      return candidateWeight > selectedWeight;
-    }
-
-    if (args.candidateTaskId !== args.selectedTaskId) {
-      return args.candidateTaskId.localeCompare(args.selectedTaskId) < 0;
-    }
-
+    if (args.candidateStartHour !== args.selectedStartHour) return args.candidateStartHour > args.selectedStartHour;
+    if (args.candidateTaskId !== args.selectedTaskId) return args.candidateTaskId.localeCompare(args.selectedTaskId) < 0;
     return args.candidateSlot < args.selectedSlot;
   }
 

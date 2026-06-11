@@ -7,6 +7,10 @@ type GenerateMobilizationConfigsOptions = {
   buildings?: BuildingsFile;
   buildingId?: string;
   startingBuildingLevel?: number;
+  /** Additional scalar cost per city (e.g. army_base build cost), applied on top of RO cost. */
+  additionalCostPerCity?: number;
+  /** Minimum RO level required by the unit. Configs below this level are never generated. */
+  minROLevel?: number;
 };
 
 type FilterFeasibleConfigsArgs = {
@@ -34,20 +38,21 @@ export function generateMobilizationConfigs(
 
   const buildingId = options.buildingId ?? "recruiting_office";
   const startingBuildingLevel = options.startingBuildingLevel ?? 0;
+  const minROLevel = Math.max(1, options.minROLevel ?? 1);
   const configs: MobilizationConfig[] = [];
 
   for (let cityCount = 1; cityCount <= cappedMaxCities; cityCount++) {
     const selectedCities = availableCities.slice(0, cityCount);
-    for (let roLevel = 1; roLevel <= maxROLevel; roLevel++) {
+    for (let roLevel = minROLevel; roLevel <= maxROLevel; roLevel++) {
       const allocations = allocateEvenly(unitCount, cityCount);
       const buildingCostByCity: Record<string, number> = {};
 
       for (const cityId of selectedCities) {
-        buildingCostByCity[cityId] = options.buildings
+        buildingCostByCity[cityId] = (options.buildings
           ? resourceCostToScalar(
               calculateBuildingCost(buildingId, startingBuildingLevel, roLevel, options.buildings)
             )
-          : roLevel - startingBuildingLevel;
+          : roLevel - startingBuildingLevel) + (options.additionalCostPerCity ?? 0);
       }
 
       configs.push({

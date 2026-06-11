@@ -4,6 +4,7 @@ import path from "node:path";
 import type { Resource } from "../../core/constants.js";
 import { scenarioStartAbsoluteHour, toAbsoluteHour } from "../../core/time.js";
 import { runCityEcoBeam } from "../../engine/eco/city-eco-beam.js";
+import { runProvinceEcoBeam } from "../../engine/eco/province-eco-beam.js";
 import type { BuildAction } from "../../engine/orchestration/build-order-timeline.js";
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
@@ -132,6 +133,11 @@ function analyseCountry(countryId: string): string {
     captureAbsHour
   );
 
+  const provinceResults = runProvinceEcoBeam(country, scenario, buildings, {
+    hoursToSimulate,
+    cityStatus: status,
+  });
+
   const countryName = country.country.name;
   const doctrine = country.country.doctrine;
 
@@ -177,6 +183,30 @@ function analyseCountry(countryId: string): string {
 
   html += `<table>${seqRows.join("")}</table>`;
 
+  // Province build plans
+  if (provinceResults.length > 0) {
+    html += `\n<h2>Province Eco Build Plans</h2>\n`;
+    const provRows: string[] = [];
+    provRows.push(`<tr>
+      <th>Cohort</th>
+      <th>Resource</th>
+      <th>Provinces</th>
+      <th>Eco Build Sequence</th>
+    </tr>`);
+    for (const pr of provinceResults) {
+      const seqStr = pr.bestActions.length === 0
+        ? "(no builds)"
+        : pr.bestActions.map(a => `L${a.targetLevel} ${a.buildingId.replaceAll("_", " ")}`).join(" → ");
+      provRows.push(`<tr>
+        <td>${escapeHtml(pr.cohortId.split(":")[1] ?? pr.cohortId)}</td>
+        <td>${escapeHtml(pr.resource ?? "—")}</td>
+        <td style="text-align:center">${pr.provinceCount}</td>
+        <td>${escapeHtml(seqStr)}</td>
+      </tr>`);
+    }
+    html += `<table>${provRows.join("")}</table>`;
+  }
+
   // Production summary table
   html += `\n<h2>City Production Summary (full ${truceDays}-day eco window)</h2>\n`;
   html += `<p class="label">Total resource flow per city over the full truce window (gross production; does not net out build costs). Manpower is not pooled.</p>\n`;
@@ -206,9 +236,20 @@ function analyseCountry(countryId: string): string {
     </tr>`);
   }
 
+  // Province rows
+  for (const pr of provinceResults) {
+    for (const r of RESOURCE_KEYS) countryTotal[r] += pr.totalProduction[r] ?? 0;
+    const cohortLabel = pr.cohortId.split(":")[1] ?? pr.cohortId;
+    summaryRows.push(`<tr>
+      <td class="label">${escapeHtml(cohortLabel)}</td>
+      <td>${escapeHtml(pr.resource ?? "—")}</td>
+      ${RESOURCE_KEYS.map(r => `<td>${fmt(Math.round(pr.totalProduction[r] ?? 0))}</td>`).join("")}
+    </tr>`);
+  }
+
   // Country total row
   summaryRows.push(`<tr style="font-weight:bold;background:#f8f8f8">
-    <td colspan="2">Total</td>
+    <td colspan="2">Total (cities + provinces)</td>
     ${RESOURCE_KEYS.map(r => `<td>${fmt(Math.round(countryTotal[r]))}</td>`).join("")}
   </tr>`);
 
@@ -239,6 +280,20 @@ function analyseCountry(countryId: string): string {
     costRows.push(`<tr>
       <td class="${isCapital ? "capital" : ""}">${escapeHtml(cityLabel)}</td>
       <td>${escapeHtml(cityResult.resource)}</td>
+      ${POOLED_RESOURCES.map(r => `<td>${fmt(Math.round(cost[r] ?? 0))}</td>`).join("")}
+      <td>${fmt(Math.round(cost.manpower ?? 0))}</td>
+    </tr>`);
+  }
+
+  for (const pr of provinceResults) {
+    const cost = pr.totalEcoBuildCost;
+    const hasAnyCost = RESOURCE_KEYS.some(r => (cost[r] ?? 0) > 0);
+    if (!hasAnyCost) continue;
+    for (const r of RESOURCE_KEYS) totalCost[r] += cost[r] ?? 0;
+    const cohortLabel = pr.cohortId.split(":")[1] ?? pr.cohortId;
+    costRows.push(`<tr>
+      <td class="label">${escapeHtml(cohortLabel)}</td>
+      <td>${escapeHtml(pr.resource ?? "—")}</td>
       ${POOLED_RESOURCES.map(r => `<td>${fmt(Math.round(cost[r] ?? 0))}</td>`).join("")}
       <td>${fmt(Math.round(cost.manpower ?? 0))}</td>
     </tr>`);

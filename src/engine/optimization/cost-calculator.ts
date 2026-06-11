@@ -117,6 +117,56 @@ export function resourceCostToScalar(cost: ResourceCost, weights?: Partial<Recor
   return total;
 }
 
+/**
+ * Computes total upkeep cost using the triangular-queue model: units mobilise
+ * sequentially per city starting at researchEndHour, so the kth unit finishes
+ * at researchEndHour + k*T and pays upkeep from there to deadlineHour.
+ *
+ * Total unit-hours of upkeep = Σ_cities Σ_{k=1}^{n_i} max(0, deadline - researchEnd - k*T_i)
+ *
+ * With JIT scheduling (last unit finishes at deadline), this simplifies to T*n*(n-1)/2 per city.
+ * The general formula works for both JIT and ASAP scheduling.
+ */
+export function calculateTriangularUpkeepForConfig(
+  unitId: string,
+  level: number,
+  count: number,
+  config: MobilizationConfig,
+  researchEndHour: number,
+  deadlineHour: number,
+  unitCatalog: UnitCatalog,
+  buildings: BuildingsFile,
+  doctrine: string,
+  moralePct = 90
+): ResourceCost {
+  if (count === 0 || config.cities.length === 0) return {};
+
+  const levelData = getUnitLevelData(unitId, level, unitCatalog);
+  const mobData = levelData.mobilisation[doctrine];
+  if (!mobData) return {};
+  const baseDurationHours = durationToHours(mobData.time);
+
+  const unitsPerCity = apportionUnits(count, config);
+
+  let totalUpkeepUnitHours = 0;
+  const availableWindow = deadlineHour - researchEndHour;
+
+  for (let i = 0; i < config.cities.length; i++) {
+    const n = unitsPerCity[i] ?? 0;
+    if (n === 0) continue;
+    const city = config.cities[i];
+    const moraleAdjustedHours = effectiveDurationFromMorale(baseDurationHours, moralePct);
+    const bonusPct = getRecruitingOfficeSpeedBonusPct(buildings, city.roLevel);
+    const T = moraleAdjustedHours / (1 + bonusPct);
+    // Unit k (1-indexed) finishes at researchEnd + k*T, pays deadline - (researchEnd + k*T)
+    // Sum = n*availableWindow - T*n*(n+1)/2
+    totalUpkeepUnitHours += Math.max(0, n * availableWindow - T * n * (n + 1) / 2);
+  }
+
+  // dailyUpkeep is per unit per day; scale by total unit-hours / 24
+  return scaleResourceCost(calculateDailyUpkeep(unitId, level, unitCatalog, doctrine), totalUpkeepUnitHours / 24);
+}
+
 export function calculateMobilizationDuration(
   unitId: string,
   level: number,
@@ -227,8 +277,10 @@ export function calculateTotalCost(
     mobilizationCost = sumResourceCosts(mobilizationCost, mobCost);
     mobilizationByLevel[level] = resourceCostToScalar(mobCost);
 
-    const upkeepDuration = deadlineHour - mobilizationEnd;
-    const upCost = calculateUpkeepCost(unitId, level, count, upkeepDuration, unitCatalog, doctrine);
+    // Triangular upkeep: units mobilise sequentially; each pays upkeep from when it finishes mob.
+    const upCost = calculateTriangularUpkeepForConfig(
+      unitId, level, count, config, research.endHour, deadlineHour, unitCatalog, buildings, doctrine, moralePct
+    );
     upkeepCost = sumResourceCosts(upkeepCost, upCost);
     upkeepByLevel[level] = resourceCostToScalar(upCost);
   }

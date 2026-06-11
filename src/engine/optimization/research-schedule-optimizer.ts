@@ -12,6 +12,8 @@ export type ResearchScheduleInput = {
   scenario: ScenarioFile;
   deadlineHour: number;
   doctrine: string;
+  /** JIT L1: schedule L1 to end by this hour (deadline − mobWindow). When omitted, L1 is ASAP. */
+  latestL1EndHour?: number;
 };
 
 export type ResearchScheduleResult = {
@@ -81,10 +83,23 @@ export function optimizeResearchSchedule(input: ResearchScheduleInput): Research
     return { schedule: [], maxLevelAchievable: 0, totalResearchHours: 0, feasible: false };
   }
 
-  // Level 1: schedule ASAP to unlock mobilisation as early as possible.
+  // Level 1: ASAP by default; JIT when latestL1EndHour is provided (L1 ends at deadline − mobWindow).
   const first = achievableLevels[0];
-  const start1 = Math.max(first.unlockHour, scenarioStartHour);
-  const end1 = start1 + first.durationHours;
+  let start1: number;
+  let end1: number;
+
+  if (input.latestL1EndHour !== undefined) {
+    start1 = Math.max(input.latestL1EndHour - first.durationHours, first.unlockHour);
+    end1 = start1 + first.durationHours;
+    if (end1 > input.latestL1EndHour + 0.001) {
+      // Unlock day forces L1 to end after the required mob-start window — infeasible for this config
+      return { schedule: [], maxLevelAchievable: 0, totalResearchHours: 0, feasible: false };
+    }
+  } else {
+    start1 = Math.max(first.unlockHour, scenarioStartHour);
+    end1 = start1 + first.durationHours;
+  }
+
   const schedule: ResearchSchedule = [{ level: first.level, startHour: start1, endHour: end1 }];
   let totalResearchHours = first.durationHours;
 
@@ -118,7 +133,13 @@ export function optimizeResearchSchedule(input: ResearchScheduleInput): Research
     }
   }
 
-  const maxLevelAchievable = achievableLevels[achievableLevels.length - 1].level;
+  // Trim any levels pushed past deadline by the forward-adjustment (can happen with JIT L1).
+  while (schedule.length > 1 && schedule[schedule.length - 1].endHour > deadlineHour) {
+    const trimmed = schedule.pop()!;
+    totalResearchHours -= trimmed.endHour - trimmed.startHour;
+  }
+
+  const maxLevelAchievable = schedule[schedule.length - 1].level;
 
   return {
     schedule,

@@ -594,12 +594,12 @@ Unit 1 — Eco Planner                    ✅ COMPLETE
   Output: EcoPlan — optimal eco build sequence per city, hourly production array
   Question: "What is the best economy this city can achieve over the full truce window?"
 
-Unit 2 — Force Projection               ⬜ NEXT
+Unit 2 — Force Projection               ✅ COMPLETE
   Input:  coalition_force_plan YAML, scenario, buildings + unit data
   Output: per-demand JIT research schedule + minimum-cost mobilisation plan (city count, RO level, timing, cost breakdown)
   Question: "What is the cheapest way to field this force by the deadline?"
 
-Unit 3 — Resource Projection            ⬜ FUTURE
+Unit 3 — Resource Projection            ⬜ NEXT
   Input:  Unit 1 eco plans + Unit 2 force plans + coalition starting balances
   Output: per-city flip points, hourly coalition resource flows, net balance per resource, shortfalls
   Question: "Given eco income and force costs, when must each city flip, and can the coalition afford it?"
@@ -656,41 +656,60 @@ Four Antarctica occupied countries have `status: occupied`: `united_kingdom`, `i
 
 ---
 
-## Unit 2 — Force Projection ⬜ NEXT
+## Unit 2 — Force Projection ✅ COMPLETE
 
-**Goal**: given a `coalition_force_plan` YAML, produce the minimum-cost JIT research schedule and mobilisation plan per country. No eco phase, no flip points — purely the military side.
+### What Was Built
 
-### What it must produce (per country, per demand)
+`src/harness/smoke/force-projection.ts` — standalone force harness, `npm run smoke:force-projection`.
+`src/engine/optimization/joint-city-optimizer.ts` — fold-in city optimizer engine.
 
-1. **JIT research schedule** — all levels scheduled JIT (as late as possible before deadline); L1 placed ASAP only when required to open mobilisation before the deadline
-2. **Mobilisation plan** — how many units mobilise per city, at what hour, across how many cities, at what RO level — minimising total cost (infra + mob + upkeep)
-3. **Cost breakdown** — infra cost, mob cost, upkeep cost per demand
+Writes `tmp/fp-<countryId>.html` per country. Sections per military country:
+1. **Research Plan** — combined JIT research schedule across both slots for all demands (L1 ASAP per unit)
+2. **City Mob Build Plans** — one section per city: data-driven eco-score build sequence → mob queue (Smith's rule ordering)
+3. **Mobilisation Cost Summary** — aggregate infra + mob + stepped-upkeep across all demands
 
-### Key inputs
+**Run syntax:**
+```
+FP_COUNTRY=norway npm run smoke:force-projection      # single country
+FP_COUNTRY=all npm run smoke:force-projection         # all plan countries
+FP_MAX_RO=3 FP_COUNTRY=indonesia npm run smoke:force-projection
+```
 
-- `coalition_force_plan` YAML (demands per country — unit ID, count, doctrine, deadline)
-- Scenario (truce days, start hour, unlock credit)
-- Buildings and unit YAML data
+**Config env vars:** `FP_SCENARIO` (default: `elite/antarctica`), `FP_PLAN` (default: `pnth_v_road_2026_jun`), `FP_COUNTRY` (default: `all`), `FP_MAX_RO` (default: 5).
 
-### What Unit 2 does NOT do
+### Key Design Decisions
 
-- No flip points — that is Unit 3's job
-- No eco income — that is Unit 1 (eco) and Unit 3 (resource projection)
-- No affordability checking against a resource pool — that is Unit 3
+- **Fold-in city optimizer** (`joint-city-optimizer.ts`): demands sorted by infra heaviness (heaviest picks first). Each demand tries absorption into existing compatible cities before opening new ones. Comparison is plan-weight-scaled total cost (infra + mob + triangular upkeep).
+- **Smith's rule mob ordering**: within a city, units sorted ascending by `upkeepRate / T_per_unit`. Near-zero-upkeep units (warheads) mob first; expensive units (SASF) mob last → JIT for high-cost units.
+- **Plan-derived weights**: `computePlanWeights` sums mob + upkeep footprint per resource across all demands; most-consumed resource = 1.0. No hardcoded weights.
+- **Data-driven build ordering**: pre-mob infra buildings sorted by `ecoScore` derived from building YAML `production_bonus_pct` and `manpower_bonus_pct` (weighted by plan weights). No hardcoded building names or ordering.
+- **Morale curve**: `MoraleAtHour` type threads through all mob-duration calculations; homeland curve 70%→93% (day 1→21+). One-pass iteration resolves circular dependency (JIT mob start depends on T, T depends on morale at mob start).
+- **Stepped upkeep**: `computeSteppedUpkeep` integrates over intervals defined by both mob-completion events and JIT research level-completion events. Units auto-upgrade as research completes; upkeep steps up accordingly.
+- **Province demands** (`mobilisation_source: province`) excluded from city slot — commando doesn't compete for city capacity.
+- **Batch units** (`batch_size: 4` for warheads) — 100 warheads = 25 mob events; total alive = count × batchSize.
+- **Launcher platforms** (cruise_missile, mob time = 0) — skipped.
 
-### Relationship to existing code
+### Engine Changes
 
-`src/harness/smoke/force-build-plan.ts` is the closest existing code — it does JIT research scheduling and mobilisation planning for a single country. Unit 2 will wrap this into a clean callable function per demand, producing typed output that Unit 3 can compose against Unit 1's eco income.
+- `research-schedule-optimizer.ts` — `latestL1EndHour` parameter for JIT L1 scheduling (L1 ends at deadline − mob window).
+- `unit-research-sim.ts` — simplified impact score: `mob + 24×upkeep` per unit (absolute, not delta vs previous level).
+- `cost-calculator.ts` — `calculateTriangularUpkeepForConfig` added: proper triangular upkeep accounting where each unit pays from when it completes mobilisation to deadline.
 
-`optimizeResearchSchedule` + `optimizeBatchAllocation` in `src/engine/optimization/` already implement the core JIT scheduling and city/RO search. Unit 2 harness calls these per demand and aggregates.
+### Country YAML — `provinces` Block
 
-### Design constraints
+Countries with provinces now carry a `provinces` block listing total province count and how many produce each resource:
 
-- Province demands (`mobilisation_source: province`) excluded from city slot — commando doesn't compete for city capacity
-- Batch units (`batch_size: 4` for warheads) — 100 warheads = 25 mob events
-- Launcher platforms (cruise_missile) have zero mob cost — skip
-- `mercenary_outpost` in city infra chain for commando cities (same pattern as `secret_weapons_lab`)
-- Multi-demand countries: city infra chain must be consistent across demands sharing a city
+```yaml
+provinces:
+  total: 1
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 1
+```
+
+`src/engine/eco/province-eco-beam.ts` computes province eco builds per resource cohort and is called from the eco-plan harness (`npm run smoke:eco-plan`) to show province build plans alongside city plans.
 
 ---
 

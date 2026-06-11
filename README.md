@@ -11,7 +11,8 @@ src/
   scenarios/io/           Filesystem and YAML loaders (buildings, scenarios, countries)
   engine/
     economy/              Morale, population, city/province production, building modifiers
-    optimization/         Force projection, batch allocation, research scheduling, cost calculator
+    eco/                  City + province eco beam search, flip-point solver
+    optimization/         Force projection, batch allocation, research scheduling, cost calculator, joint-city optimizer
     orchestration/        Build order timeline
     provinces/            Province cohorts
     reporting/            Country resource balance, scenario reporting
@@ -73,6 +74,22 @@ npm run smoke:build-order                   # Single-city AI1→AI5 build order
 npm run smoke:build-order:compare           # Compare AI5→B3 vs B3→AI5 over 28 days
 npm run smoke:build-plan:balance            # Build plan resource balance
 npm run smoke:greece:electro                # Greece electronics city benefit
+```
+
+### Coalition Force Planning (Unit 1 + Unit 2)
+
+```bash
+# Unit 1 — Eco Planner: optimal eco build sequence per city
+ECO_COUNTRY=all npm run smoke:eco-plan                  # all countries in default scenario
+ECO_PLAN=pnth_v_road_2026_jun ECO_COUNTRY=all npm run smoke:eco-plan   # coalition members only
+ECO_COUNTRY=norway npm run smoke:eco-plan               # single country
+# Config: ECO_SCENARIO, ECO_PLAN, ECO_COUNTRY, ECO_BEAM_WIDTH, ECO_TOP_N
+
+# Unit 2 — Force Projection: JIT research + min-cost mobilisation plan
+FP_COUNTRY=all npm run smoke:force-projection           # all plan countries
+FP_COUNTRY=norway npm run smoke:force-projection        # single country
+FP_MAX_RO=3 FP_COUNTRY=indonesia npm run smoke:force-projection
+# Config: FP_SCENARIO, FP_PLAN, FP_COUNTRY, FP_MAX_RO
 ```
 
 ### Research and Force Planning

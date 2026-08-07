@@ -1,0 +1,118 @@
+schema_version: 1
+domain: units
+resources:
+  - supplies
+  - components
+  - fuel
+  - rares
+  - electronics
+  - cash
+  - manpower
+units:
+  cruiser:
+    name: Cruiser
+    category: Naval
+    doctrine:
+      - eastern
+    levels:
+      "1":
+        requirements:
+          - naval_base level 4
+          - arms_industry level 1
+        research:
+          eastern:
+            unlock_day: 3
+            time:
+              hours: 21
+              minutes: 45
+            cost:
+              supplies: 2175
+              rares: 2400
+              cash: 5000
+        mobilisation:
+          eastern:
+            time:
+              days: 1
+              hours: 6
+            cost:
+              components: 3500
+              manpower: 850
+              fuel: 1200
+              electronics: 2500
+        daily_upkeep:
+          eastern:
+            cost:
+              components: 130
+              manpower: 50
+              fuel: 50
+              electronics: 175
+  frigate:
+    name: Frigate
+    category: Naval
+    doctrine:
+      - eastern
+    levels:
+      "1":
+        requirements:
+          - naval_base level 2
+          - arms_industry level 1
+        research:
+          eastern:
+            unlock_day: 2
+            time:
+              hours: 21
+            cost:
+              supplies: 1400
+              rares: 1750
+              cash: 3000
+        mobilisation:
+          eastern:
+            time:
+              days: 1
+            cost:
+              components: 2000
+              manpower: 750
+              fuel: 1100
+              electronics: 1750
+        daily_upkeep:
+          eastern:
+            cost:
+              components: 90
+              manpower: 45
+              fuel: 45
+              electronics: 110
+  naval_veteran:
+    name: Naval Veteran
+    category: Naval
+    doctrine:
+      - eastern
+    levels:
+      "1":
+        requirements:
+          - naval_base level 2
+          - recruiting_office level 1
+        research:
+          eastern:
+            unlock_day: 2
+            time:
+              hours: 6
+            cost:
+              supplies: 400
+              rares: 400
+              cash: 1000
+        mobilisation:
+          eastern:
+            time:
+              days: 1
+            cost:
+              supplies: 2650
+              components: 4000
+              manpower: 1500
+              electronics: 5300
+        daily_upkeep:
+          eastern:
+            cost:
+              components: 220
+              manpower: 110
+              fuel: 110
+              electronics: 325

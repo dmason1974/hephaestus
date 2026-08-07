@@ -9,6 +9,76 @@ resources:
   - cash
   - manpower
 units:
+  asw_helicopter:
+    name: ASW Helicopter
+    category: Air
+    doctrine:
+      - eastern
+    levels:
+      "1":
+        requirements:
+          - air_base level 2
+          - arms_industry level 1
+        research:
+          eastern:
+            unlock_day: 2
+            time:
+              hours: 18
+            cost:
+              supplies: 1200
+              rares: 1300
+              cash: 2000
+        mobilisation:
+          eastern:
+            time:
+              hours: 18
+            cost:
+              components: 750
+              manpower: 350
+              electronics: 600
+              supplies: 2500
+        daily_upkeep:
+          eastern:
+            cost:
+              manpower: 25
+              fuel: 25
+              electronics: 15
+              supplies: 80
+  rotary_wing_veteran:
+    name: Rotary Wing Veteran
+    category: Air
+    doctrine:
+      - eastern
+    levels:
+      "1":
+        requirements:
+          - air_base level 1
+          - recruiting_office level 1
+        research:
+          eastern:
+            unlock_day: 1
+            time:
+              hours: 6
+            cost:
+              supplies: 400
+              rares: 300
+              cash: 1000
+        mobilisation:
+          eastern:
+            time:
+              days: 1
+            cost:
+              supplies: 1700
+              manpower: 1000
+              cash: 1200
+              electronics: 3000
+        daily_upkeep:
+          eastern:
+            cost:
+              manpower: 60
+              fuel: 60
+              cash: 50
+              electronics: 180
   attack_helicopter:
     name: Attack Helicopter
     category: Air

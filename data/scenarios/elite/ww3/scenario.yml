@@ -7,7 +7,7 @@ start:
   day: 1
   hour: 15
 
-truce_length_days: 28
+truce_length_days: 8
 
 speed: "4x1.4"
 
@@ -22,3 +22,7 @@ starting_balance:
   rares: 10000
   manpower: 15000
   cash: 150000
+
+coalition:
+  - cuba           # eastern
+  - united_states  # western

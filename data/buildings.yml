@@ -241,7 +241,6 @@ buildings:
     levels:
       "1":
         hit_points: 15
-        mobilisation_speed_bonus_pct: 1
         garrison_damage_reduction_pct: 0.33
         morale_bonus_pct: 0.1
         daily_upkeep:
@@ -451,7 +450,6 @@ buildings:
     levels:
       "1":
         hit_points: 10
-        mobilisation_speed_bonus_pct: 1
         daily_upkeep:
           cash: 165
         build_time:
@@ -464,7 +462,7 @@ buildings:
           cash: 5000
       "2":
         hit_points: 15
-        mobilisation_speed_bonus_pct: 1
+        mobilisation_speed_bonus_pct: 0.25
         daily_upkeep:
           cash: 330
         build_time:
@@ -477,7 +475,7 @@ buildings:
           cash: 7500
       "3":
         hit_points: 20
-        mobilisation_speed_bonus_pct: 1
+        mobilisation_speed_bonus_pct: 0.5
         daily_upkeep:
           cash: 495
         build_time:

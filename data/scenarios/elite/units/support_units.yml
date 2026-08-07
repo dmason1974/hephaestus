@@ -667,6 +667,112 @@ units:
             fuel: 15
             cash: 50
             manpower: 15
+      # Levels 2-3 below: research confirmed from screenshots. requirements are
+      # inferred from this catalog's usual pattern (base requirement + previous
+      # level) — not confirmed from a requirements panel screenshot. mobilisation/
+      # daily_upkeep not yet provided (TODO).
+      "2":
+        requirements:
+          - army_base level 2
+          - arms_industry level 1
+          - towed_artillery level 1
+        research:
+          unlock_day: 5
+          time:
+            hours: 18
+            minutes: 45
+          cost:
+            supplies: 1210
+            rares: 1515
+            cash: 1650
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+      "3":
+        requirements:
+          - army_base level 2
+          - arms_industry level 1
+          - towed_artillery level 2
+        research:
+          unlock_day: 11
+          time:
+            hours: 22
+            minutes: 30
+          cost:
+            supplies: 1320
+            rares: 1650
+            cash: 1800
+        mobilisation:
+          time:
+            days: 0
+            hours: 0
+          cost: {}
+        daily_upkeep:
+          cost: {}
+  coastal_battery:
+    name: Coastal Battery
+    category: Support
+    doctrine:
+      - eastern
+    # Province-mobilised (built at combat_outpost, not a city slot) — same pattern as
+    # commando. Coastal Battery has no independent research of its own: it's upgraded
+    # entirely by researching Towed Artillery (L2 requires towed_artillery level 3,
+    # i.e. 2A36 Giatsint-B) — hence the zero-cost/zero-time research blocks below,
+    # which are intentional, not placeholders.
+    levels:
+      "1":
+        requirements:
+          - combat_outpost level 1
+        research:
+          eastern:
+            unlock_day: 0
+            time:
+              hours: 0
+            cost: {}
+        mobilisation:
+          eastern:
+            time:
+              hours: 12
+            cost:
+              components: 320
+              manpower: 130
+              electronics: 150
+              supplies: 450
+        daily_upkeep:
+          eastern:
+            cost:
+              components: 15
+              electronics: 10
+              supplies: 50
+      "2":
+        requirements:
+          - combat_outpost level 1
+          - towed_artillery level 3
+        research:
+          eastern:
+            unlock_day: 0
+            time:
+              hours: 0
+            cost: {}
+        mobilisation:
+          eastern:
+            time:
+              hours: 16
+            cost:
+              components: 400
+              manpower: 230
+              electronics: 225
+              supplies: 600
+        daily_upkeep:
+          eastern:
+            cost:
+              components: 25
+              electronics: 20
+              supplies: 60
   theatre_defense_system:
     name: Theatre Defense System
     category: Support

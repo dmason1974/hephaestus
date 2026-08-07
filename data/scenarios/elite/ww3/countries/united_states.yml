@@ -1,0 +1,105 @@
+version: 1
+
+country:
+  id: united_states
+  name: United States
+  doctrine: western
+
+cities:
+  - id: hawaii
+    name: Hawaii
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: st_louis
+    name: St. Louis
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 0
+      underground_bunkers: 0
+
+  - id: los_angeles
+    name: Los Angeles
+    capital: false
+    resource: components
+    population: 6
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: washington_dc
+    name: Washington D.C.
+    capital: true
+    resource: rares
+    population: 6
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: new_york
+    name: New York
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: new_orleans
+    name: New Orleans
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: portland
+    name: Portland
+    capital: false
+    resource: fuel
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: chicago
+    name: Chicago
+    capital: false
+    resource: components
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: anchorage
+    name: Anchorage
+    capital: false
+    resource: electronics
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+provinces:
+  total: 109
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 2

@@ -1,0 +1,65 @@
+version: 1
+
+country:
+  id: cuba
+  name: Cuba
+  doctrine: eastern
+
+cities:
+  - id: santa_clara
+    name: Santa Clara
+    capital: false
+    resource: fuel
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: santiago_de_cuba
+    name: Santiago de Cuba
+    capital: false
+    resource: supplies
+    population: 5
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: camaguey
+    name: Camagüey
+    capital: false
+    resource: electronics
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: havana
+    name: Havana
+    capital: true
+    resource: rares
+    population: 5
+    starting:
+      air_base: 1
+      naval_base: 1
+      underground_bunkers: 0
+
+  - id: cienfuegos
+    name: Cienfuegos
+    capital: false
+    resource: components
+    population: 4
+    starting:
+      air_base: 0
+      naval_base: 1
+      underground_bunkers: 0
+
+provinces:
+  total: 16
+  supplies: 1
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 0

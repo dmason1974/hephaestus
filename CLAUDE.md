@@ -735,4 +735,4 @@ Tasks deferred until after UAT of the current coalition force plan engine output
 
 7. **`mercenary_outpost` in build planner** — Russia/commando cities need it inserted in the infra chain (same pattern as `secret_weapons_lab`).
 
-8. **Province mobilisation costs** — commando mob cost not yet included in the coalition balance sheet.
+8. **Province mobilisation costs** — commando mob cost not yet included in the coalition balance sheet. **Design decision (patch notes)**: `combat_outpost` no longer grants a mobilisation speed bonus (field removed from `data/buildings.yml` — was never wired into any calculation anyway). Province mobilisation speed should instead scale with province morale, the same way city mobilisation speed scales with city morale via `effectiveDurationFromMorale` in [activity-duration.ts](src/engine/timing/activity-duration.ts) — reuse that helper against province morale once province mobilisation duration is implemented, rather than a building-granted flat bonus. `mercenary_outpost`'s own mobilisation speed bonus was separately rebalanced to +0/25/50% (L1/L2/L3), down from a flat +100% at every level.

@@ -196,7 +196,10 @@ units:
   elite_frigate:
     name: Elite Frigate
     category: Naval
-    doctrine: Western
+    doctrine:
+      - western
+      - european
+      - eastern
     levels:
       "1":
         requirements:
@@ -206,7 +209,6 @@ units:
         research:
           unlock_day: 3
           time:
-            days: 0
             hours: 21
           cost:
             supplies: 1250
@@ -216,18 +218,18 @@ units:
           unit_limit: 5
           time:
             days: 1
-            hours: 0
           cost:
             components: 2100
-            electronics: 1150
-            cash: 1900
             manpower: 800
+            fuel: 1150
+            electronics: 1900
         daily_upkeep:
           cost:
             components: 90
-            fuel: 50
-            cash: 120
             manpower: 50
+            fuel: 50
+            electronics: 120
+      # Levels 2-3 below are ported placeholder data, unverified against screenshots.
       "2":
         requirements:
           - naval_base level 4

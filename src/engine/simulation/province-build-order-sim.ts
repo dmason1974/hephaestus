@@ -38,7 +38,7 @@ export type ProvinceState = {
   resource: ProvinceProducedResource | null;
   resourceProvinceCount: number;
   totalProvinceCount: number;
-  buildings: Pick<BuildingLevels, "combat_outpost" | "local_industry">;
+  buildings: Pick<BuildingLevels, "combat_outpost" | "local_industry" | "mercenary_outpost">;
   cityStatus?: CityStatus;
   moraleParams?: MoraleParams;
   hiddenMultiplierOverride?: ProvinceResourceInputs["hiddenMultiplierOverride"];
@@ -46,7 +46,7 @@ export type ProvinceState = {
 
 export type ProvinceBuildAction = {
   provinceId: string;
-  buildingId: "combat_outpost" | "local_industry";
+  buildingId: "combat_outpost" | "local_industry" | "mercenary_outpost";
   targetLevel: number;
   startRelHour?: number;
   startHour?: number;
@@ -57,6 +57,10 @@ export type HourlyProvinceResult = {
   provinceId: string;
   effectiveBonusPct: number;
   production: Record<Resource, number>;
+  // mercenary_outpost's effect is mobilisation speed, not production/morale — tracked
+  // separately here for the province mobilisation engine to consume, rather than fed
+  // into the economic effects pipeline above.
+  mercenaryOutpostLevel: number;
 };
 
 export type ProvinceSimulationResult = {
@@ -115,6 +119,7 @@ function provinceToTimelineState(province: ProvinceState) {
       arms_industry: 0,
       combat_outpost: province.buildings.combat_outpost ?? 0,
       local_industry: province.buildings.local_industry ?? 0,
+      mercenary_outpost: province.buildings.mercenary_outpost ?? 0,
       naval_base: 0,
       recruiting_office: 0,
       relocate_headquarters: 0,
@@ -190,6 +195,7 @@ export function simulateProvinceBuildOrder(args: {
         arms_industry: [],
         combat_outpost: [],
         local_industry: [],
+        mercenary_outpost: [],
         naval_base: [],
         recruiting_office: [],
         relocate_headquarters: [],
@@ -210,6 +216,11 @@ export function simulateProvinceBuildOrder(args: {
       });
       const combatOutpostEffects = getEconomicBuildingEffectsForLevels(args.buildings, {
         combat_outpost: combatOutpostLevelAtDayStart,
+      });
+      const mercenaryOutpostLevel = getCompletedBuildingLevelAtDayStart({
+        mapDay,
+        startingLevel: province.buildings.mercenary_outpost ?? 0,
+        segments: provinceSegments.mercenary_outpost,
       });
       const dynamicEffects = zeroEconomicEffects();
       addEconomicEffects(dynamicEffects, localIndustry.effects);
@@ -261,6 +272,7 @@ export function simulateProvinceBuildOrder(args: {
         provinceId: province.provinceId,
         effectiveBonusPct: dynamicEffects.productionBonusPct,
         production,
+        mercenaryOutpostLevel,
       });
     }
   }

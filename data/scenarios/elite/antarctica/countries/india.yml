@@ -71,9 +71,9 @@ cities:
       underground_bunkers: 0
 
 provinces:
-  total: 1
-  supplies: 0
-  components: 0
+  total: 32
+  supplies: 1
+  components: 1
   fuel: 0
   rares: 0
   electronics: 1

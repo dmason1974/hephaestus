@@ -251,6 +251,31 @@ buildings:
           supplies: 500
           components: 750
           cash: 2000
+      "2":
+        hit_points: 25
+        garrison_damage_reduction_pct: 0.5
+        morale_bonus_pct: 0.13
+        daily_upkeep:
+          cash: 36
+        build_time:
+          hours: 4
+          minutes: 30
+        cost:
+          supplies: 750
+          components: 875
+          cash: 2750
+      "3":
+        hit_points: 30
+        garrison_damage_reduction_pct: 0.65
+        morale_bonus_pct: 0.15
+        daily_upkeep:
+          cash: 39
+        build_time:
+          hours: 9
+        cost:
+          supplies: 1000
+          components: 1000
+          cash: 3500
   local_industry:
     name: Local Industry
     category: Buildings

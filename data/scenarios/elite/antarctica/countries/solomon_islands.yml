@@ -16,3 +16,11 @@ cities:
       air_base: 0
       naval_base: 0
       underground_bunkers: 0
+
+provinces:
+  total: 9
+  supplies: 0
+  components: 0
+  fuel: 0
+  rares: 0
+  electronics: 0

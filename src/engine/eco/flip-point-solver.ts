@@ -60,9 +60,10 @@ function buildRemainingChain(
   currentLevels: Partial<Record<string, number>>,
   buildings: BuildingsFile
 ): MilitaryInfraStep[] {
+  // mercenary_outpost is deliberately absent — it can only be built in a province,
+  // never in a city, so it must never appear in a city's infra chain.
   const CHAIN_ORDER = [
     "arms_industry",
-    "mercenary_outpost",
     "army_base",
     "air_base",
     "secret_weapons_lab",
@@ -72,7 +73,9 @@ function buildRemainingChain(
   const steps: MilitaryInfraStep[] = [];
   const orderedBuildings = [
     ...CHAIN_ORDER.filter(id => id in requiredLevels),
-    ...Object.keys(requiredLevels).filter(id => !CHAIN_ORDER.includes(id)),
+    ...Object.keys(requiredLevels).filter(
+      id => !CHAIN_ORDER.includes(id) && id !== "mercenary_outpost"
+    ),
   ];
 
   for (const buildingId of orderedBuildings) {

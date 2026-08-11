@@ -113,8 +113,10 @@ function zeroResources(): Record<Resource, number> {
 
 function analyseCountry(countryId: string): string {
   const country = loadScenarioCountry(scenarioId, countryId);
-  const status = country.country.status as "homeland" | "occupied";
-  const captureAbsHour = status === "occupied" ? toAbsoluteHour(4, 0) : undefined;
+  const planCountry = plan?.countries[countryId];
+  const status = planCountry?.status ?? (country.country.status as "homeland" | "occupied");
+  const captureDay = planCountry?.capture_day ?? 4;
+  const captureAbsHour = status === "occupied" ? toAbsoluteHour(captureDay, 0) : undefined;
 
   console.log(`[${countryId}] Running unconstrained eco beam (${country.cities.length} cities, status=${status})...`);
 
@@ -145,7 +147,6 @@ function analyseCountry(countryId: string): string {
 <p class="label">Doctrine: ${escapeHtml(doctrine)} · Status: <span class="${status}">${status}</span> · Truce: ${truceDays} days · Beam width: ${beamWidth}</p>`;
 
   if (status === "occupied") {
-    const captureDay = captureAbsHour !== undefined ? Math.floor((captureAbsHour) / 24) + 1 : "?";
     html += `<p class="label">Occupied: captured day ${captureDay}; annex_city (18h) is the mandatory first build after capture.</p>`;
   }
 

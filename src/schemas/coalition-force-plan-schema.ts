@@ -21,6 +21,9 @@ const demandSchema = z
 const countryPlanSchema = z
   .object({
     status: z.enum(["homeland", "occupied"]),
+    // Day this country is captured (only meaningful when status: occupied). Defaults
+    // to day 4 at the call site when omitted.
+    capture_day: z.number().int().min(1).optional(),
     demands: z.array(demandSchema),
   })
   .strict();

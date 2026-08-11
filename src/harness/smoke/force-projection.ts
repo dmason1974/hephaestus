@@ -14,6 +14,7 @@ import {
 } from "../../engine/optimization/cost-calculator.js";
 import type { ResourceCost } from "../../engine/optimization/types.js";
 import { simulateUnitResearchTargets, determineMaximumFeasibleLevel } from "../../engine/simulation/unit-research-sim.js";
+import { planProvinceMobilization } from "../../engine/simulation/province-mobilization-plan.js";
 import { baselineHomelandMoraleOnDay } from "../../engine/economy/morale.js";
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
@@ -490,7 +491,12 @@ function analyseCountry(countryId: string): string {
     )?.endAbsoluteHourExclusive ?? deadlineAbsHour;
     const firstMobStart = Math.max(slot.infraOpenHour, firstJitMobStart, firstL1EndForJit);
     const infraBuildHours = slot.infraOpenHour - scenarioAbsHour;
+    // This is the real flip point: the latest hour this city can still be running
+    // eco builds before it must switch to military infra to hit the deadline.
+    // (slot.flipPointHour is a simpler, research-unaware version of the same idea —
+    // this one additionally accounts for L1 research completion timing.)
     const jitInfraStart = Math.max(scenarioAbsHour, firstMobStart - infraBuildHours);
+    html += `<p class="label"><strong>Flip point: ${fmtAbsHour(jitInfraStart)}</strong> — eco until then, military infra after.</p>\n`;
 
     const { steps, mobOpenHour: infraDoneHour } = buildCityInfraSteps(primaryUnitId, slot.roLevel, jitInfraStart, planWeights);
     const stepRows: Array<Record<string, unknown>> = steps.map((s, i) => ({
@@ -583,23 +589,60 @@ function analyseCountry(countryId: string): string {
     }
   }
 
-  if (foldResult.citySlots.length === 0) {
+  // ── Province-mobilised demands (commando etc.) ────────────────────────────
+  // Capacity is one mobilisation slot per province; mercenary_outpost can only
+  // be built in a province (never a city) and its speed bonus applies country-
+  // wide once built in any single one. Mobilisation starts ASAP (hour 0) since
+  // there's no eco/infra dependency gating it.
+  const provinceMobResults = provinceDemands.map(demand => planProvinceMobilization({
+    unitId: demand.unitId,
+    level: 1,
+    count: demand.count,
+    provinceCount: country.provinces.total,
+    unitCatalog: catalog,
+    buildings,
+    doctrine,
+  }));
+  let aggProvinceMob: ResourceCost = {};
+  let aggProvinceUpkeep: ResourceCost = {};
+  for (const result of provinceMobResults) {
+    aggProvinceMob = sumResourceCosts(aggProvinceMob, result.totalCost);
+    const remainingHours = deadlineAbsHour - (scenarioAbsHour + result.completionHour);
+    if (remainingHours > 0) {
+      aggProvinceUpkeep = sumResourceCosts(
+        aggProvinceUpkeep,
+        calculateUpkeepCost(result.unitId, result.level, result.count, remainingHours, catalog, doctrine)
+      );
+    }
+  }
+
+  if (foldResult.citySlots.length === 0 && provinceMobResults.length === 0) {
     html += `<p class="infeasible">INFEASIBLE — no cities allocated.</p>\n`;
   } else {
-    const aggTotal = sumResourceCosts(aggInfraRo, aggInfraBldg, aggMob, aggUpkeep);
+    const aggTotal = sumResourceCosts(aggInfraRo, aggInfraBldg, aggMob, aggUpkeep, aggProvinceMob, aggProvinceUpkeep);
     html += `<table>
       ${resourceTableHeader()}
       ${resourceRow("Infra (RO)", aggInfraRo)}
       ${resourceRow("Infra (buildings)", aggInfraBldg)}
       ${resourceRow("Mobilisation", aggMob)}
       ${resourceRow("Upkeep (stepped)", aggUpkeep)}
+      ${resourceRow("Province mob + mercenary_outpost", aggProvinceMob)}
+      ${resourceRow("Province upkeep (flat)", aggProvinceUpkeep)}
       ${resourceRow("Total", aggTotal)}
     </table>\n`;
   }
 
+  if (provinceMobResults.length > 0) {
+    html += `<h2>Province Mobilisation Detail</h2>\n`;
+    html += `<ul>${provinceMobResults.map(r =>
+      `<li>${escapeHtml(r.unitId)} × ${r.count} — mercenary_outpost L${r.mercenaryOutpostRequiredLevel} ` +
+      `(${r.mercenaryOutpostBuildHours}h) then mobilise (${r.mobilizationDurationHours}h), ` +
+      `completes hour ${r.completionHour}, capacity ${r.provinceCount} provinces</li>`
+    ).join("")}</ul>\n`;
+  }
+
   // Section 5: Skipped demands
   const skipped = [
-    ...provinceDemands.map(d => `${d.unitId} × ${d.count} — province-mobilised (not city-slotted)`),
     ...launcherDemands.map(d => `${d.unitId} × ${d.count} — launcher platform (zero mob cost)`),
   ];
   if (skipped.length > 0) {

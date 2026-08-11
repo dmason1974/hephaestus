@@ -1,0 +1,140 @@
+schema_version: 1
+domain: coalition_force_plan
+name: PNTH V Iron Aug 2026
+
+scenario: elite/antarctica
+truce_days: 28
+
+# Resources listed highest-to-lowest coalition priority.
+resource_priority: [electronics, rares, components, fuel, supplies]
+
+search:
+  top: 10
+
+countries:
+
+  # ── 8v8 active roster — see data/scenarios/elite/antarctica/coalition-plan.md ──
+
+  # Mainland-forced (6)
+  italy:
+    # European — Rome: supplies pop6, air_base 1
+    status: homeland
+    demands:
+      - unitId: multiple_rocket_launcher
+        count: 44
+      - unitId: tank_veteran
+        count: 1
+      - unitId: mobile_anti_air_vehicle
+        count: 75
+
+  japan:
+    # Western — Tokyo: supplies pop6, air_base 1 (no naval base)
+    status: homeland
+    demands:
+      - unitId: stealth_air_superiority_fighter
+        count: 39
+      - unitId: awacs
+        count: 8
+      - unitId: fixed_wing_veteran
+        count: 1
+
+  russia:
+    # Eastern — Moscow: components pop6, air_base 1
+    # commando mobilises from provinces (not city slots); mercenary_outpost required in city build chain
+    status: homeland
+    demands:
+      - unitId: theatre_defense_system
+        count: 30
+      - unitId: special_forces
+        count: 24
+      - unitId: commando
+        count: 12
+        mobilisation_source: province
+
+  south_africa:
+    # European — Cape Town: rares pop6, air_base 1 (no naval base)
+    status: homeland
+    demands:
+      - unitId: multiple_rocket_launcher
+        count: 44
+      - unitId: tank_veteran
+        count: 1
+      - unitId: mobile_anti_air_vehicle
+        count: 75
+
+  pakistan:
+    # Western — Islamabad: fuel pop6, air_base 1
+    status: homeland
+    demands:
+      - unitId: multiple_rocket_launcher
+        count: 44
+      - unitId: tank_veteran
+        count: 1
+      - unitId: mobile_anti_air_vehicle
+        count: 75
+
+  india:
+    # Eastern — New Delhi: electronics pop6, air_base 1; highest electronics output of any candidate
+    status: homeland
+    demands:
+      - unitId: stealth_air_superiority_fighter
+        count: 39
+      - unitId: fixed_wing_veteran
+        count: 1
+      - unitId: uav
+        count: 15
+      - unitId: conventional_cruise_missile
+        count: 120
+      - unitId: conventional_warhead
+        count: 240  # batch_size: 4 — 60 mobilisation slots; enough warheads for 120 missiles (2 each) at game start
+
+  # Chosen on economics (2)
+  australia:
+    # Western — Canberra: supplies pop6, air_base 1; #2 remaining candidate on supplies+electronics
+    # Target force is 8 mobile_radar total, but Australia keeps its starting-garrison
+    # radar (not suicided on day 4 like the rest of the garrison) — only 7 need mobilising.
+    status: homeland
+    demands:
+      - unitId: mechanized_infantry
+        count: 30
+      - unitId: mobile_anti_air_vehicle
+        count: 70
+      - unitId: mobile_radar
+        count: 7
+
+  new_zealand:
+    # European — Wellington: supplies pop6, air_base 1; #1 remaining candidate on supplies+electronics
+    status: homeland
+    demands:
+      - unitId: multiple_rocket_launcher
+        count: 44
+      - unitId: tank_veteran
+        count: 1
+      - unitId: mobile_anti_air_vehicle
+        count: 75
+
+  # ── Captured nations (4) — occupied by day 4 (Norway) / day 2 (small AI) ─────
+
+  norway:
+    # Western — Oslo: fuel pop6, air_base 1; occupied by day 4
+    status: occupied
+    capture_day: 4
+    demands: []
+
+  madagascar:
+    # Antananarivo: rares pop4 — captured AI nation, occupied by day 2
+    status: occupied
+    capture_day: 2
+    demands: []
+
+  solomon_islands:
+    # Honiara: electronics pop4 — captured AI nation, occupied by day 2
+    status: occupied
+    capture_day: 2
+    demands: []
+
+  mozambique:
+    # Maputo: components pop4 — captured AI nation, occupied by day 2
+    status: occupied
+    capture_day: 2
+    demands: []

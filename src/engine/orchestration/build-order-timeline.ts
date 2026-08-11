@@ -18,6 +18,7 @@ export type BuildingId =
   | "arms_industry"
   | "combat_outpost"
   | "local_industry"
+  | "mercenary_outpost"
   | "military_hospital"
   | "naval_base"
   | "recruiting_office"
@@ -32,6 +33,7 @@ export type BuildingLevels = {
   arms_industry: number;
   combat_outpost?: number;
   local_industry?: number;
+  mercenary_outpost?: number;
   military_hospital?: number;
   naval_base: number;
   recruiting_office: number;
@@ -140,6 +142,9 @@ export function scheduleBuildSegments(args: {
     arms_industry: getBuildingLevelTimings(args.buildings, "arms_industry"),
     combat_outpost: getBuildingLevelTimings(args.buildings, "combat_outpost"),
     local_industry: getBuildingLevelTimings(args.buildings, "local_industry"),
+    mercenary_outpost: args.buildings.buildings["mercenary_outpost"]
+      ? getBuildingLevelTimings(args.buildings, "mercenary_outpost")
+      : { 0: { level: 0, buildTimeMinutes: 0 } },
     military_hospital: getBuildingLevelTimings(args.buildings, "military_hospital"),
     naval_base: getBuildingLevelTimings(args.buildings, "naval_base"),
     recruiting_office: getBuildingLevelTimings(args.buildings, "recruiting_office"),
@@ -160,6 +165,7 @@ export function scheduleBuildSegments(args: {
     arms_industry: 0,
     combat_outpost: 0,
     local_industry: 0,
+    mercenary_outpost: 0,
     military_hospital: 0,
     naval_base: 0,
     recruiting_office: 0,
@@ -178,6 +184,7 @@ export function scheduleBuildSegments(args: {
       arms_industry: [],
       combat_outpost: [],
       local_industry: [],
+      mercenary_outpost: [],
       military_hospital: [],
       naval_base: [],
       recruiting_office: [],

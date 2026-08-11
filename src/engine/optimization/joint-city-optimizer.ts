@@ -63,6 +63,10 @@ export type CityMobSlot = {
   usedHours: number;
   /** Absolute hour when city infra + RO completes and mob can start. */
   infraOpenHour: number;
+  /** Latest safe hour to flip from eco to military infra (mobStart − infra hours,
+   * clamped to scenario start). Assumes a fresh full infra build — doesn't credit
+   * any partial eco-phase progress toward the requirement. */
+  flipPointHour: number;
 };
 
 export type JointCityResult = {
@@ -123,6 +127,9 @@ function getBuildingRequirements(
     const bldgId = m[1].trim().replace(/ /g, "_");
     const lvl = parseInt(m[2]);
     if (catalog.units[bldgId]) continue;
+    // mercenary_outpost can only be built in a province, never a city — never treat
+    // it as a city building requirement, regardless of which unit lists it.
+    if (bldgId === "mercenary_outpost") continue;
     if (buildings.buildings[bldgId]) reqs.set(bldgId, Math.max(reqs.get(bldgId) ?? 0, lvl));
   }
   return reqs;
@@ -239,6 +246,7 @@ export type NewCityEstimate = {
   numCities: number;
   unitsPerCity: number;
   infraOpenHour: number;
+  flipPointHour: number;
   totalCost: number;
 };
 
@@ -294,7 +302,8 @@ export function estimateBestNewCityConfig(
 
       const totalCost = totalInfraCost + mobCost + totalUpkeep;
       if (!best || totalCost < best.totalCost) {
-        best = { roLevel: ro, numCities: nc, unitsPerCity, infraOpenHour, totalCost };
+        const flipPointHour = Math.max(scenarioAbsHour, jitStart - totalInfraHours);
+        best = { roLevel: ro, numCities: nc, unitsPerCity, infraOpenHour, flipPointHour, totalCost };
       }
     }
   }
@@ -335,6 +344,7 @@ function buildNewSlot(
     upkeepRateScalar: rate,
     tPerUnit: T,
   };
+  const flipPointHour = Math.max(scenarioAbsHour, jitStart - (baseHours + roHours));
 
   return {
     cityId,
@@ -344,6 +354,7 @@ function buildNewSlot(
     windowHours,
     usedHours: entry.totalMobHours,
     infraOpenHour,
+    flipPointHour,
   };
 }
 
@@ -449,6 +460,7 @@ function applyAbsorption(
   doctrine: string,
   moraleAtAbsHour: MoraleAtHour,
   weights: PlanWeights,
+  scenarioAbsHour: number,
 ): void {
   if (neededRo > slot.roLevel) {
     const extra = roBuildHoursRange(slot.roLevel, neededRo, buildings);
@@ -477,6 +489,13 @@ function applyAbsorption(
   };
   slot.mobQueue.splice(insertIdx, 0, entry);
   slot.usedHours += entry.totalMobHours;
+
+  // Flip point reflects the whole queue's slack, not just this newly-absorbed
+  // unit: latest the full queue's infra could open and still finish by deadline,
+  // minus the total infra hours this slot currently requires.
+  const totalInfraHoursForSlot = slot.infraOpenHour - scenarioAbsHour;
+  const latestInfraOpenAcrossQueue = slot.infraOpenHour + slot.windowHours - slot.usedHours;
+  slot.flipPointHour = Math.max(scenarioAbsHour, latestInfraOpenAcrossQueue - totalInfraHoursForSlot);
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -542,7 +561,7 @@ export function foldInDemands(
       if (scaledMarginal <= newCityCost) {
         applyAbsorption(
           citySlots[opt.slotIdx], unitId, n, opt.insertIdx, opt.neededRo,
-          catalog, buildings, doctrine, moraleAtAbsHour, planWeights,
+          catalog, buildings, doctrine, moraleAtAbsHour, planWeights, scenarioAbsHour,
         );
         remaining -= n;
       }

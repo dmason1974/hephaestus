@@ -311,7 +311,7 @@ export function calculateTotalCost(
   };
 }
 
-function getUnitLevelData(unitId: string, level: number, unitCatalog: UnitCatalog) {
+export function getUnitLevelData(unitId: string, level: number, unitCatalog: UnitCatalog) {
   const unit = unitCatalog.units[unitId];
   if (!unit) {
     throw new Error(`Unknown unit: ${unitId}`);

@@ -24,6 +24,18 @@ const resourceAmountsSchema = z
   })
   .strict();
 
+const startingUnitSchema = z
+  .object({
+    unit_id: z.string().min(1),
+    count: z.number().int().min(1),
+    level: z.number().int().min(1),
+    // Only needed for units not present in the unit catalog (e.g. gunship): units
+    // resolved from the catalog by unit_id + level omit this and look up daily_upkeep
+    // there instead.
+    daily_upkeep: z.record(z.string().min(1), resourceAmountsSchema.partial()).optional(),
+  })
+  .strict();
+
 export const scenarioFileSchema = z
   .object({
     schema_version: z.number(),
@@ -43,6 +55,7 @@ export const scenarioFileSchema = z
     coalition: z.array(z.string().min(1)).optional(),
     city_statuses: z.record(z.string().min(1), z.record(z.string().min(1), cityStatusSchema)).optional(),
     headquarters_city_by_country: z.record(z.string().min(1), z.string().min(1)).optional(),
+    starting_units: z.array(startingUnitSchema).optional(),
   })
   .strict();
 
@@ -107,4 +120,10 @@ export function scenarioTruceLengthDays(
   scenario: ScenarioFile
 ): number | undefined {
   return scenario.truce_length_days;
+}
+
+export function resolveScenarioStartingUnits(
+  scenario: ScenarioFile
+): NonNullable<ScenarioFile["starting_units"]> {
+  return scenario.starting_units ?? [];
 }

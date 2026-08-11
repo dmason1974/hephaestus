@@ -16,7 +16,7 @@ src/
     orchestration/        Build order timeline
     provinces/            Province cohorts
     reporting/            Country resource balance, scenario reporting
-    simulation/           Unit research, mobilisation, and build-order simulations
+    simulation/           Unit research, mobilisation, build-order, and province-mobilisation simulations
     timing/               Shared timing helpers
   cli/                    Entry point scripts
   harness/smoke/          Ad-hoc runner scripts (not tests)
@@ -78,16 +78,23 @@ npm run smoke:greece:electro                # Greece electronics city benefit
 
 ### Coalition Force Planning (Unit 1 + Unit 2)
 
+Current active plan: `data/scenarios/elite/antarctica/plans/pnth-v-iron-2026-aug.yml`
+(pass `ECO_PLAN=pnth-v-iron-2026-aug` / `FP_PLAN=pnth-v-iron-2026-aug` explicitly —
+neither harness's code default points at it yet). Roster/rationale documented in
+`data/scenarios/elite/antarctica/coalition-plan.md`.
+
 ```bash
 # Unit 1 — Eco Planner: optimal eco build sequence per city
 ECO_COUNTRY=all npm run smoke:eco-plan                  # all countries in default scenario
-ECO_PLAN=pnth_v_road_2026_jun ECO_COUNTRY=all npm run smoke:eco-plan   # coalition members only
+ECO_PLAN=pnth-v-iron-2026-aug ECO_COUNTRY=all npm run smoke:eco-plan   # every country in the plan (this is the default when a plan is loaded)
 ECO_COUNTRY=norway npm run smoke:eco-plan               # single country
+ECO_PLAN=pnth-v-iron-2026-aug ECO_COUNTRY=norway npm run smoke:eco-plan   # plan-aware: reads status + capture_day from the plan, not just the country YAML
 # Config: ECO_SCENARIO, ECO_PLAN, ECO_COUNTRY, ECO_BEAM_WIDTH, ECO_TOP_N
 
-# Unit 2 — Force Projection: JIT research + min-cost mobilisation plan
-FP_COUNTRY=all npm run smoke:force-projection           # all plan countries
-FP_COUNTRY=norway npm run smoke:force-projection        # single country
+# Unit 2 — Force Projection: JIT research + min-cost mobilisation plan, incl.
+# province-mobilised units (commando etc.) and per-city flip points
+FP_PLAN=pnth-v-iron-2026-aug FP_COUNTRY=all npm run smoke:force-projection   # all plan countries
+FP_PLAN=pnth-v-iron-2026-aug FP_COUNTRY=russia npm run smoke:force-projection   # single country
 FP_MAX_RO=3 FP_COUNTRY=indonesia npm run smoke:force-projection
 # Config: FP_SCENARIO, FP_PLAN, FP_COUNTRY, FP_MAX_RO
 ```

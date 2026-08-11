@@ -268,7 +268,40 @@ When a city is building air_base L5 (32h) and then secret_weapons_lab (25h) in s
 - Game starts day 1, hour 15
 - Speed: `4x`
 
-**Active coalition — PNTH V Road Jun 2026** (`data/scenarios/elite/antarctica/plans/pnth_v_road_2026_jun.yml`):
+**Active coalition — PNTH V Iron Aug 2026 (current)**
+(`data/scenarios/elite/antarctica/plans/pnth-v-iron-2026-aug.yml`) — supersedes the
+PNTH V Road Jun 2026 plan below. Roster picked from real computed economic output
+(`npm run smoke:eco-plan`), not population/resource-tier heuristics — see
+`data/scenarios/elite/antarctica/coalition-plan.md` for the full ranking and
+rationale. 8v8: 6 countries are mainland-forced (hard constraint), 2 chosen on
+economics (highest supplies+electronics of the remaining candidates).
+
+| Country | Doctrine | Status | Role |
+|---|---|---|---|
+| Italy | european | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
+| Japan | western | homeland | Mainland-forced — 39 SASF + 8 AWACS + 1 Fixed Wing Veteran |
+| Russia | eastern | homeland | Mainland-forced — 30 TDS + 24 Special Forces + 12 Commando (province) |
+| South Africa | european | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
+| Pakistan | western | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
+| India | eastern | homeland | Mainland-forced — 39 SASF + 1 Fixed Wing Veteran + 15 UAV + 120 Cruise Missiles + 240 Warheads (60 mob slots) |
+| Australia | western | homeland | Chosen (economics) — 30 Mechanized Infantry + 70 MAAV + 7 Mobile Radar (keeps its 1 starting-garrison radar instead of suiciding it) |
+| New Zealand | european | homeland | Chosen (economics) — 44 MRL + 1 Tank Veteran + 75 MAAV |
+| Norway | western | occupied, capture day 4 | Eco only (captured multi-city — ranked 3rd of remaining candidates but taken as a capture, not an active slot) |
+| Madagascar | european | occupied, capture day 2 | Eco only (captured AI nation, single city) |
+| Solomon Islands | european | occupied, capture day 2 | Eco only (captured AI nation, single city) |
+| Mozambique | european | occupied, capture day 2 | Eco only (captured AI nation, single city) |
+
+**Starting garrison** (every homeland country, all L1, scenario-wide fact in
+`scenario.yml`'s `starting_units`): 14 Motorized Infantry, 1 Gunship, 1 Mobile Radar.
+Plan decision: disband on day 4 (Australia keeps its radar instead). See "Province
+Mobilisation Engine" and "Starting Units" sections below.
+
+Resources are **shared across all coalition countries**.
+
+<details>
+<summary>Previous plan — PNTH V Road Jun 2026 (superseded, kept for reference)</summary>
+
+(`data/scenarios/elite/antarctica/plans/pnth_v_road_2026_jun.yml`)
 
 | Country | Doctrine | Status | Role |
 |---|---|---|---|
@@ -287,7 +320,7 @@ When a city is building air_base L5 (32h) and then secret_weapons_lab (25h) in s
 | Madagascar | european | occupied | Eco only (captured AI nation, single city) |
 | Solomon Islands | european | occupied | Eco only (captured AI nation, single city) |
 
-Resources are **shared across all coalition countries**.
+</details>
 
 ### Coalition Force Plan YAML Schema (`domain: coalition_force_plan`)
 
@@ -305,6 +338,7 @@ search:
 countries:
   <country_id>:
     status: homeland | occupied   # affects morale/production yield for all cities
+    capture_day: 4                # optional, only meaningful when status: occupied; defaults to day 4
     demands:
       - unitId: <unit_id>
         count: <n>
@@ -314,15 +348,17 @@ countries:
 **Key design decisions:**
 - No `city_roles` field — city assignment is **optimizer output**, not YAML input. All cities are candidates for any role the optimizer needs; none are locked as eco.
 - `resource_priority` is coalition-level (not split by queue type). Guides which cities to prefer flipping last (high-priority resource cities lose more eco income when flipped).
-- `mobilisation_source: province` marks units that mobilise from provinces rather than city slots (commando). These don't compete for city mobilisation capacity and don't require recruiting offices.
+- `status` is plan-specific (see Unit 1's "Status + capture day, plan-aware" note above) — a country's occupied-ness is a decision this particular plan made, not an inherent country fact, except for single-city AI nations where it's always true.
+- `capture_day` (added this session): per-country override for when an occupied country is actually captured — `eco-plan.ts` reads it when `ECO_PLAN` is set; defaults to day 4 if omitted.
+- `mobilisation_source: province` marks units that mobilise from provinces rather than city slots (commando, and any other unit gated on `mercenary_outpost`). These don't compete for city mobilisation capacity, don't require recruiting offices, and use their own capacity model — one slot per province (`src/engine/simulation/province-mobilization-plan.ts`).
 - Warheads (`conventional_warhead`) have `batch_size: 4` — each mobilisation slot produces 4 units. They compete for the same city mobilisation slot as all other units. The slot is per-city, not per-building.
-- `mercenary_outpost` must be built in the city build queue as a prerequisite for commando research/mobilisation.
+- `mercenary_outpost` can **only** be built in a province, never a city (corrected this session — see Post-UAT item 7). It's the reason commando is province-mobilised in the first place: its gating building simply isn't a city option.
 
 ### Mobilisation Model
 
 **Every city has one mobilisation slot**, regardless of buildings. Buildings affect:
 - **Recruiting office**: speeds up mobilisation (reduces time per unit)
-- **Prerequisite buildings** (secret_weapons_lab, mercenary_outpost, army_base etc.): unlock research/mobilisation for specific unit types
+- **Prerequisite buildings** (secret_weapons_lab, army_base etc.): unlock research/mobilisation for specific unit types. `mercenary_outpost` is *not* a city prerequisite — see above; **every province** has its own mobilisation slot too (one per province, country-wide capacity = `provinces.total`), used only by province-mobilised units.
 
 RO L1 in every city is conventional practice (increases manpower income + speeds mobilisation from day 1). Whether it's strictly necessary in all cities is a question the optimizer should evaluate.
 
@@ -579,8 +615,10 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 | `commando` | ✓ Present | all doctrines; seasonal_units; requires `mercenary_outpost level 1` + `special_forces level 1`; **province-mobilised** (not city slot) |
 | `conventional_cruise_missile` | ✓ Present | all doctrines; missile_units; 0 mobilisation cost (launcher platform) |
 | `conventional_warhead`, `chemical_warhead`, `nuclear_warhead` | ✓ Present | all doctrines; missile_units; `batch_size: 4` for warhead; uses city mobilisation slot |
-| `airborne_infantry`, `motorized_infantry`, `special_forces` | ✓ Present | infantry_units |
+| `airborne_infantry`, `special_forces` | ✓ Present | infantry_units |
+| `motorized_infantry` | ⚠ Western only | `infantry_units.yml`; old flat format with bare `doctrine: Western` string — european/eastern have no data at all. Used as a Western-values placeholder for all doctrines in starting-garrison upkeep calcs (`scenario.yml`'s `starting_units`) pending real screenshots |
 | `tank_veteran` | ✓ Complete | all doctrines; multi-level; armoured_units |
+| `gunship` | ⚠ Inline upkeep only, not a catalog unit | Starting-garrison unit (`scenario.yml`'s `starting_units`), never researched/mobilised by the player — deliberately **not** added to `data/scenarios/elite/units/`. L1 daily upkeep confirmed from screenshots: `manpower: 25, fuel: 25, electronics: 25, cash: 80`, identical for eastern/european; western unconfirmed (borrowed from eastern/european, same value) |
 
 ---
 
@@ -599,10 +637,18 @@ Unit 2 — Force Projection               ✅ COMPLETE
   Output: per-demand JIT research schedule + minimum-cost mobilisation plan (city count, RO level, timing, cost breakdown)
   Question: "What is the cheapest way to field this force by the deadline?"
 
-Unit 3 — Resource Projection            ⬜ NEXT
+Unit 3 — Resource Projection            ⬜ NEXT (one building block done)
   Input:  Unit 1 eco plans + Unit 2 force plans + coalition starting balances
   Output: per-city flip points, hourly coalition resource flows, net balance per resource, shortfalls
   Question: "Given eco income and force costs, when must each city flip, and can the coalition afford it?"
+
+  Per-city flip points now exist (Unit 2 exposes CityMobSlot.flipPointHour and an
+  explicit "Flip point: day X" label in force-projection.ts output — see Post-UAT
+  item 9) — but they're purely informational so far, not yet used to bound/truncate
+  Unit 1's eco income numbers (still full-28-day unconstrained) into a real combined
+  balance sheet. That combination — plus wiring in the starting-garrison upkeep and
+  making capture-day per-country in whichever harness ends up doing the coalition-wide
+  sum — is the actual remaining Unit 3 work.
 ```
 
 ---
@@ -622,7 +668,7 @@ Writes `tmp/eco-<countryId>.html` per country. Three sections per country:
 ```
 ECO_SCENARIO=elite/antarctica ECO_COUNTRY=all npm run smoke:eco-plan    # all countries, no plan required
 ECO_COUNTRY=norway npm run smoke:eco-plan                                # single country
-ECO_PLAN=pnth_v_road_2026_jun ECO_COUNTRY=all npm run smoke:eco-plan    # coalition members only
+ECO_PLAN=pnth-v-iron-2026-aug ECO_COUNTRY=all npm run smoke:eco-plan    # coalition members only (current plan; ECO_COUNTRY=all resolves to Object.keys(plan.countries) — every country in the plan, this is already the default behaviour when a plan is loaded)
 ECO_BEAM_WIDTH=50 ECO_TOP_N=3 ECO_COUNTRY=indonesia npm run smoke:eco-plan
 ```
 
@@ -634,7 +680,7 @@ ECO_BEAM_WIDTH=50 ECO_TOP_N=3 ECO_COUNTRY=indonesia npm run smoke:eco-plan
 - **No resource weights**: coalition weights distorted the beam (cash weight=1.0 made AI L4-5 score-negative). Eco planner is purely single-resource — it doesn't know or care about coalition demand.
 - **`annex_city` for occupied cities**: candidate pool includes `annex_city` for occupied; excludes it for homeland. All occupied cities always build annex first (production doubles 25%→50%; always ROI-positive over the ~600h window).
 - **`recruiting_office` always in pool**: for all cities. L1 RO is 30 min and gives manpower bonus from that hour.
-- **Status from country YAML**: `country.country.status` (`homeland` | `occupied`, default `homeland`). Not read from the force plan YAML — eco planner is plan-independent.
+- **Status + capture day, plan-aware (updated)**: when `ECO_PLAN` is set, `status` and `capture_day` resolve from `plan.countries[countryId]` first, falling back to `country.country.status` (country YAML) then `"homeland"`, and `capture_day` falling back to day 4. Without a plan, behaviour is unchanged (country YAML only, plan-independent). This matters because **status is plan-specific, not a country-intrinsic fact**, for any 7-city country — a country like Norway can be homeland in one coalition's plan and a capture in another's. The *only* country YAML that should carry a hardcoded `status: occupied` is a single-city AI nation, where occupied is the only state it can ever be in (it can never be actively "homeland"-played). `united_kingdom.yml`'s `status: occupied` was removed this session for exactly this reason — it's a 7-city country, so its occupied-ness belongs in the plan, not the country file. See `coalition-force-plan-schema.ts`'s `countryPlanSchema.capture_day` (optional, defaults to day 4 when occupied).
 - **Country list without a plan**: scans `data/scenarios/<scenarioId>/countries/*.yml` via `fs.readdirSync`.
 - **Truce days without a plan**: from `scenarioTruceLengthDays(scenario)` (falls back to 28 if absent from scenario YAML).
 
@@ -652,7 +698,7 @@ country:
   status: occupied    # homeland (default) | occupied
 ```
 
-Four Antarctica occupied countries have `status: occupied`: `united_kingdom`, `iran`, `madagascar`, `solomon_islands`.
+Single-city AI nations with `status: occupied` hardcoded in their country YAML (correct — inherently capture-only, see above): `iran`, `madagascar`, `solomon_islands`, `mozambique`. `united_kingdom` and `norway` (both 7-city) do **not** carry `status` in their country YAML — their occupied-ness is plan-specific and lives in whichever `coalition_force_plan` YAML currently captures them.
 
 ---
 
@@ -665,17 +711,18 @@ Four Antarctica occupied countries have `status: occupied`: `united_kingdom`, `i
 
 Writes `tmp/fp-<countryId>.html` per country. Sections per military country:
 1. **Research Plan** — combined JIT research schedule across both slots for all demands (L1 ASAP per unit)
-2. **City Mob Build Plans** — one section per city: data-driven eco-score build sequence → mob queue (Smith's rule ordering)
-3. **Mobilisation Cost Summary** — aggregate infra + mob + stepped-upkeep across all demands
+2. **City Mob Build Plans** — one section per city: data-driven eco-score build sequence → mob queue (Smith's rule ordering); each city section now leads with a labeled **"Flip point: day X"** line (see Post-UAT item 9) — the latest hour that city can still run eco builds before switching to military infra
+3. **Mobilisation Cost Summary** — aggregate infra + mob + stepped-upkeep, **plus province mob + mercenary_outpost cost and province upkeep** (Post-UAT item 8) across all demands
+4. **Province Mobilisation Detail** — one line per province-mobilised demand (e.g. commando): mercenary_outpost level/build hours, mobilisation hours, completion hour, province capacity used
 
 **Run syntax:**
 ```
-FP_COUNTRY=norway npm run smoke:force-projection      # single country
-FP_COUNTRY=all npm run smoke:force-projection         # all plan countries
+FP_PLAN=pnth-v-iron-2026-aug FP_COUNTRY=russia npm run smoke:force-projection   # current plan, single country
+FP_COUNTRY=all npm run smoke:force-projection         # all plan countries (code default plan is still pnth_v_road_2026_jun — pass FP_PLAN explicitly for the current plan)
 FP_MAX_RO=3 FP_COUNTRY=indonesia npm run smoke:force-projection
 ```
 
-**Config env vars:** `FP_SCENARIO` (default: `elite/antarctica`), `FP_PLAN` (default: `pnth_v_road_2026_jun`), `FP_COUNTRY` (default: `all`), `FP_MAX_RO` (default: 5).
+**Config env vars:** `FP_SCENARIO` (default: `elite/antarctica`), `FP_PLAN` (code default: `pnth_v_road_2026_jun` — pass `FP_PLAN=pnth-v-iron-2026-aug` for the current plan), `FP_COUNTRY` (default: `all`), `FP_MAX_RO` (default: 5).
 
 ### Key Design Decisions
 
@@ -685,9 +732,10 @@ FP_MAX_RO=3 FP_COUNTRY=indonesia npm run smoke:force-projection
 - **Data-driven build ordering**: pre-mob infra buildings sorted by `ecoScore` derived from building YAML `production_bonus_pct` and `manpower_bonus_pct` (weighted by plan weights). No hardcoded building names or ordering.
 - **Morale curve**: `MoraleAtHour` type threads through all mob-duration calculations; homeland curve 70%→93% (day 1→21+). One-pass iteration resolves circular dependency (JIT mob start depends on T, T depends on morale at mob start).
 - **Stepped upkeep**: `computeSteppedUpkeep` integrates over intervals defined by both mob-completion events and JIT research level-completion events. Units auto-upgrade as research completes; upkeep steps up accordingly.
-- **Province demands** (`mobilisation_source: province`) excluded from city slot — commando doesn't compete for city capacity.
+- **Province demands** (`mobilisation_source: province`) excluded from city slot — commando doesn't compete for city capacity. **Now actually costed** (Post-UAT item 8) via `src/engine/simulation/province-mobilization-plan.ts` — capacity = one slot per province (country's `provinces.total`), not skipped/dropped as before.
 - **Batch units** (`batch_size: 4` for warheads) — 100 warheads = 25 mob events; total alive = count × batchSize.
 - **Launcher platforms** (cruise_missile, mob time = 0) — skipped.
+- **Flip point** (Post-UAT item 9): each city's infra start time was always correctly JIT-derived (`Math.max(infraOpenHour, deadlineAbsHour − T)` already picks the right latest-feasible value), just never labeled as meaningful. Now surfaced explicitly per city as "Flip point: day X" in the HTML output, plus a formal `CityMobSlot.flipPointHour` field.
 
 ### Engine Changes
 
@@ -701,15 +749,61 @@ Countries with provinces now carry a `provinces` block listing total province co
 
 ```yaml
 provinces:
-  total: 1
-  supplies: 0
-  components: 0
-  fuel: 0
-  rares: 0
-  electronics: 1
+  total: 33
+  supplies: 1
+  components: 1
+  fuel: 1
+  rares: 1
+  electronics: 0
 ```
 
+(Real Russia values, derived this session from in-game VP data — see "Province Data" below. The `total` includes non-resource-producing provinces too; the remainder after summing the five resource fields becomes a `non_resource_provinces` cohort, per `src/engine/provinces/province-cohorts.ts`.)
+
 `src/engine/eco/province-eco-beam.ts` computes province eco builds per resource cohort and is called from the eco-plan harness (`npm run smoke:eco-plan`) to show province build plans alongside city plans.
+
+### Province Data — VP-to-Province Formula
+
+Province totals for the 14 PNTH countries (now correct in every `elite/antarctica` country YAML; previously 9 had none and the other 5 shared an identical, wrong placeholder) were derived from in-game nation-list screenshots (Nation/Cities/VP columns), using a formula confirmed against 5 independent examples with zero deviation:
+- **7-city countries**: `total_provinces = VP − 34`
+- **1-city ("small AI") countries**: `total_provinces = VP − 4`
+
+Reusable for any other `elite/antarctica` country not yet filled in. Per-resource breakdowns are specific to a given playthrough (resource-tile assignment is randomised per game) — 9 of the 14 PNTH countries have a real user-supplied breakdown; Indonesia, United Kingdom, Iran, Madagascar, Solomon Islands still have an all-zero placeholder split pending that data (their `total` is correct either way).
+
+### Starting Units — Garrison Mechanic
+
+Every **homeland** country starts with a fixed garrison, recorded scenario-wide in
+`data/scenarios/elite/antarctica/scenario.yml`'s `starting_units` field
+(`src/schemas/scenario-schema.ts`, `resolveScenarioStartingUnits`):
+
+```yaml
+starting_units:
+  - unit_id: motorized_infantry
+    count: 14
+    level: 1
+  - unit_id: gunship   # not in the unit catalog — inline upkeep only, see below
+    count: 1
+    level: 1
+    daily_upkeep:
+      eastern:  { manpower: 25, fuel: 25, electronics: 25, cash: 80 }
+      european: { manpower: 25, fuel: 25, electronics: 25, cash: 80 }
+      western:  { manpower: 25, fuel: 25, electronics: 25, cash: 80 }  # unconfirmed, borrowed
+  - unit_id: mobile_radar
+    count: 1
+    level: 1
+```
+
+Each entry resolves cost/upkeep from the unit catalog by `unit_id` + `level`, **except**
+when an inline `daily_upkeep` is present (gunship) — that overrides the catalog lookup,
+since gunship isn't (and per the user, doesn't need to be) a full catalog entry with
+research/mobilisation data; it's never actually researched or mobilised by the player.
+
+**PNTH V Iron plan decision**: all garrison units disband on day 4, except Australia
+keeps its starting Mobile Radar (folds into its 8-radar target, so only 7 need
+mobilising instead of 8). Combined daily upkeep per homeland country before the day-4
+disband: supplies 580, fuel 250, electronics 25, cash 960, manpower 250 (see
+`coalition-plan.md` for the full breakdown table). **Not yet wired into any harness's
+cost/balance calculation** — schema'd and documented, but nothing subtracts it from a
+total yet; still a manual add-on when assembling a balance sheet.
 
 ---
 
@@ -729,10 +823,12 @@ Tasks deferred until after UAT of the current coalition force plan engine output
 
 ### Engine gaps (from Known Gaps table)
 
-5. **Joint demand optimisation per country** — multi-demand countries (Indonesia: SASF+UAV+warheads) are currently optimised independently. The per-demand flip shown in the config table can be misleading when demands share cities.
+5. **Joint demand optimisation per country** — ✅ solved for **Unit 2** (`force-projection.ts` via `joint-city-optimizer.ts`'s fold-in algorithm) — multi-demand countries (e.g. India: SASF+FWV+UAV+cruise+warheads) are optimised as one shared-city problem. Still ⬜ open for the older `coalition-force-plan.ts` harness (per-demand independent optimisation there, unchanged) — that harness is being superseded by the Unit 1/2/3 rebuild rather than fixed directly.
 
 6. **Optimal city subset search** — currently capital-first ordering; combinatorial city-subset search needed for the true optimum.
 
-7. **`mercenary_outpost` in build planner** — Russia/commando cities need it inserted in the infra chain (same pattern as `secret_weapons_lab`).
+7. **`mercenary_outpost` in build planner** — ✅ Done, differently than originally planned. **Correction to the design decision below**: `mercenary_outpost` can *only* be built in a **province**, never a city — it does not belong in any city's infra chain at all (the old plan to insert it into "Russia/commando cities" was based on a wrong assumption and was never implemented; nothing needed undoing). It's now a real province-buildable building in the shared simulation engine (`src/engine/orchestration/build-order-timeline.ts`, `src/engine/simulation/province-build-order-sim.ts`) — built once in any province, its `mobilisation_speed_bonus_pct` (0/25/50% by level) and unlock gate apply **country-wide** to all of that country's provinces. A latent bug where it *had* leaked into city infra-chain derivation (`flip-point-solver.ts`'s `CHAIN_ORDER`, `joint-city-optimizer.ts`'s `getBuildingRequirements`) is fixed — both now explicitly exclude it.
 
-8. **Province mobilisation costs** — commando mob cost not yet included in the coalition balance sheet. **Design decision (patch notes)**: `combat_outpost` no longer grants a mobilisation speed bonus (field removed from `data/buildings.yml` — was never wired into any calculation anyway). Province mobilisation speed should instead scale with province morale, the same way city mobilisation speed scales with city morale via `effectiveDurationFromMorale` in [activity-duration.ts](src/engine/timing/activity-duration.ts) — reuse that helper against province morale once province mobilisation duration is implemented, rather than a building-granted flat bonus. `mercenary_outpost`'s own mobilisation speed bonus was separately rebalanced to +0/25/50% (L1/L2/L3), down from a flat +100% at every level.
+8. **Province mobilisation costs** — ✅ Done for **Unit 2** (`force-projection.ts`). New engine module `src/engine/simulation/province-mobilization-plan.ts` (`planProvinceMobilization`): capacity is **one mobilisation slot per province** (same rule as cities; total capacity = country's `provinces.total`), mercenary_outpost build cost/time comes from `data/buildings.yml` (real screenshot data, all 3 levels), mobilisation duration scales with province morale via `effectiveDurationFromMorale` (`src/engine/timing/activity-duration.ts`) then further reduced by mercenary_outpost's country-wide speed bonus. Reuses existing `cost-calculator.ts` functions (`calculateMobilizationCost`, `calculateBuildingCost`, `calculateUpkeepCost`) unmodified — no cost logic duplicated. Wired into `force-projection.ts` in place of the old silent skip; verified end-to-end for Russia's 12 commando (mercenary_outpost L1 build 12h → mobilise 20h → completes hour 32; correct costs and flat upkeep for the remaining truce window). Still ⬜ open for `coalition-force-plan.ts` (three separate skip sites, untouched — superseded harness). **Design decision confirmed**: `combat_outpost` no longer grants a mobilisation speed bonus (already true in `data/buildings.yml` before this session — L1 data had no such field; L2/L3 were simply *missing* from the catalog entirely and have now been added from screenshots, still with no mobilisation-speed field, consistent with the bonus having moved to `mercenary_outpost` at +0/25/50% (L1/L2/L3)).
+
+9. **Flip point now exposed (informational only)** — `force-projection.ts`'s City Mob Build Plans section already computed a correct, whole-queue-aware, JIT-derived infra start time per city (previously an unlabeled local variable, `jitInfraStart`) — it's now explicitly labeled **"Flip point: day X"** in the output. Investigated whether "infra starts at hour 0" (`joint-city-optimizer.ts`'s `infraOpenHour = scenarioAbsHour + totalInfraHours`) was a cost bug — it isn't: `jitStart = Math.max(infraOpenHour, deadlineAbsHour − T)` already always picks the correct latest-feasible value regardless, so no cost numbers changed. Also added a formal `CityMobSlot.flipPointHour` field (computed through absorption too) as a reusable API — a simpler, research-timing-unaware version of the same idea, for future consumers that don't have `combinedResearch.segments` in scope. **Not yet used to bound/truncate eco income** — the eco income numbers (Unit 1 ranking sweep) are still full-28-day unconstrained; using the flip point to assemble a real per-city income-vs-cost balance sheet is the next step (see Unit 3, below).

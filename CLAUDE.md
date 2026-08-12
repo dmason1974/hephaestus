@@ -637,18 +637,11 @@ Unit 2 — Force Projection               ✅ COMPLETE
   Output: per-demand JIT research schedule + minimum-cost mobilisation plan (city count, RO level, timing, cost breakdown)
   Question: "What is the cheapest way to field this force by the deadline?"
 
-Unit 3 — Resource Projection            ⬜ NEXT (one building block done)
-  Input:  Unit 1 eco plans + Unit 2 force plans + coalition starting balances
-  Output: per-city flip points, hourly coalition resource flows, net balance per resource, shortfalls
+Unit 3 — Resource Projection            ✅ COMPLETE
+  Input:  Unit 1 eco plans + Unit 2 force plans + coalition starting balances + garrison upkeep
+  Output: per-city flip-truncated eco income, coalition balance sheet (pooled resources),
+          hourly cash-flow minima, per-country manpower check
   Question: "Given eco income and force costs, when must each city flip, and can the coalition afford it?"
-
-  Per-city flip points now exist (Unit 2 exposes CityMobSlot.flipPointHour and an
-  explicit "Flip point: day X" label in force-projection.ts output — see Post-UAT
-  item 9) — but they're purely informational so far, not yet used to bound/truncate
-  Unit 1's eco income numbers (still full-28-day unconstrained) into a real combined
-  balance sheet. That combination — plus wiring in the starting-garrison upkeep and
-  making capture-day per-country in whichever harness ends up doing the coalition-wide
-  sum — is the actual remaining Unit 3 work.
 ```
 
 ---
@@ -801,9 +794,59 @@ research/mobilisation data; it's never actually researched or mobilised by the p
 keeps its starting Mobile Radar (folds into its 8-radar target, so only 7 need
 mobilising instead of 8). Combined daily upkeep per homeland country before the day-4
 disband: supplies 580, fuel 250, electronics 25, cash 960, manpower 250 (see
-`coalition-plan.md` for the full breakdown table). **Not yet wired into any harness's
-cost/balance calculation** — schema'd and documented, but nothing subtracts it from a
-total yet; still a manual add-on when assembling a balance sheet.
+`coalition-plan.md` for the full breakdown table). **Now wired into Unit 3** (see
+below) via `computeGarrisonUpkeep` — though Australia's radar-retention exception is
+not modeled there yet (uniform disband for all homeland countries, a deliberate small
+simplification — see Unit 3's Known Limitations).
+
+---
+
+## Unit 3 — Resource Projection ✅ COMPLETE
+
+### What Was Built
+
+`src/harness/smoke/resource-projection.ts` — standalone harness, `npm run smoke:resource-projection`. Combines Unit 1 (eco income) and Unit 2 (force costs) into one real coalition balance sheet.
+
+New engine modules:
+- `src/engine/eco/city-eco-income.ts` — `cityIncomeThroughFlip` / `cityFullEcoIncome` + resource-map helpers (`zeroResourceMap`, `addResourcesInto`, `scaleResources`), extracted from `coalition-force-plan.ts`'s private helpers of the same shape (byte-identical HTML output verified before/after) so Unit 3 doesn't duplicate the income-truncation logic.
+- `src/engine/optimization/country-force-projection.ts` — `computeCountryForceProjection`: a structured (non-HTML) extraction of `force-projection.ts`'s `analyseCountry` computation, verified byte-identical across every country in both `pnth_v_road_2026_jun` and `pnth-v-iron-2026-aug` before/after the refactor. Exposes per-city `flipPointAbsHour` (the real, research-aware flip point — previously only a local variable, `jitInfraStart`), `infraSteps` (now carrying a per-step `cost: ResourceCost`, added for Unit 3's hourly walk), `mobSteps`, and aggregate cost buckets.
+- `src/engine/optimization/garrison-upkeep.ts` — `computeGarrisonUpkeep`: the first caller of `resolveScenarioStartingUnits` (previously dead code, zero call sites anywhere). Resolves daily upkeep per starting unit via `calculateDailyUpkeep`, falling back to whichever doctrine the catalog does have data for when the requested one is missing (`motorized_infantry` is Western-only pending screenshots — see "Elite Unit Catalog Status" — so this fallback is what makes garrison upkeep computable for eastern/european countries at all). Units with an inline `daily_upkeep` (gunship) use that instead, same fallback rule.
+- `src/engine/reporting/coalition-resource-balance.ts` — `computeCountryResourceBalance` + `computeCoalitionResourceBalance`: combines flip-truncated eco income + starting balance − eco build cost − force costs − garrison upkeep into a per-country and coalition-level balance sheet (`POOLED_RESOURCES` only; manpower checked per-country via `PER_COUNTRY_RESOURCES`), plus an hourly cash-flow walk that finds the lowest running pooled balance at any hour in the window (`resourceMinima`) — catches mid-window insolvency the end-of-window totals alone would miss.
+
+Writes `tmp/resource-projection.html` (coalition aggregate) + `tmp/rp-<countryId>.html` per country.
+
+**Run syntax:**
+```
+RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=all npm run smoke:resource-projection      # RP_PLAN is required — errors if unset
+RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=russia npm run smoke:resource-projection   # single country
+```
+
+**Config env vars:** `RP_SCENARIO` (default `elite/antarctica`), `RP_PLAN` (**required, no default** — see below), `RP_COUNTRY` (default `all`), `RP_MAX_RO` (default 5), `RP_BEAM_WIDTH` (default 50), `RP_TOP_N` (default 3), `RP_GARRISON_DISBAND_DAY` (default 4), `RP_OUTPUT_FILE` (default `tmp/resource-projection.html`).
+
+### Key Design Decisions
+
+- **Join-key gotcha (the one real trap in this design)**: Unit 1's `CityEcoResult.cityId` is prefixed (`${countryId}:${cityId}`); Unit 2's `CityForceProjectionSlot.cityId` is bare. `coalition-resource-balance.ts` normalizes this explicitly (`bareCityId()`) when matching a city's eco result to its flip point — get this wrong and every city silently falls back to untruncated (full 28-day) income.
+- **`RP_PLAN` has no default** — deliberately, unlike `FP_PLAN`'s stale default (`pnth_v_road_2026_jun`). This is the harness that produces the real combined balance sheet, so silently running the wrong plan is worse here than a required-env-var error.
+- **`capture_day` now genuinely per-country** in this pipeline: `resource-projection.ts` reads `countryPlan?.capture_day ?? 4` (the `eco-plan.ts` pattern), not the hardcoded day-4 the older `coalition-force-plan.ts` uses.
+- **Hourly cash-flow minima is an approximation, not a reconciliation**: income is capped precisely at the flip point; infra costs are deducted at each infra step's completion hour (exact, reusing the same `calculateBuildingCost` totals as the top-level cost aggregate); mob costs are deducted at batch start (exact); but upkeep in the hourly walk uses a **continuous L1 rate** rather than the exact stepped (auto-upgrade-aware) rate the totals table uses (`costs.upkeep`, via `computeSteppedUpkeep`). The two won't bit-match at the final hour — this is called out directly in the rendered HTML. Good enough to answer "does the pool ever go negative mid-window", not a substitute for the totals row.
+- **Australia's radar exception is not modeled** — `computeGarrisonUpkeep` disbands the full starting garrison uniformly for every homeland country (default day 4, `RP_GARRISON_DISBAND_DAY`). The documented PNTH V Iron exception (Australia keeps 1 mobile radar) is a deliberate v1 simplification — small dollar impact (~480 supplies / ~360 fuel / ~360 manpower / ~960 cash total over the window for one unit).
+- **HTML rendering duplicated inline**, not extracted to a shared module — matches the existing convention across all `harness/smoke/*.ts` scripts (each owns its own `escapeHtml`/`htmlTable`/balance-sheet formatting helpers; there is no shared-lib precedent in that directory).
+
+### Known Limitations
+
+- Hourly-minima walk's upkeep approximation (see above) means it's a shortfall detector, not a bit-exact reconciliation of the totals balance sheet.
+- Australia's radar-retention exception not modeled (uniform garrison disband for all homeland countries).
+- No optimal city-subset search — inherited from Unit 2's fold-in (capital-first-ish) city ordering; still a future chunk.
+
+---
+
+## Test Suite — Pre-existing Failures (investigated this session)
+
+`npm test` had 7 failures present before any of the Unit 3 work started (confirmed via `git stash`). Root-caused and triaged:
+
+- **5 failures — left as-is, deliberately out of scope**: `data/scenarios/standard/units/naval_units.yml` and `seasonal_units.yml` are empty placeholder files (`units: {}`) — the standard-tier naval/seasonal unit catalog was never filled in. Causes 2 direct schema-validation failures (`unit-schema.test.ts`) plus 3 cascading `Error: unknown unit "naval_veteran"` / `"epic_airstrike_officer"` failures in `unit-mobilization-plan.test.ts`. This project's focus is the elite/Antarctica tier; standard-tier naval/seasonal data was never a priority.
+- **1 failure fixed — stale test expectation**: `cost-calculator.test.ts`'s `"calculateTotalCost returns scalarized building, mobilisation, and upkeep totals"` test asserted pre-triangular-upkeep values (`upkeep: 7.2`) that were never updated after `calculateTriangularUpkeepForConfig` (staggered per-unit upkeep — see Unit 2's Engine Changes) replaced the old flat-upkeep calculation in `225b151`. Hand-verified the triangular formula independently against the test's exact fixture inputs before trusting the code's output — the code was correct, only the test was stale. Updated to `upkeep: 77.23636363636363` / `total: 4187.236363636363`.
+- **1 failure fixed — real scheduling bug**: `simulateUnitResearchTargets`'s JIT backward scheduler (`unit-research-sim.ts`) reported a **phantom research segment** for any task that couldn't fit before its deadline: the task was removed from the active scheduling set (`unscheduled`) but the final segment-mapping step still defaulted its missing start/end hours to `scenarioStartHour` instead of dropping it (`?? scenarioStartHour` fallback). This defeated `planMobilizationBuild`'s existing "retry with more cities" safety net (`unit-mobilization-plan.ts`), which only checked segment *existence* for a unit, not whether that segment was genuinely scheduled — so a genuinely infeasible 1-city SASF plan was silently accepted, with SASF L1 shown starting at scenario start hour 15, ~192 hours before its own ASF L4 prerequisite actually finished (hour 207). Fixed by filtering the final `segments` array to only tasks with a real `scheduledStarts` entry; the existing retry-with-more-cities loop (`tryScheduleGroups`) now works exactly as originally designed — no change needed there.
 
 ---
 
@@ -831,4 +874,4 @@ Tasks deferred until after UAT of the current coalition force plan engine output
 
 8. **Province mobilisation costs** — ✅ Done for **Unit 2** (`force-projection.ts`). New engine module `src/engine/simulation/province-mobilization-plan.ts` (`planProvinceMobilization`): capacity is **one mobilisation slot per province** (same rule as cities; total capacity = country's `provinces.total`), mercenary_outpost build cost/time comes from `data/buildings.yml` (real screenshot data, all 3 levels), mobilisation duration scales with province morale via `effectiveDurationFromMorale` (`src/engine/timing/activity-duration.ts`) then further reduced by mercenary_outpost's country-wide speed bonus. Reuses existing `cost-calculator.ts` functions (`calculateMobilizationCost`, `calculateBuildingCost`, `calculateUpkeepCost`) unmodified — no cost logic duplicated. Wired into `force-projection.ts` in place of the old silent skip; verified end-to-end for Russia's 12 commando (mercenary_outpost L1 build 12h → mobilise 20h → completes hour 32; correct costs and flat upkeep for the remaining truce window). Still ⬜ open for `coalition-force-plan.ts` (three separate skip sites, untouched — superseded harness). **Design decision confirmed**: `combat_outpost` no longer grants a mobilisation speed bonus (already true in `data/buildings.yml` before this session — L1 data had no such field; L2/L3 were simply *missing* from the catalog entirely and have now been added from screenshots, still with no mobilisation-speed field, consistent with the bonus having moved to `mercenary_outpost` at +0/25/50% (L1/L2/L3)).
 
-9. **Flip point now exposed (informational only)** — `force-projection.ts`'s City Mob Build Plans section already computed a correct, whole-queue-aware, JIT-derived infra start time per city (previously an unlabeled local variable, `jitInfraStart`) — it's now explicitly labeled **"Flip point: day X"** in the output. Investigated whether "infra starts at hour 0" (`joint-city-optimizer.ts`'s `infraOpenHour = scenarioAbsHour + totalInfraHours`) was a cost bug — it isn't: `jitStart = Math.max(infraOpenHour, deadlineAbsHour − T)` already always picks the correct latest-feasible value regardless, so no cost numbers changed. Also added a formal `CityMobSlot.flipPointHour` field (computed through absorption too) as a reusable API — a simpler, research-timing-unaware version of the same idea, for future consumers that don't have `combinedResearch.segments` in scope. **Not yet used to bound/truncate eco income** — the eco income numbers (Unit 1 ranking sweep) are still full-28-day unconstrained; using the flip point to assemble a real per-city income-vs-cost balance sheet is the next step (see Unit 3, below).
+9. **Flip point now exposed (informational only)** — `force-projection.ts`'s City Mob Build Plans section already computed a correct, whole-queue-aware, JIT-derived infra start time per city (previously an unlabeled local variable, `jitInfraStart`) — it's now explicitly labeled **"Flip point: day X"** in the output. Investigated whether "infra starts at hour 0" (`joint-city-optimizer.ts`'s `infraOpenHour = scenarioAbsHour + totalInfraHours`) was a cost bug — it isn't: `jitStart = Math.max(infraOpenHour, deadlineAbsHour − T)` already always picks the correct latest-feasible value regardless, so no cost numbers changed. Also added a formal `CityMobSlot.flipPointHour` field (computed through absorption too) as a reusable API — a simpler, research-timing-unaware version of the same idea, for future consumers that don't have `combinedResearch.segments` in scope. **✅ Now used to bound/truncate eco income** — `computeCountryForceProjection`'s `flipPointAbsHour` (the research-aware successor to this field) is what Unit 3's `coalition-resource-balance.ts` truncates each city's eco income against, closing the loop this item left open. `CityMobSlot.flipPointHour` itself is still the simpler, research-unaware version, unused by Unit 3.

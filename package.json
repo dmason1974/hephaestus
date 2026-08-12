@@ -42,6 +42,7 @@
     "smoke:eco-plan": "node --max-old-space-size=8192 --import tsx src/harness/smoke/eco-plan.ts",
     "smoke:force-projection": "node --import tsx src/harness/smoke/force-projection.ts",
     "smoke:coalition-force-plan": "node --max-old-space-size=8192 --import tsx src/harness/smoke/coalition-force-plan.ts",
+    "smoke:resource-projection": "node --max-old-space-size=8192 --import tsx src/harness/smoke/resource-projection.ts",
     "smoke:build-order": "node --import tsx src/harness/smoke/build-order.ts",
     "smoke:greece:electro": "node --import tsx src/harness/smoke/greece-electronics-city-benefit.ts",
     "smoke:build-order:compare": "node --import tsx src/harness/smoke/build-order-compare.ts",

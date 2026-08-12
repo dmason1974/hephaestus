@@ -351,15 +351,18 @@ test("calculateTotalCost returns scalarized building, mobilisation, and upkeep t
 
   // Updated expected values to reflect new resource weights:
   // Electronics: 3.0, Supplies: 2.0, Rares: 1.5 (vs old: 1.5, 1.0, 2.0)
+  // Upkeep uses calculateTriangularUpkeepForConfig: each unit pays only from when
+  // it individually finishes mobilising (staggered per city) to the deadline, so
+  // it's not a flat count × rate — see cost-calculator.ts for the formula.
   assert.deepEqual(result, {
     building: 2450,      // Building cost increased due to higher electronics weight
     mobilization: 1660,  // Mobilization cost increased (electronics + supplies weighted higher)
-    upkeep: 7.2,         // Upkeep unchanged (only fuel/cash)
-    total: 4117.2,       // Total = 2450 + 1660 + 7.2
+    upkeep: 77.23636363636363,
+    total: 4187.236363636363,
     feasible: true,
     details: {
       mobilizationByLevel: { 1: 1660 },
-      upkeepByLevel: { 1: 7.2 },
+      upkeepByLevel: { 1: 77.23636363636363 },
       buildingByCity: { alpha: 812.5, bravo: 812.5 },
     },
   });

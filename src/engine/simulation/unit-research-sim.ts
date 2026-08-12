@@ -841,13 +841,14 @@ export function simulateUnitResearchTargets(
   }
 
   const segments: UnitResearchSegment[] = Array.from(plannedTasks.values())
+    .filter(task => scheduledStarts.has(task.taskId))
     .map(task => ({
       unitId: task.unitId,
       level: task.level,
       slot: scheduledSlots.get(task.taskId) ?? 1,
       unlockDay: task.unlockDay,
-      startAbsoluteHour: scheduledStarts.get(task.taskId) ?? scenarioStartHour,
-      endAbsoluteHourExclusive: scheduledEnds.get(task.taskId) ?? scenarioStartHour,
+      startAbsoluteHour: scheduledStarts.get(task.taskId)!,
+      endAbsoluteHourExclusive: scheduledEnds.get(task.taskId)!,
       durationHours: task.durationHours,
       cost: task.cost,
     }))

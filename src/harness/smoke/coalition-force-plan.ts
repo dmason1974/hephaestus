@@ -8,6 +8,13 @@ import { scenarioResearchUnlockedThroughDayAtStart } from "../../schemas/scenari
 import { durationToHours } from "../../engine/timing/activity-duration.js";
 import { runCityEcoBeam, type CityEcoResult } from "../../engine/eco/city-eco-beam.js";
 import {
+  zeroResourceMap,
+  addResourcesInto,
+  scaleResources,
+  cityIncomeThroughFlip,
+  cityFullEcoIncome,
+} from "../../engine/eco/city-eco-income.js";
+import {
   computeFlipPoint,
   mobilisationWindowHours as computeMobWindow,
   requirementsToLevelMap,
@@ -238,48 +245,6 @@ console.log("[cfp] Force projection resource weights:",
 
 // ── Income & cost accounting ──────────────────────────────────────────────────
 
-function zeroResourceMap(): Record<Resource, number> {
-  return { supplies: 0, components: 0, fuel: 0, rares: 0, electronics: 0, cash: 0, manpower: 0 };
-}
-
-function addResources(a: Record<Resource, number>, b: Partial<Record<Resource, number>>): void {
-  for (const r of RESOURCE_KEYS) a[r] += b[r] ?? 0;
-}
-
-function scaleResources(src: Partial<Record<Resource, number>>, factor: number): Record<Resource, number> {
-  const out = zeroResourceMap();
-  for (const r of RESOURCE_KEYS) out[r] = (src[r] ?? 0) * factor;
-  return out;
-}
-
-/**
- * Eco income from a single city up to (but not including) flipRelHour,
- * then flat production for the remainder of the truce window.
- * Does NOT include the coalition starting balance.
- */
-function cityIncomeForConfig(city: CityEcoResult, flipRelHour: number): Record<Resource, number> {
-  const total = zeroResourceMap();
-  const flipH = Math.max(0, Math.min(Math.round(flipRelHour), hoursToSimulate));
-  // Eco-build phase: sum per-hour production up to flip point
-  for (let h = 0; h < flipH; h++) {
-    addResources(total, city.hourlyCityProduction[h] ?? zeroResourceMap());
-  }
-  // Post-flip phase: production continues flat at the rate at the flip point
-  const rateAtFlip = city.hourlyCityProduction[Math.max(0, flipH - 1)] ?? city.hourlyCityProduction[0] ?? zeroResourceMap();
-  const remainingHours = hoursToSimulate - flipH;
-  if (remainingHours > 0) {
-    addResources(total, scaleResources(rateAtFlip, remainingHours));
-  }
-  return total;
-}
-
-/** Full eco income from a city for the entire truce window (no flip). */
-function cityFullEcoIncome(city: CityEcoResult): Record<Resource, number> {
-  const total = zeroResourceMap();
-  for (const prod of city.hourlyCityProduction) addResources(total, prod);
-  return total;
-}
-
 /**
  * Country income budget for a given configuration:
  * military cities capped at flip point (then flat rate), eco cities full.
@@ -293,9 +258,9 @@ function countryEcoBudget(
   const total = zeroResourceMap();
   for (const city of cityResults) {
     const cityContrib = assignedCityIds.has(city.cityId)
-      ? cityIncomeForConfig(city, Math.max(0, fp.flipPointRelHour))
+      ? cityIncomeThroughFlip(city, Math.max(0, fp.flipPointRelHour), hoursToSimulate)
       : cityFullEcoIncome(city);
-    addResources(total, cityContrib);
+    addResourcesInto(total, cityContrib);
   }
   return total;
 }
@@ -305,7 +270,7 @@ function infraCostForChain(fp: FlipPointResult, numCities: number): Record<Resou
   const total = zeroResourceMap();
   for (const step of fp.remainingChain) {
     const levelData = buildings.buildings[step.buildingId]?.levels[String(step.toLevel) as "1" | "2" | "3" | "4" | "5"];
-    if (levelData?.cost) addResources(total, levelData.cost as Partial<Record<Resource, number>>);
+    if (levelData?.cost) addResourcesInto(total, levelData.cost as Partial<Record<Resource, number>>);
   }
   // Each of the numCities cities pays the full infra chain cost
   return scaleResources(total, numCities);
@@ -501,15 +466,15 @@ function analyseCountry(countryId: string): CountryAnalysis {
   }
   const coEcoIncome = countryEcoIncomeForSelections(cityResults, rowsForEco);
   const coEcoBuildCost = zeroResourceMap();
-  for (const city of cityResults) addResources(coEcoBuildCost, city.totalEcoBuildCost);
+  for (const city of cityResults) addResourcesInto(coEcoBuildCost, city.totalEcoBuildCost);
   const coInfra = zeroResourceMap();
   const coMob = zeroResourceMap();
   const coUpkeep = zeroResourceMap();
   for (const cfg of coalSelectedConfigs) {
     if (!cfg.row) continue;
-    addResources(coInfra, cfg.row.infraCost);
-    addResources(coMob, cfg.row.mobCost);
-    addResources(coUpkeep, cfg.row.upkeepCost);
+    addResourcesInto(coInfra, cfg.row.infraCost);
+    addResourcesInto(coMob, cfg.row.mobCost);
+    addResourcesInto(coUpkeep, cfg.row.upkeepCost);
   }
   const coNetBalance = zeroResourceMap();
   for (const r of RESOURCE_KEYS) coNetBalance[r] = coEcoIncome[r] - coEcoBuildCost[r] - coInfra[r] - coMob[r] - coUpkeep[r];
@@ -636,9 +601,9 @@ function countryEcoIncomeForSelections(
   for (let i = 0; i < sorted.length; i++) {
     const city = sorted[i];
     const flip = cityFlipMap.get(i);
-    addResources(total,
+    addResourcesInto(total,
       flip !== undefined
-        ? cityIncomeForConfig(city, Math.max(0, flip))
+        ? cityIncomeThroughFlip(city, Math.max(0, flip), hoursToSimulate)
         : cityFullEcoIncome(city)
     );
   }
@@ -677,7 +642,7 @@ function countryHourlyNetFlow(
       const prod = h < flipIndex
         ? (city.hourlyCityProduction[h] ?? zeroResourceMap())
         : (flatRate ?? zeroResourceMap());
-      addResources(flow[h], prod);
+      addResourcesInto(flow[h], prod);
     }
   }
 
@@ -730,11 +695,11 @@ function computeCoalitionSummary(analyses: CountryAnalysis[]): CoalitionSummary 
     for (const r of POOLED_RESOURCES) {
       startingBalance[r] += contrib.countryStartingBalance[r] ?? 0;
     }
-    addResources(totalEcoIncome, contrib.ecoIncome);
-    addResources(totalEcoBuildCost, contrib.ecoBuildCost);
-    addResources(totalInfraCost, contrib.infraCost);
-    addResources(totalMobCost, contrib.mobCost);
-    addResources(totalUpkeepCost, contrib.upkeepCost);
+    addResourcesInto(totalEcoIncome, contrib.ecoIncome);
+    addResourcesInto(totalEcoBuildCost, contrib.ecoBuildCost);
+    addResourcesInto(totalInfraCost, contrib.infraCost);
+    addResourcesInto(totalMobCost, contrib.mobCost);
+    addResourcesInto(totalUpkeepCost, contrib.upkeepCost);
     countries.push(contrib);
   }
 
@@ -749,7 +714,7 @@ function computeCoalitionSummary(analyses: CountryAnalysis[]): CoalitionSummary 
   const coalitionHourlyFlow = Array.from({ length: hoursToSimulate }, () => zeroResourceMap());
   for (const contrib of countries) {
     for (let h = 0; h < hoursToSimulate; h++) {
-      addResources(coalitionHourlyFlow[h], contrib.hourlyNetFlow[h]);
+      addResourcesInto(coalitionHourlyFlow[h], contrib.hourlyNetFlow[h]);
     }
   }
   // Seed hour 0 with the coalition starting balance (pooled resources only)

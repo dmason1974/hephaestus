@@ -334,7 +334,7 @@ function mergeResourceCostInto(target: ResourceCost, cost: ResourceCost) {
   }
 }
 
-function scaleResourceCost(cost: ResourceCost, scale: number): ResourceCost {
+export function scaleResourceCost(cost: ResourceCost, scale: number): ResourceCost {
   const scaled: ResourceCost = {};
   for (const resource of RESOURCE_KEYS) {
     const amount = cost[resource];

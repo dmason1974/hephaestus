@@ -11,11 +11,11 @@ src/
   scenarios/io/           Filesystem and YAML loaders (buildings, scenarios, countries)
   engine/
     economy/              Morale, population, city/province production, building modifiers
-    eco/                  City + province eco beam search, flip-point solver
-    optimization/         Force projection, batch allocation, research scheduling, cost calculator, joint-city optimizer
+    eco/                  City + province eco beam search, flip-point solver, income-through-flip truncation
+    optimization/         Force projection, batch allocation, research scheduling, cost calculator, joint-city optimizer, per-country force projection, garrison upkeep
     orchestration/        Build order timeline
     provinces/            Province cohorts
-    reporting/            Country resource balance, scenario reporting
+    reporting/            Country resource balance, coalition resource balance, scenario reporting
     simulation/           Unit research, mobilisation, build-order, and province-mobilisation simulations
     timing/               Shared timing helpers
   cli/                    Entry point scripts
@@ -76,11 +76,12 @@ npm run smoke:build-plan:balance            # Build plan resource balance
 npm run smoke:greece:electro                # Greece electronics city benefit
 ```
 
-### Coalition Force Planning (Unit 1 + Unit 2)
+### Coalition Force Planning (Unit 1 + Unit 2 + Unit 3)
 
 Current active plan: `data/scenarios/elite/antarctica/plans/pnth-v-iron-2026-aug.yml`
 (pass `ECO_PLAN=pnth-v-iron-2026-aug` / `FP_PLAN=pnth-v-iron-2026-aug` explicitly —
-neither harness's code default points at it yet). Roster/rationale documented in
+neither harness's code default points at it yet; `RP_PLAN` is required with no
+default, so it must always be passed). Roster/rationale documented in
 `data/scenarios/elite/antarctica/coalition-plan.md`.
 
 ```bash
@@ -97,6 +98,13 @@ FP_PLAN=pnth-v-iron-2026-aug FP_COUNTRY=all npm run smoke:force-projection   # a
 FP_PLAN=pnth-v-iron-2026-aug FP_COUNTRY=russia npm run smoke:force-projection   # single country
 FP_MAX_RO=3 FP_COUNTRY=indonesia npm run smoke:force-projection
 # Config: FP_SCENARIO, FP_PLAN, FP_COUNTRY, FP_MAX_RO
+
+# Unit 3 — Resource Projection: combines Unit 1 income (truncated at each city's
+# real flip point) + Unit 2 costs + garrison upkeep into a coalition balance sheet
+# (pooled resources), an hourly cash-flow minima walk, and a per-country manpower check
+RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=all npm run smoke:resource-projection   # RP_PLAN is required — no default
+RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=russia npm run smoke:resource-projection   # single country
+# Config: RP_SCENARIO, RP_PLAN (required), RP_COUNTRY, RP_MAX_RO, RP_BEAM_WIDTH, RP_TOP_N, RP_GARRISON_DISBAND_DAY, RP_OUTPUT_FILE
 ```
 
 ### Research and Force Planning

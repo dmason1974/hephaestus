@@ -55,28 +55,33 @@ function buildingLevelHours(buildings: BuildingsFile, buildingId: string, level:
  * Only includes buildings present in `requiredLevels` that still need work.
  * The chain is ordered by the standard military build sequence.
  */
+// mercenary_outpost is deliberately absent — it can only be built in a province,
+// never in a city, so it must never appear in a city's infra chain.
+const CHAIN_ORDER = [
+  "arms_industry",
+  "army_base",
+  "air_base",
+  "secret_weapons_lab",
+  "recruiting_office",
+];
+
+function defaultOrderBuildings(ids: string[]): string[] {
+  return [
+    ...CHAIN_ORDER.filter(id => ids.includes(id)),
+    ...ids.filter(id => !CHAIN_ORDER.includes(id) && id !== "mercenary_outpost"),
+  ];
+}
+
 function buildRemainingChain(
   requiredLevels: Record<string, number>,
   currentLevels: Partial<Record<string, number>>,
-  buildings: BuildingsFile
+  buildings: BuildingsFile,
+  orderBuildings: (ids: string[]) => string[] = defaultOrderBuildings
 ): MilitaryInfraStep[] {
-  // mercenary_outpost is deliberately absent — it can only be built in a province,
-  // never in a city, so it must never appear in a city's infra chain.
-  const CHAIN_ORDER = [
-    "arms_industry",
-    "army_base",
-    "air_base",
-    "secret_weapons_lab",
-    "recruiting_office",
-  ];
-
   const steps: MilitaryInfraStep[] = [];
-  const orderedBuildings = [
-    ...CHAIN_ORDER.filter(id => id in requiredLevels),
-    ...Object.keys(requiredLevels).filter(
-      id => !CHAIN_ORDER.includes(id) && id !== "mercenary_outpost"
-    ),
-  ];
+  const orderedBuildings = orderBuildings(
+    Object.keys(requiredLevels).filter(id => id !== "mercenary_outpost")
+  );
 
   for (const buildingId of orderedBuildings) {
     const targetLevel = requiredLevels[buildingId] ?? 0;
@@ -106,6 +111,9 @@ function buildRemainingChain(
  * @param deadlineAbsHour - absolute game hour of the truce deadline
  * @param scenarioAbsHour - absolute game hour of scenario start
  * @param buildings - buildings data file
+ * @param maxIterations - convergence iteration cap
+ * @param orderBuildings - optional custom build ordering (default: CHAIN_ORDER-based).
+ *   E.g. callers that need recruiting_office forced first can supply their own.
  */
 export function computeFlipPoint(
   cityEcoResult: CityEcoResult,
@@ -114,13 +122,14 @@ export function computeFlipPoint(
   deadlineAbsHour: number,
   scenarioAbsHour: number,
   buildings: BuildingsFile,
-  maxIterations = 4
+  maxIterations = 4,
+  orderBuildings: (ids: string[]) => string[] = defaultOrderBuildings
 ): FlipPointResult {
   const { buildingLevelsAtAbsHour } = cityEcoResult;
 
   // Bootstrap: assume eco built nothing military → full chain from starting levels
   const startingLevels = cityEcoResult.startingLevels as Partial<Record<string, number>>;
-  let currentChain = buildRemainingChain(requiredLevels, startingLevels, buildings);
+  let currentChain = buildRemainingChain(requiredLevels, startingLevels, buildings, orderBuildings);
   let remainingBuildHours = currentChain.reduce((s, step) => s + step.buildTimeHours, 0);
   let flipAbsHour = deadlineAbsHour - mobilisationWindowHours - remainingBuildHours;
   let iterations = 0;
@@ -129,7 +138,7 @@ export function computeFlipPoint(
     iterations = i + 1;
     const prev = flipAbsHour;
     const ecoLevels = buildingLevelsAtAbsHour(Math.max(flipAbsHour, scenarioAbsHour));
-    const newChain = buildRemainingChain(requiredLevels, ecoLevels as Partial<Record<string, number>>, buildings);
+    const newChain = buildRemainingChain(requiredLevels, ecoLevels as Partial<Record<string, number>>, buildings, orderBuildings);
     const newRemainingHours = newChain.reduce((s, step) => s + step.buildTimeHours, 0);
     flipAbsHour = deadlineAbsHour - mobilisationWindowHours - newRemainingHours;
     currentChain = newChain;
@@ -141,7 +150,7 @@ export function computeFlipPoint(
   const feasible = flipAbsHour >= scenarioAbsHour;
   const safeFlipAbsHour = Math.max(flipAbsHour, scenarioAbsHour);
   const ecoBuildingsAtFlip = buildingLevelsAtAbsHour(safeFlipAbsHour) as Partial<Record<string, number>>;
-  const finalChain = buildRemainingChain(requiredLevels, ecoBuildingsAtFlip, buildings);
+  const finalChain = buildRemainingChain(requiredLevels, ecoBuildingsAtFlip, buildings, orderBuildings);
   const finalBuildHours = finalChain.reduce((s, step) => s + step.buildTimeHours, 0);
 
   return {

@@ -64,6 +64,13 @@ export type CityEcoBeamConfig = {
    * resources are available" rather than "can we afford this?"
    */
   unconstrained?: boolean;
+  /**
+   * Bare city id of the single city allowed to build `relocate_headquarters` in this
+   * run. `relocate_headquarters` is a per-country, at-most-once decision (moving the
+   * one HQ) — every OTHER city's candidate pool excludes it entirely, regardless of
+   * resourceWeights. Absent ⇒ no city may build it.
+   */
+  hqCityId?: string;
 };
 
 export type CityEcoCandidate = {
@@ -171,7 +178,8 @@ function buildingPoolForCity(
   buildings: BuildingsFile,
   countryStatus: "homeland" | "occupied",
   extraBuildingsForCity?: Record<string, EcoCandidateBuildingId[]>,
-  resourceWeights?: Partial<Record<Resource, number>>
+  resourceWeights?: Partial<Record<Resource, number>>,
+  hqCityId?: string
 ): EcoCandidateBuildingId[] {
   const cityId = `${country.country.id}:${city.id}`;
   // Manpower and morale buildings are always candidates.
@@ -179,7 +187,9 @@ function buildingPoolForCity(
   if (countryStatus === "occupied") {
     // Occupied cities must annex before producing at scale; no HQ relocation possible.
     pool.push("annex_city");
-  } else {
+  } else if (city.id === hqCityId) {
+    // relocate_headquarters is a per-country, at-most-once decision — only the
+    // designated HQ candidate city may consider it, never every city independently.
     pool.push("relocate_headquarters");
   }
   // Production buildings: always included when no weights (unconstrained eco planner),
@@ -234,6 +244,25 @@ function formatSequenceLines(tokens: Array<{ buildingId: EcoCandidateBuildingId;
 function formatTimedOrderLines(actions: BuildAction[]): string[] {
   if (actions.length === 0) return ["(no build)"];
   return actions.map((a, i) => `${i + 1}. ${a.buildingId} level ${a.targetLevel} at hour ${a.startHour ?? 0}`);
+}
+
+/**
+ * Scores a resource balance the same way the beam's internal ranking does:
+ * weighted sum over all resources when weights are supplied, otherwise just the
+ * native resource. Exported so orchestration code (e.g. HQ-city selection) can
+ * compare candidate outcomes consistently with what the beam itself optimizes for.
+ */
+export function computeWeightedScore(
+  balances: Record<Resource, number>,
+  resourceWeights: Partial<Record<Resource, number>> | undefined,
+  nativeResource: Resource
+): number {
+  if (!resourceWeights || Object.keys(resourceWeights).length === 0) {
+    return balances[nativeResource] ?? 0;
+  }
+  let score = 0;
+  for (const r of RESOURCE_KEYS) score += (resourceWeights[r] ?? 0) * (balances[r] ?? 0);
+  return score;
 }
 
 function beamSearchCity(
@@ -400,12 +429,7 @@ function beamSearchCity(
   }
 
   function weightedEndScore(balances: Record<Resource, number>): number {
-    if (!resourceWeights || Object.keys(resourceWeights).length === 0) {
-      return balances[city.resource] ?? 0;
-    }
-    let score = 0;
-    for (const r of RESOURCE_KEYS) score += (resourceWeights[r] ?? 0) * (balances[r] ?? 0);
-    return score;
+    return computeWeightedScore(balances, resourceWeights, city.resource as Resource);
   }
 
   function compareRanked(a: RankedSequence, b: RankedSequence): number {
@@ -420,9 +444,9 @@ function beamSearchCity(
     });
   }
 
-  function maxSequenceLength(): number {
+  function maxSequenceLength(fromTokens: TokenAction[]): number {
     return pool.reduce((sum, buildingId) => {
-      return sum + (maxDefinedLevel(buildings, buildingId) - cityLevelForTokens(city, [], buildingId));
+      return sum + (maxDefinedLevel(buildings, buildingId) - cityLevelForTokens(city, fromTokens, buildingId));
     }, 0);
   }
 
@@ -466,15 +490,34 @@ function beamSearchCity(
     return result;
   }
 
-  const seen = new Set<string>([""]);
+  // When resourceWeights is supplied (the Unit 1.5 "actual" run — never Unit 1's
+  // unconstrained theoretical run), RO L1 is a mandatory, unconditional first build:
+  // it never scores well enough under weightedEndScore (manpower's narrow benefit
+  // rarely beats broader production buildings within beamWidth) to be chosen
+  // organically, so it's forced as the search root instead of left to the scoring.
+  const forceRO = !!resourceWeights && pool.includes("recruiting_office")
+    && cityLevelForTokens(city, [], "recruiting_office") < 1;
+  const rootTokens: TokenAction[] = forceRO ? [{ buildingId: "recruiting_office", targetLevel: 1 }] : [];
+  const rootEvaluation = forceRO
+    ? evaluateTimedOrder([{ cityId: cityState.cityId, buildingId: "recruiting_office" as BuildingId, targetLevel: 1, startHour: captureRelHour }])
+    : baseline;
+  const rootKey = tokenSequenceKey(rootTokens);
+
+  const seen = new Set<string>([rootKey]);
   type CandidatePlan = { tokens: TokenAction[]; evaluation: Evaluation; ranked: RankedSequence };
+  const rootRanked = rank(rootTokens, rootEvaluation);
   let frontier: CandidatePlan[] = [{
-    tokens: [],
-    evaluation: baseline,
-    ranked: rank([], baseline),
+    tokens: rootTokens,
+    evaluation: rootEvaluation,
+    ranked: rootRanked,
   }];
-  const allRanked = new Map<string, RankedSequence>();
-  const totalDepth = maxSequenceLength();
+  // Only seed allRanked with the root when RO is forced — otherwise this must stay
+  // empty to reproduce Unit 1's original unconstrained-beam behavior exactly (the
+  // "no build at all" option was never itself a candidate for `top[]`/`bestActions`).
+  // Forced case needs it seeded so a city where no OTHER build clears the bar still
+  // ends up with `bestActions = [RO L1]` rather than losing the forced build entirely.
+  const allRanked = new Map<string, RankedSequence>(forceRO ? [[rootKey, rootRanked]] : []);
+  const totalDepth = maxSequenceLength(rootTokens);
 
   for (let depth = 1; depth <= totalDepth; depth++) {
     const candidates = new Map<string, CandidatePlan>();
@@ -628,7 +671,7 @@ export function runCityEcoBeam(
     : country.cities;
 
   const cityResults = selectedCities.map(city => {
-    const pool = buildingPoolForCity(country, city, buildings, countryStatus, config.extraBuildingsForCity, config.resourceWeights);
+    const pool = buildingPoolForCity(country, city, buildings, countryStatus, config.extraBuildingsForCity, config.resourceWeights, config.hqCityId);
     return beamSearchCity(country, city, scenario, buildings, baselineCountryHourly, config, pool, countryStatus, captureRelHour, config.resourceWeights);
   });
 

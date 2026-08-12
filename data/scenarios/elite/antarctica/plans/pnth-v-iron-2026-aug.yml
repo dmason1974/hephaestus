@@ -43,7 +43,7 @@ countries:
     # commando mobilises from provinces (not city slots); mercenary_outpost required in city build chain
     status: homeland
     demands:
-      - unitId: theatre_defense_system
+      - unitId: mobile_sam_launcher
         count: 30
       - unitId: special_forces
         count: 24

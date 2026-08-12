@@ -280,7 +280,7 @@ economics (highest supplies+electronics of the remaining candidates).
 |---|---|---|---|
 | Italy | european | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
 | Japan | western | homeland | Mainland-forced — 39 SASF + 8 AWACS + 1 Fixed Wing Veteran |
-| Russia | eastern | homeland | Mainland-forced — 30 TDS + 24 Special Forces + 12 Commando (province) |
+| Russia | eastern | homeland | Mainland-forced — 30 Mobile SAM Launcher + 24 Special Forces + 12 Commando (province) |
 | South Africa | european | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
 | Pakistan | western | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
 | India | eastern | homeland | Mainland-forced — 39 SASF + 1 Fixed Wing Veteran + 15 UAV + 120 Cruise Missiles + 240 Warheads (60 mob slots) |
@@ -290,6 +290,19 @@ economics (highest supplies+electronics of the remaining candidates).
 | Madagascar | european | occupied, capture day 2 | Eco only (captured AI nation, single city) |
 | Solomon Islands | european | occupied, capture day 2 | Eco only (captured AI nation, single city) |
 | Mozambique | european | occupied, capture day 2 | Eco only (captured AI nation, single city) |
+
+**Doctrine data gaps affecting this roster (now placeholder-filled)**: Russia's Mobile
+SAM Launcher (was `theatre_defense_system` — a hallucinated unit ID, corrected this
+session; the real unit was added to `support_units.yml`) and India's Fixed Wing
+Veteran (`fixed_wing_veteran` never had `eastern` data at all) were both caught by the
+missing-doctrine-data fix (see Unit 3's Known Design Decisions) — surfaced loudly in
+`bp-<country>.html`'s "⚠ MISSING DOCTRINE DATA" banner instead of silently dropped.
+Both now have **unconfirmed placeholder data** (`western`+`eastern` for Mobile SAM
+Launcher, `eastern` for Fixed Wing Veteran — each copied verbatim from `european`,
+per the project's existing placeholder convention, e.g. `air_superiority_fighter`'s
+eastern baseline) so both demands are back in their country's plan; real screenshot
+data for these doctrines is still pending and should replace the placeholders when
+available.
 
 **Starting garrison** (every homeland country, all L1, scenario-wide fact in
 `scenario.yml`'s `starting_units`): 14 Motorized Infantry, 1 Gunship, 1 Mobile Radar.
@@ -605,8 +618,9 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 | `air_superiority_fighter` | ✓ Complete | european + eastern + western; 7 levels; eastern = european baseline (placeholder pending screenshots) |
 | `awacs` | ✓ Complete | all doctrines; 6 levels |
 | `uav` | ✓ Complete | all doctrines; 6 levels |
-| `fixed_wing_veteran` | ✓ Complete | european + western; 7 levels |
+| `fixed_wing_veteran` | ⚠ eastern is placeholder | european + western have real data (7 levels); `doctrine` field originally only listed `[european, western]` — eastern was added this session as a verbatim `european` copy (unconfirmed placeholder) purely to unblock India's PNTH V Iron demand (1), which the missing-doctrine-data fix had surfaced as excluded. Needs real eastern screenshots |
 | `theatre_defense_system` | ✓ Complete | western + european + eastern; 6 levels; mob/upkeep verified from screenshots; eastern mob/upkeep pending screenshots (unlock days derived: W=5,7,11,13,20,25 / Eu=6,8,12,15,20,28 / Ea=7,10,14,17,20,28) |
+| `mobile_sam_launcher` | ⚠ western + eastern are placeholder | Added this session (`support_units.yml`) — corrects a hallucinated `theatre_defense_system` reference in Russia's PNTH V Iron demand. Only `european` research/mobilisation/daily_upkeep data was from real screenshots; `western`/`eastern` added as verbatim `european` copies (unconfirmed placeholders) to unblock Russia's demand (30), which the missing-doctrine-data fix had surfaced as excluded. Needs real western/eastern screenshots |
 | `mobile_anti_air_vehicle` | ✓ Flat format | all doctrines (western + european + eastern); 7 levels |
 | `multiple_rocket_launcher` | ✓ Complete | european + western + **eastern** (added); 5 levels |
 | `mechanized_infantry` | ✓ All doctrines | western + european + eastern; 6 levels; values ported from standard — needs screenshot verification |
@@ -624,13 +638,19 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 
 ## Modular Architecture — Three-Unit Rebuild
 
-The coalition force projection engine is being rebuilt as three discrete, independently-runnable units. Each unit has a clean data contract and can be tested in isolation.
+The coalition force projection engine is being rebuilt as three discrete, independently-runnable units (plus Unit 1.5, added later this session). Each unit has a clean data contract and can be tested in isolation.
 
 ```
 Unit 1 — Eco Planner                    ✅ COMPLETE
   Input:  scenario, country (resource, population, starting buildings, status)
   Output: EcoPlan — optimal eco build sequence per city, hourly production array
   Question: "What is the best economy this city can achieve over the full truce window?"
+  Note: purely theoretical/per-city-isolated — see Unit 1.5 for what actually drives cost/income.
+
+Unit 1.5 — Actual Eco Build             ✅ COMPLETE
+  Input:  Unit 1's beam engine + Unit 2's plan-derived resource weights (computePlanWeights)
+  Output: force-plan-weighted eco build per city, relocate_headquarters capped to one city
+  Question: "Given what the force plan actually needs, what should this city's real economy do?"
 
 Unit 2 — Force Projection               ✅ COMPLETE
   Input:  coalition_force_plan YAML, scenario, buildings + unit data
@@ -695,7 +715,118 @@ Single-city AI nations with `status: occupied` hardcoded in their country YAML (
 
 ---
 
+## Unit 1.5 — Actual Eco Build ✅ COMPLETE
+
+### Why This Exists
+
+UAT of the PNTH V Iron plan found that Unit 1's theoretical beam output was being fed
+directly into Unit 3's cost/income accounting as if it were the real plan, causing
+concrete, quantified distortions: `relocate_headquarters` (a per-country, at-most-once
+decision — moving the one HQ) was independently built in 6 of Italy's 7 cities (90,000
+cash + 15,000 manpower of phantom cost, since each city's isolated beam finds it
+ROI-positive with no cross-city exclusivity); `arms_industry`/`air_base`/`naval_base`
+were pushed to max level in every city regardless of true cross-resource cost (Palermo,
+a fuel city, spent 600 electronics — the coalition's flagged shortfall resource — for a
+marginal fuel-only gain going AI2→AI5, because the beam's unweighted scoring treats
+resources a city doesn't produce as free); Unit 2's infra chain double-built buildings
+the eco phase had already built (Rome's arms_industry L1, built once on day 1 in eco,
+rebuilt again on day 11-12 in the force plan); and RO L1 was never built during the eco
+phase at all (manpower isn't a native resource so it never clears the beam's
+positive-return threshold) and wasn't prioritised first in Unit 2's chain either.
+
+User's direction: Unit 1's beam stays exactly as-is — still a legitimate theoretical
+per-city ceiling, still what `smoke:eco-plan` shows. A new, separate "actual eco build"
+layer, driven by Unit 2's real resource footprint, needed to be built and become what
+Unit 3 actually consumes for cost/income accounting.
+
+### What Was Built
+
+`src/engine/eco/actual-eco-build.ts` — `runActualEcoBuild` reruns Unit 1's beam engine
+(`runCityEcoBeam`) per country with `resourceWeights` sourced from
+`computePlanWeights` (`joint-city-optimizer.ts` — already existed, already correctly
+derived from the plan's mob+upkeep resource footprint, just never wired to the eco
+beam before this). `selectHeadquartersCity` picks at most one city to be allowed to
+build `relocate_headquarters`: it respects a scenario-level manual override
+(`resolveScenarioHeadquartersCity`, `headquarters_city_by_country` in `scenario.yml`,
+currently unset for every country) first; otherwise it trial-reruns each non-capital
+homeland city's beam scoped to just that city (cheap — `runCityEcoBeam`'s `cityFilter`
++ a fixed country-baseline table computed once) and picks the largest **positive**
+`computeWeightedScore` delta vs. not relocating at all, or `undefined` if none is
+positive.
+
+Runs **before** Unit 2 — verified safe, no circularity: `computePlanWeights` only needs
+the demand list (unit + count), not Unit 2's city assignment (`foldInDemands`), so
+weights (and therefore Unit 1.5) can be computed first.
+
+```
+demands ──► computePlanWeights ──► runActualEcoBuild (Unit 1.5) ──┐
+                                                                    ├──► computeCountryForceProjection (Unit 2)
+                                                                    │        (eco-credited flip points + infra chains)
+                                                                    └──► computeCountryResourceBalance (Unit 3)
+                                                                             (actual income/cost, not theoretical)
+```
+
+**Engine changes to support this:**
+- `city-eco-beam.ts` — `CityEcoBeamConfig` gained `hqCityId?: string`;
+  `buildingPoolForCity` only adds `relocate_headquarters` to a city's candidate pool
+  when `city.id === hqCityId` (absent ⇒ no city ever considers it — a structural cap,
+  not a weight threshold, since a weight alone can't stop multiple cities each
+  independently finding it ROI-positive). Exported `computeWeightedScore` so
+  orchestration code scores consistently with what the beam itself optimises for. RO
+  L1 is forced as the beam's search root (not left to scoring) whenever
+  `resourceWeights` is supplied — i.e. only in Unit 1.5's run, never Unit 1's
+  unconstrained theoretical run, which is completely untouched by any of this.
+- `flip-point-solver.ts` — `computeFlipPoint`/`buildRemainingChain` gained an optional
+  `orderBuildings?: (ids: string[]) => string[]` callback (default preserves the
+  existing `CHAIN_ORDER` behaviour for `coalition-force-plan.ts`, the only other
+  caller).
+- `country-force-projection.ts` — exported `classifyDemands`/`getBatchSize`.
+  `buildCityInfraSteps` (the formula-based, from-scratch chain builder) now puts RO
+  first unconditionally instead of ecoScore-sorting it against everything else. New
+  `buildCityInfraStepsFromEco` reuses `computeFlipPoint`'s convergence loop (with
+  `deadlineAbsHour := firstMobStart`, `mobilisationWindowHours := 0` — repurposing the
+  same `flip = deadline − window − remainingBuildHours` formula) to both skip building
+  levels the eco phase already completed **and** iteratively re-derive the flip point
+  later when eco got a head start, capturing more eco income. `CountryForceProjectionInput`
+  gained optional `planWeights?`/`actualEcoResultsByCity?` (bare-cityId-keyed map of
+  Unit 1.5 results) — both default to the old from-scratch behaviour when absent, so
+  every existing caller (`force-projection.ts`, existing tests) needed zero changes.
+- `resource-projection.ts` — `analyseCountry` now computes `planWeights` via
+  `classifyDemands` + `computePlanWeights`, calls `runActualEcoBuild` instead of the
+  raw unconstrained `runCityEcoBeam`, and feeds the result into both
+  `computeCountryForceProjection` (for eco-credited flip points/infra) and
+  `computeCountryResourceBalance` (for actual income/cost — this is the switch that
+  fixes the phantom-cost problems above). Unit 1's unconstrained beam is no longer
+  called by this harness at all; `smoke:eco-plan` remains the only place to see it.
+
+### Verified Against the Real Plan (Italy)
+
+- `relocate_headquarters`: 6 cities → 0 (no city found it worthwhile under real plan
+  weights; the plan's demand footprint doesn't justify the manpower cost).
+- Palermo (fuel, lowest-weighted resource in the MRL/MAAV/Tank-Veteran plan):
+  arms_industry L5 → L3.
+- Rome's force-projection infra chain no longer rebuilds arms_industry L1 (credited
+  from the eco phase — it's already complete by the flip point).
+- RO L1 is first in every city's eco sequence (hour 0) and every force-projection
+  infra chain.
+
+### Deliberately Deferred
+
+`foldInDemands` (Unit 2's city/RO-level assignment) stays formula-based/eco-unaware —
+making it eco-aware would need a real fixed-point iteration (assign → weights → eco
+build → re-time → re-assign → …); this phase only makes the **post-assignment**
+timing (flip points, infra chains) eco-aware. Flagged as a future chunk if the
+assignment itself needs to reflect real eco state, not just its timing.
+
+---
+
 ## Unit 2 — Force Projection ✅ COMPLETE
+
+**⚠ `force-projection.ts` / `fp-<countryId>.html` deprecated** — superseded by Unit 3's
+`bp-<countryId>.html` (see Unit 3 section below), whose Research + combined
+Infrastructure Build sections cover the same ground and do it better (eco-credited via
+Unit 1.5, which this Unit-2-only harness never is). Kept as a standalone Unit 2 view,
+not actively maintained; prints a deprecation warning when run.
 
 ### What Was Built
 
@@ -813,7 +944,15 @@ New engine modules:
 - `src/engine/optimization/garrison-upkeep.ts` — `computeGarrisonUpkeep`: the first caller of `resolveScenarioStartingUnits` (previously dead code, zero call sites anywhere). Resolves daily upkeep per starting unit via `calculateDailyUpkeep`, falling back to whichever doctrine the catalog does have data for when the requested one is missing (`motorized_infantry` is Western-only pending screenshots — see "Elite Unit Catalog Status" — so this fallback is what makes garrison upkeep computable for eastern/european countries at all). Units with an inline `daily_upkeep` (gunship) use that instead, same fallback rule.
 - `src/engine/reporting/coalition-resource-balance.ts` — `computeCountryResourceBalance` + `computeCoalitionResourceBalance`: combines flip-truncated eco income + starting balance − eco build cost − force costs − garrison upkeep into a per-country and coalition-level balance sheet (`POOLED_RESOURCES` only; manpower checked per-country via `PER_COUNTRY_RESOURCES`), plus an hourly cash-flow walk that finds the lowest running pooled balance at any hour in the window (`resourceMinima`) — catches mid-window insolvency the end-of-window totals alone would miss.
 
-Writes `tmp/resource-projection.html` (coalition aggregate) + `tmp/rp-<countryId>.html` per country.
+Writes `tmp/resource-projection.html` (coalition aggregate) + `tmp/bp-<countryId>.html` per country (the "build plan" — the only per-country output; the earlier `rp-<countryId>.html` balance-only file was retired since its entire content duplicated `bp-*.html`'s section 1).
+
+`bp-<countryId>.html` has 4 sections, in order:
+1. **Resource Balance** — same balance sheet as the coalition aggregate's per-country rows.
+2. **Research** — combined JIT research schedule (`forceProjection.researchSegments`).
+3. **Infrastructure Build (eco + military, combined per city)** — one merged, chronological timeline per city: eco-phase steps (credited up to the flip point — filtered against `buildingLevelsAtAbsHour`, same logic `buildCityInfraStepsFromEco` itself uses to skip pre-built levels), a `→ FLIP` marker, then the military infra chain and mob queue. City headers show `★` for the current HQ (capital by default, or wherever `relocate_headquarters` actually got built) and the city's resource type in brackets; cities are listed alphabetically.
+4. **Force Projection** — cost summary (infra/mob/upkeep/province breakdown), province mobilisation detail, skipped demands.
+
+The eco data behind sections 1 and 3 comes from Unit 1.5 (`runActualEcoBuild`, `src/engine/eco/actual-eco-build.ts`) — a force-plan-weighted rerun of Unit 1's beam, not Unit 1's own unconstrained/theoretical output (`smoke:eco-plan` remains the only place to see that ceiling).
 
 **Run syntax:**
 ```
@@ -831,12 +970,14 @@ RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=russia npm run smoke:resource-projection
 - **Hourly cash-flow minima is an approximation, not a reconciliation**: income is capped precisely at the flip point; infra costs are deducted at each infra step's completion hour (exact, reusing the same `calculateBuildingCost` totals as the top-level cost aggregate); mob costs are deducted at batch start (exact); but upkeep in the hourly walk uses a **continuous L1 rate** rather than the exact stepped (auto-upgrade-aware) rate the totals table uses (`costs.upkeep`, via `computeSteppedUpkeep`). The two won't bit-match at the final hour — this is called out directly in the rendered HTML. Good enough to answer "does the pool ever go negative mid-window", not a substitute for the totals row.
 - **Australia's radar exception is not modeled** — `computeGarrisonUpkeep` disbands the full starting garrison uniformly for every homeland country (default day 4, `RP_GARRISON_DISBAND_DAY`). The documented PNTH V Iron exception (Australia keeps 1 mobile radar) is a deliberate v1 simplification — small dollar impact (~480 supplies / ~360 fuel / ~360 manpower / ~960 cash total over the window for one unit).
 - **HTML rendering duplicated inline**, not extracted to a shared module — matches the existing convention across all `harness/smoke/*.ts` scripts (each owns its own `escapeHtml`/`htmlTable`/balance-sheet formatting helpers; there is no shared-lib precedent in that directory).
+- **Missing-doctrine-data bug, fixed this session**: `unitMobTimeHours` (`country-force-projection.ts`) returned `0` for a unit with genuinely zero mob time (a real launcher platform) *and* for a unit with no mobilisation data at all for the country's doctrine — `classifyDemands` couldn't tell the two apart, so a demand with a doctrine data gap was silently misclassified as a launcher platform and dropped from the plan entirely, with zero warning (found via Russia's `mobile_sam_launcher`, added this session with only `european` data, while Russia's doctrine is `eastern`). Fixed: `hasMobilisationData` checks presence explicitly; `classifyDemands` now routes data-gap demands to a new `missingDataDemands` bucket, kept separate from `launcherDemands` (genuine zero-cost launchers, e.g. `conventional_cruise_missile`) and excluded from `activeDemands` (so `computePlanWeights` never throws on it). Surfaced loudly in `bp-<countryId>.html` (a `⚠ MISSING DOCTRINE DATA` banner at the top, not the quiet grey "Skipped Demands" list) instead of silently. See `country-force-projection.test.ts`'s two `classifyDemands` regression tests.
 
 ### Known Limitations
 
 - Hourly-minima walk's upkeep approximation (see above) means it's a shortfall detector, not a bit-exact reconciliation of the totals balance sheet.
 - Australia's radar-retention exception not modeled (uniform garrison disband for all homeland countries).
 - No optimal city-subset search — inherited from Unit 2's fold-in (capital-first-ish) city ordering; still a future chunk.
+- **Doctrine data gaps, now placeholder-filled**: Russia's `mobile_sam_launcher` and India's `fixed_wing_veteran` both lacked `eastern` doctrine data (surfaced by the fix above); both now have unconfirmed `european`-copy placeholder data — see the PNTH coalition table's data-gap note. Real screenshot data still pending.
 
 ---
 

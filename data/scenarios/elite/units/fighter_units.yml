@@ -1060,6 +1060,7 @@ units:
     doctrine:
       - european
       - western
+      - eastern
     levels:
       "1":
         requirements:
@@ -1067,6 +1068,14 @@ units:
           - recruiting_office level 1
         research:
           european:
+            unlock_day: 2
+            time:
+              hours: 6
+            cost:
+              supplies: 400
+              rares: 350
+              cash: 1000
+          eastern:
             unlock_day: 2
             time:
               hours: 6
@@ -1092,6 +1101,15 @@ units:
               electronics: 1400
               cash: 3500
             unit_limit: 1
+          eastern:
+            time:
+              days: 1
+            cost:
+              components: 2000
+              manpower: 950
+              electronics: 1400
+              cash: 3500
+            unit_limit: 1
           western:
             time:
               days: 1
@@ -1103,6 +1121,12 @@ units:
             unit_limit: 1
         daily_upkeep:
           european:
+            cost:
+              manpower: 70
+              fuel: 70
+              electronics: 60
+              cash: 180
+          eastern:
             cost:
               manpower: 70
               fuel: 70
@@ -1121,6 +1145,15 @@ units:
           - fixed_wing_veteran level 1
         research:
           european:
+            unlock_day: 4
+            time:
+              hours: 6
+              minutes: 45
+            cost:
+              supplies: 500
+              rares: 450
+              cash: 1250
+          eastern:
             unlock_day: 4
             time:
               hours: 6
@@ -1148,6 +1181,15 @@ units:
               manpower: 1100
               electronics: 1700
               cash: 4500
+          eastern:
+            time:
+              days: 1
+              hours: 2
+            cost:
+              components: 2500
+              manpower: 1100
+              electronics: 1700
+              cash: 4500
           western:
             time:
               days: 1
@@ -1159,6 +1201,12 @@ units:
               manpower: 1100
         daily_upkeep:
           european:
+            cost:
+              manpower: 80
+              fuel: 80
+              electronics: 70
+              cash: 200
+          eastern:
             cost:
               manpower: 80
               fuel: 80
@@ -1177,6 +1225,15 @@ units:
           - fixed_wing_veteran level 2
         research:
           european:
+            unlock_day: 8
+            time:
+              hours: 7
+              minutes: 30
+            cost:
+              supplies: 600
+              rares: 550
+              cash: 1500
+          eastern:
             unlock_day: 8
             time:
               hours: 7
@@ -1204,6 +1261,15 @@ units:
               manpower: 1250
               electronics: 2000
               cash: 6000
+          eastern:
+            time:
+              days: 1
+              hours: 4
+            cost:
+              components: 3000
+              manpower: 1250
+              electronics: 2000
+              cash: 6000
           western:
             time:
               days: 1
@@ -1215,6 +1281,12 @@ units:
               manpower: 1250
         daily_upkeep:
           european:
+            cost:
+              manpower: 90
+              fuel: 85
+              electronics: 80
+              cash: 220
+          eastern:
             cost:
               manpower: 90
               fuel: 85
@@ -1240,6 +1312,14 @@ units:
               supplies: 750
               rares: 700
               cash: 2000
+          eastern:
+            unlock_day: 11
+            time:
+              hours: 9
+            cost:
+              supplies: 750
+              rares: 700
+              cash: 2000
           western:
             unlock_day: 9
             time:
@@ -1250,6 +1330,15 @@ units:
               cash: 2000
         mobilisation:
           european:
+            time:
+              days: 1
+              hours: 8
+            cost:
+              components: 3500
+              manpower: 1400
+              electronics: 2300
+              cash: 7500
+          eastern:
             time:
               days: 1
               hours: 8
@@ -1274,6 +1363,12 @@ units:
               fuel: 95
               electronics: 90
               cash: 240
+          eastern:
+            cost:
+              manpower: 110
+              fuel: 95
+              electronics: 90
+              cash: 240
           western:
             cost:
               fuel: 95
@@ -1287,6 +1382,15 @@ units:
           - fixed_wing_veteran level 4
         research:
           european:
+            unlock_day: 15
+            time:
+              hours: 9
+              minutes: 45
+            cost:
+              supplies: 850
+              rares: 800
+              cash: 2250
+          eastern:
             unlock_day: 15
             time:
               hours: 9
@@ -1314,6 +1418,15 @@ units:
               manpower: 1550
               electronics: 2600
               cash: 9500
+          eastern:
+            time:
+              days: 1
+              hours: 10
+            cost:
+              components: 4000
+              manpower: 1550
+              electronics: 2600
+              cash: 9500
           western:
             time:
               days: 1
@@ -1325,6 +1438,12 @@ units:
               manpower: 1550
         daily_upkeep:
           european:
+            cost:
+              manpower: 120
+              fuel: 105
+              electronics: 100
+              cash: 260
+          eastern:
             cost:
               manpower: 120
               fuel: 105
@@ -1343,6 +1462,15 @@ units:
           - fixed_wing_veteran level 5
         research:
           european:
+            unlock_day: 19
+            time:
+              hours: 10
+              minutes: 30
+            cost:
+              supplies: 950
+              rares: 900
+              cash: 2500
+          eastern:
             unlock_day: 19
             time:
               hours: 10
@@ -1370,6 +1498,15 @@ units:
               manpower: 1700
               electronics: 2900
               cash: 11500
+          eastern:
+            time:
+              days: 1
+              hours: 13
+            cost:
+              components: 4500
+              manpower: 1700
+              electronics: 2900
+              cash: 11500
           western:
             time:
               days: 1
@@ -1381,6 +1518,12 @@ units:
               manpower: 1700
         daily_upkeep:
           european:
+            cost:
+              manpower: 140
+              fuel: 110
+              electronics: 110
+              cash: 280
+          eastern:
             cost:
               manpower: 140
               fuel: 110
@@ -1406,6 +1549,14 @@ units:
               supplies: 1200
               rares: 1050
               cash: 3000
+          eastern:
+            unlock_day: 22
+            time:
+              hours: 12
+            cost:
+              supplies: 1200
+              rares: 1050
+              cash: 3000
           western:
             unlock_day: 20
             time:
@@ -1416,6 +1567,15 @@ units:
               cash: 3000
         mobilisation:
           european:
+            time:
+              days: 2
+              hours: 12
+            cost:
+              components: 5000
+              manpower: 1850
+              electronics: 3200
+              cash: 15000
+          eastern:
             time:
               days: 2
               hours: 12
@@ -1435,6 +1595,12 @@ units:
               manpower: 1850
         daily_upkeep:
           european:
+            cost:
+              manpower: 150
+              fuel: 120
+              electronics: 120
+              cash: 300
+          eastern:
             cost:
               manpower: 150
               fuel: 120

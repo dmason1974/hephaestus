@@ -1427,3 +1427,472 @@ units:
             manpower: 40
             fuel: 40
             cash: 75
+  mobile_sam_launcher:
+    name: Mobile SAM Launcher
+    category: Support
+    doctrine:
+      - western
+      - european
+      - eastern
+    levels:
+      "1":
+        requirements:
+          - army_base level 3
+          - arms_industry level 1
+        research:
+          western:
+            unlock_day: 2
+            time:
+              hours: 20
+              minutes: 15
+            cost:
+              supplies: 1500
+              rares: 1775
+              cash: 2500
+          european:
+            unlock_day: 2
+            time:
+              hours: 20
+              minutes: 15
+            cost:
+              supplies: 1500
+              rares: 1775
+              cash: 2500
+          eastern:
+            unlock_day: 2
+            time:
+              hours: 20
+              minutes: 15
+            cost:
+              supplies: 1500
+              rares: 1775
+              cash: 2500
+        mobilisation:
+          western:
+            time:
+              hours: 17
+            cost:
+              supplies: 1250
+              manpower: 350
+              electronics: 500
+              cash: 1500
+          european:
+            time:
+              hours: 17
+            cost:
+              supplies: 1250
+              manpower: 350
+              electronics: 500
+              cash: 1500
+          eastern:
+            time:
+              hours: 17
+            cost:
+              supplies: 1250
+              manpower: 350
+              electronics: 500
+              cash: 1500
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 60
+              manpower: 25
+              fuel: 25
+              cash: 80
+          european:
+            cost:
+              supplies: 60
+              manpower: 25
+              fuel: 25
+              cash: 80
+          eastern:
+            cost:
+              supplies: 60
+              manpower: 25
+              fuel: 25
+              cash: 80
+      "2":
+        requirements:
+          - army_base level 3
+          - arms_industry level 1
+          - mobile_sam_launcher level 1
+        research:
+          western:
+            unlock_day: 9
+            time:
+              hours: 21
+            cost:
+              supplies: 1650
+              rares: 1955
+              cash: 2750
+          european:
+            unlock_day: 9
+            time:
+              hours: 21
+            cost:
+              supplies: 1650
+              rares: 1955
+              cash: 2750
+          eastern:
+            unlock_day: 9
+            time:
+              hours: 21
+            cost:
+              supplies: 1650
+              rares: 1955
+              cash: 2750
+        mobilisation:
+          western:
+            time:
+              hours: 18
+            cost:
+              supplies: 1250
+              manpower: 350
+              electronics: 500
+              cash: 1500
+          european:
+            time:
+              hours: 18
+            cost:
+              supplies: 1250
+              manpower: 350
+              electronics: 500
+              cash: 1500
+          eastern:
+            time:
+              hours: 18
+            cost:
+              supplies: 1250
+              manpower: 350
+              electronics: 500
+              cash: 1500
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 65
+              manpower: 30
+              fuel: 30
+              cash: 90
+          european:
+            cost:
+              supplies: 65
+              manpower: 30
+              fuel: 30
+              cash: 90
+          eastern:
+            cost:
+              supplies: 65
+              manpower: 30
+              fuel: 30
+              cash: 90
+      "3":
+        requirements:
+          - army_base level 3
+          - arms_industry level 1
+          - mobile_sam_launcher level 2
+        research:
+          western:
+            unlock_day: 13
+            time:
+              hours: 23
+              minutes: 15
+            cost:
+              supplies: 1800
+              rares: 2130
+              cash: 3000
+          european:
+            unlock_day: 13
+            time:
+              hours: 23
+              minutes: 15
+            cost:
+              supplies: 1800
+              rares: 2130
+              cash: 3000
+          eastern:
+            unlock_day: 13
+            time:
+              hours: 23
+              minutes: 15
+            cost:
+              supplies: 1800
+              rares: 2130
+              cash: 3000
+        mobilisation:
+          western:
+            time:
+              hours: 19
+            cost:
+              supplies: 1250
+              manpower: 350
+              electronics: 500
+              cash: 1500
+          european:
+            time:
+              hours: 19
+            cost:
+              supplies: 1250
+              manpower: 350
+              electronics: 500
+              cash: 1500
+          eastern:
+            time:
+              hours: 19
+            cost:
+              supplies: 1250
+              manpower: 350
+              electronics: 500
+              cash: 1500
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 70
+              manpower: 40
+              fuel: 35
+              cash: 100
+          european:
+            cost:
+              supplies: 70
+              manpower: 40
+              fuel: 35
+              cash: 100
+          eastern:
+            cost:
+              supplies: 70
+              manpower: 40
+              fuel: 35
+              cash: 100
+      "4":
+        requirements:
+          - army_base level 3
+          - arms_industry level 1
+          - mobile_sam_launcher level 3
+        research:
+          western:
+            unlock_day: 16
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 1950
+              rares: 2310
+              cash: 3250
+          european:
+            unlock_day: 16
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 1950
+              rares: 2310
+              cash: 3250
+          eastern:
+            unlock_day: 16
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 1950
+              rares: 2310
+              cash: 3250
+        mobilisation:
+          western:
+            time:
+              hours: 20
+            cost:
+              supplies: 1350
+              manpower: 500
+              electronics: 600
+              cash: 1750
+          european:
+            time:
+              hours: 20
+            cost:
+              supplies: 1350
+              manpower: 500
+              electronics: 600
+              cash: 1750
+          eastern:
+            time:
+              hours: 20
+            cost:
+              supplies: 1350
+              manpower: 500
+              electronics: 600
+              cash: 1750
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 75
+              manpower: 45
+              fuel: 45
+              cash: 110
+          european:
+            cost:
+              supplies: 75
+              manpower: 45
+              fuel: 45
+              cash: 110
+          eastern:
+            cost:
+              supplies: 75
+              manpower: 45
+              fuel: 45
+              cash: 110
+      "5":
+        requirements:
+          - army_base level 3
+          - arms_industry level 1
+          - mobile_sam_launcher level 4
+        research:
+          western:
+            unlock_day: 20
+            time:
+              days: 1
+              hours: 5
+              minutes: 15
+            cost:
+              supplies: 2100
+              rares: 2485
+              cash: 3500
+          european:
+            unlock_day: 20
+            time:
+              days: 1
+              hours: 5
+              minutes: 15
+            cost:
+              supplies: 2100
+              rares: 2485
+              cash: 3500
+          eastern:
+            unlock_day: 20
+            time:
+              days: 1
+              hours: 5
+              minutes: 15
+            cost:
+              supplies: 2100
+              rares: 2485
+              cash: 3500
+        mobilisation:
+          western:
+            time:
+              hours: 21
+            cost:
+              supplies: 1350
+              manpower: 500
+              electronics: 600
+              cash: 1750
+          european:
+            time:
+              hours: 21
+            cost:
+              supplies: 1350
+              manpower: 500
+              electronics: 600
+              cash: 1750
+          eastern:
+            time:
+              hours: 21
+            cost:
+              supplies: 1350
+              manpower: 500
+              electronics: 600
+              cash: 1750
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 80
+              manpower: 50
+              fuel: 50
+              cash: 120
+          european:
+            cost:
+              supplies: 80
+              manpower: 50
+              fuel: 50
+              cash: 120
+          eastern:
+            cost:
+              supplies: 80
+              manpower: 50
+              fuel: 50
+              cash: 120
+      "6":
+        requirements:
+          - army_base level 3
+          - arms_industry level 1
+          - mobile_sam_launcher level 5
+        research:
+          western:
+            unlock_day: 24
+            time:
+              days: 1
+              hours: 9
+            cost:
+              supplies: 2250
+              rares: 2665
+              cash: 3750
+          european:
+            unlock_day: 24
+            time:
+              days: 1
+              hours: 9
+            cost:
+              supplies: 2250
+              rares: 2665
+              cash: 3750
+          eastern:
+            unlock_day: 24
+            time:
+              days: 1
+              hours: 9
+            cost:
+              supplies: 2250
+              rares: 2665
+              cash: 3750
+        mobilisation:
+          western:
+            time:
+              hours: 22
+            cost:
+              supplies: 1500
+              manpower: 625
+              electronics: 750
+              cash: 2000
+          european:
+            time:
+              hours: 22
+            cost:
+              supplies: 1500
+              manpower: 625
+              electronics: 750
+              cash: 2000
+          eastern:
+            time:
+              hours: 22
+            cost:
+              supplies: 1500
+              manpower: 625
+              electronics: 750
+              cash: 2000
+        daily_upkeep:
+          western:
+            cost:
+              supplies: 90
+              manpower: 55
+              fuel: 60
+              cash: 130
+          european:
+            cost:
+              supplies: 90
+              manpower: 55
+              fuel: 60
+              cash: 130
+          eastern:
+            cost:
+              supplies: 90
+              manpower: 55
+              fuel: 60
+              cash: 130

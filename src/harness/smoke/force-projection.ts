@@ -1,3 +1,10 @@
+/**
+ * @deprecated Superseded by `smoke:resource-projection`'s `bp-<country>.html` output,
+ * whose Research + combined Infrastructure Build sections cover the same ground as
+ * this harness's Research Plan + City Mob Build Plans sections — and do it better,
+ * since they're eco-credited (Unit 1.5's runActualEcoBuild), which this Unit-2-only
+ * harness never is. Kept for now as a standalone Unit 2 view; not actively maintained.
+ */
 import fs from "node:fs";
 import path from "node:path";
 
@@ -233,6 +240,8 @@ function analyseCountry(countryId: string): string {
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────
+
+console.warn("[force-projection] deprecated — see `npm run smoke:resource-projection`'s bp-<country>.html output for the eco-credited successor to this harness's Research + City Mob Build Plans sections.");
 
 fs.mkdirSync(path.resolve("tmp"), { recursive: true });
 

@@ -196,3 +196,96 @@ export function unitBuildingRequirements(
   if (!l1?.requirements) return {};
   return requirementsToLevelMap(l1.requirements);
 }
+
+// ── Idle-window backfill ─────────────────────────────────────────────────────
+//
+// Unit 1.5's eco beam stops adding buildings once nothing scores positively under
+// the plan's resource weights, leaving a city's build queue genuinely idle for
+// however long remains until the (independently computed) flip point. Buildings
+// the military phase already knows it needs (`requiredLevels`) are guaranteed to
+// be built anyway — pulling them into that idle window has zero downside (a
+// city's own resource production doesn't depend on what's in its build queue), it
+// only lands their bonus (e.g. recruiting_office's manpower bonus) earlier.
+
+export type EcoBackfillStep = MilitaryInfraStep & {
+  /** Absolute game hour the backfilled build starts/ends — real timestamps. */
+  startHour: number;
+  endHour: number;
+};
+
+/**
+ * Fills the idle window between a city's last organic eco build
+ * (`cityEcoResult.lastEcoBuildCompletionAbsHour`) and `windowEndAbsHour` with
+ * guaranteed future building levels (`requiredLevels`) the eco beam never chose to
+ * build because they didn't score positively.
+ *
+ * Greedy, priority-order, no skip-ahead: walks `orderBuildings`'s ordering and
+ * schedules each required level sequentially if its full build time fits before
+ * `windowEndAbsHour`; stops entirely at the first level that doesn't fit (a city
+ * has one sequential build queue slot — skipping ahead to a smaller lower-priority
+ * item would fight the same ordering convention used for the post-flip chain).
+ */
+export function computeEcoBackfill(
+  cityEcoResult: CityEcoResult,
+  requiredLevels: Record<string, number>,
+  windowEndAbsHour: number,
+  buildings: BuildingsFile,
+  orderBuildings: (ids: string[]) => string[] = defaultOrderBuildings
+): EcoBackfillStep[] {
+  const startHour = cityEcoResult.lastEcoBuildCompletionAbsHour;
+  if (windowEndAbsHour <= startHour) return [];
+
+  const currentLevels: Partial<Record<string, number>> = {
+    ...(cityEcoResult.buildingLevelsAtAbsHour(startHour) as Partial<Record<string, number>>),
+  };
+  const orderedIds = orderBuildings(
+    Object.keys(requiredLevels).filter(id => id !== "mercenary_outpost")
+  );
+
+  const steps: EcoBackfillStep[] = [];
+  let cur = startHour;
+
+  outer: for (const buildingId of orderedIds) {
+    const targetLevel = requiredLevels[buildingId] ?? 0;
+    let level = currentLevels[buildingId] ?? 0;
+    while (level < targetLevel) {
+      const nextLevel = level + 1;
+      const dur = buildingLevelHours(buildings, buildingId, nextLevel);
+      if (dur <= 0 || cur + dur > windowEndAbsHour) break outer;
+      steps.push({ buildingId, fromLevel: level, toLevel: nextLevel, buildTimeHours: dur, startHour: cur, endHour: cur + dur });
+      cur += dur;
+      level = nextLevel;
+      currentLevels[buildingId] = level;
+    }
+  }
+
+  return steps;
+}
+
+/**
+ * Wraps a `CityEcoResult` so `buildingLevelsAtAbsHour` also credits backfilled
+ * levels once their (real, absolute) completion hour has passed — same semantics
+ * as the organic function's own "credited once built" check. Feeding this
+ * augmented result into `computeFlipPoint` is what makes the convergence loop
+ * "see" the backfilled work: `buildRemainingChain` naturally excludes any level
+ * already credited here, so the eco-planner-slot placement always wins over the
+ * post-flip chain — no separate de-dup pass needed.
+ */
+export function withBackfilledLevels(
+  cityEcoResult: CityEcoResult,
+  backfillSteps: EcoBackfillStep[]
+): CityEcoResult {
+  if (backfillSteps.length === 0) return cityEcoResult;
+  return {
+    ...cityEcoResult,
+    buildingLevelsAtAbsHour: (absHour: number) => {
+      const levels = { ...cityEcoResult.buildingLevelsAtAbsHour(absHour) } as Partial<Record<string, number>>;
+      for (const step of backfillSteps) {
+        if (step.endHour <= absHour) {
+          levels[step.buildingId] = Math.max(levels[step.buildingId] ?? 0, step.toLevel);
+        }
+      }
+      return levels as ReturnType<CityEcoResult["buildingLevelsAtAbsHour"]>;
+    },
+  };
+}

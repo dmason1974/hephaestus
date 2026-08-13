@@ -32,7 +32,14 @@ countries:
     status: homeland
     demands:
       - unitId: stealth_air_superiority_fighter
-        count: 39
+        count: 34
+        # Split across 2 supply cities + Sendai (electronics) — these are the same
+        # resource types the coalition eco weights already flag as highest-priority
+        # non-cash need, so the arms_industry/air_base build these cities do for
+        # SASF doubles as real eco investment. Lets Sendai/Tokyo/Fujisawa's
+        # mobilisation queue produce AWACS (needs only air_base L4) during the long
+        # air_base L5 climb instead of sitting idle.
+        preferred_cities: [tokyo, fujisawa, sendai]
       - unitId: awacs
         count: 8
       - unitId: fixed_wing_veteran
@@ -78,7 +85,12 @@ countries:
     status: homeland
     demands:
       - unitId: stealth_air_superiority_fighter
-        count: 39
+        count: 34
+        # Split across Mumbai + Kolkata (supplies) + New Delhi (electronics) — same
+        # rationale as Japan above. Lets these cities' mobilisation queue produce
+        # conventional_warhead (needs only secret_weapons_lab L1 + arms_industry L1,
+        # no air_base at all) during the long air_base L5 climb instead of idling.
+        preferred_cities: [mumbai, kolkata, new_delhi]
       - unitId: fixed_wing_veteran
         count: 1
       - unitId: uav

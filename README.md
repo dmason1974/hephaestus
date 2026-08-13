@@ -111,6 +111,10 @@ FP_MAX_RO=3 FP_COUNTRY=indonesia npm run smoke:force-projection
 # cash-flow minima walk, and a per-country manpower check. Writes the coalition
 # aggregate (tmp/resource-projection.html) + one tmp/bp-<countryId>.html per country
 # (balance + research + combined eco/military infra timeline + cost summary).
+# A demand can carry `preferred_cities` (plan YAML) to pin it to named cities and
+# enable dead-window city sharing — a long-pole unit's city mobilises a cheaper
+# filler unit (e.g. warheads/UAV/AWACS alongside SASF) during its own idle build
+# time. See CLAUDE.md's "UAT Round 3" section for the full mechanic.
 RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=all npm run smoke:resource-projection   # RP_PLAN is required — no default
 RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=russia npm run smoke:resource-projection   # single country
 # Config: RP_SCENARIO, RP_PLAN (required), RP_COUNTRY, RP_MAX_RO, RP_BEAM_WIDTH, RP_TOP_N, RP_GARRISON_DISBAND_DAY, RP_OUTPUT_FILE

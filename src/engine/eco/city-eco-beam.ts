@@ -687,3 +687,49 @@ export function runCityEcoBeam(
 
   return { scenarioAbsHour, cityResults };
 }
+
+/**
+ * Re-simulates a city's hourly production with extra guaranteed build actions
+ * folded into the winning eco build order — used to credit backfilled buildings
+ * (pulled forward into idle eco-phase time by flip-point-solver.ts's
+ * `computeEcoBackfill`) with their real production bonus (e.g. recruiting_office's
+ * manpower bonus) at their real, earlier completion hour, instead of the balance
+ * sheet only reflecting the beam's own organically-chosen actions.
+ *
+ * Does not touch the beam/scoring logic itself — this is a separate, downstream
+ * re-simulation reusing the exact same building mechanics (`buildCityState`,
+ * `simulateBuildOrder`) the beam's own final simulation uses.
+ */
+export function resimulateHourlyProductionWithExtraActions(
+  country: Country,
+  bareCityId: string,
+  countryStatus: "homeland" | "occupied",
+  scenario: ScenarioFile,
+  buildings: BuildingsFile,
+  baseActions: BuildAction[],
+  extraActions: BuildAction[],
+  hoursToSimulate: number,
+  captureRelHour = 0,
+): Array<Record<Resource, number>> {
+  const city = country.cities.find(c => c.id === bareCityId);
+  if (!city) {
+    throw new Error(`resimulateHourlyProductionWithExtraActions: unknown city "${bareCityId}" for country "${country.country.id}"`);
+  }
+
+  const cityState = buildCityState(country, city, countryStatus);
+  const combined = [...baseActions, ...extraActions].sort((a, b) => (a.startHour ?? 0) - (b.startHour ?? 0));
+
+  const simulation = simulateBuildOrder({
+    cities: [cityState],
+    buildOrder: combined,
+    buildings,
+    scenario,
+    hoursToSimulate,
+  });
+
+  return Array.from({ length: hoursToSimulate }, (_, h) => {
+    if (h < captureRelHour) return zeroResources();
+    const prod = simulation.perHourAggregate[h]?.production;
+    return prod ? { ...prod } as Record<Resource, number> : zeroResources();
+  });
+}

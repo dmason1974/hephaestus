@@ -15,6 +15,10 @@ const demandSchema = z
     unitId: z.string().min(1),
     count: z.number().int().min(1),
     mobilisation_source: z.enum(["province"]).optional(),
+    // Pins this demand to exactly these city IDs (bare, e.g. "new_delhi"), splitting
+    // count evenly across them, instead of the default cost-driven city search in
+    // foldInDemands. Optional — city assignment stays fully automatic when absent.
+    preferred_cities: z.array(z.string().min(1)).min(1).optional(),
   })
   .strict();
 

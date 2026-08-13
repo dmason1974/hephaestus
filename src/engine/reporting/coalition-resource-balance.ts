@@ -116,9 +116,11 @@ export function computeCountryResourceBalance(input: CountryResourceBalanceInput
     hourlyNetFlow[0][r] -= ecoBuildCostFull[r];
   }
 
-  // Infra costs: deducted at each infra step's completion hour.
+  // Infra costs: deducted at each step's completion hour — both the guaranteed
+  // work pulled into the idle eco window (ecoBackfillSteps) and the post-flip
+  // military chain (infraSteps).
   for (const slot of forceProjection.citySlots) {
-    for (const step of slot.infraSteps) {
+    for (const step of [...slot.ecoBackfillSteps, ...slot.infraSteps]) {
       const idx = clampIndex(step.endHour - scenarioAbsHour, hoursToSimulate);
       for (const [r, amount] of Object.entries(step.cost)) {
         if (amount) hourlyNetFlow[idx][r as Resource] -= amount;

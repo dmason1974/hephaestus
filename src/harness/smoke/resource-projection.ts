@@ -5,9 +5,11 @@ import type { Resource } from "../../core/constants.js";
 import { POOLED_RESOURCES } from "../../core/constants.js";
 import { scenarioStartAbsoluteHour, toAbsoluteHour } from "../../core/time.js";
 import type { CityEcoResult, CountryEcoBeamResult } from "../../engine/eco/city-eco-beam.js";
+import { resimulateHourlyProductionWithExtraActions, runCityEcoBeam } from "../../engine/eco/city-eco-beam.js";
 import { runActualEcoBuild } from "../../engine/eco/actual-eco-build.js";
+import type { BuildingId } from "../../engine/orchestration/build-order-timeline.js";
 import { classifyDemands, computeCountryForceProjection, getBatchSize, type CountryForceProjectionResult } from "../../engine/optimization/country-force-projection.js";
-import { computePlanWeights } from "../../engine/optimization/joint-city-optimizer.js";
+import { computePlanWeights, computeCoalitionPlanWeights, boostWeightsFromDeficit, type PlanWeights } from "../../engine/optimization/joint-city-optimizer.js";
 import { computeGarrisonUpkeep } from "../../engine/optimization/garrison-upkeep.js";
 import type { ResourceCost } from "../../engine/optimization/types.js";
 import {
@@ -136,32 +138,91 @@ type CountryAnalysis = {
   forceProjection: CountryForceProjectionResult;
 };
 
-function analyseCountry(countryId: string): CountryAnalysis {
+type CountryContext = {
+  countryId: string;
+  country: ReturnType<typeof loadScenarioCountry>;
+  doctrine: string;
+  status: "homeland" | "occupied";
+  captureAbsHour: number | undefined;
+  demands: import("../../schemas/coalition-force-plan-schema.js").Demand[];
+};
+
+function loadCountryContext(countryId: string): CountryContext {
   const country = loadScenarioCountry(scenarioId, countryId);
   const doctrine = country.country.doctrine;
   const countryPlan = plan.countries[countryId];
   const status = countryPlan?.status ?? "homeland";
   const captureDay = countryPlan?.capture_day ?? 4;
   const captureAbsHour = status === "occupied" ? toAbsoluteHour(captureDay, 0) : undefined;
+  return { countryId, country, doctrine, status, captureAbsHour, demands: countryPlan?.demands ?? [] };
+}
+
+// Every country's demands are loaded regardless of RP_COUNTRY — computing the
+// coalition-wide eco weight (below) needs every homeland country's demand list,
+// even when only one country's HTML is being written this run. This is cheap
+// (no beam search) so it doesn't reintroduce the cost of a full coalition run.
+const allPlanCountryIds = Object.keys(plan.countries);
+const countryContexts = new Map<string, CountryContext>(
+  allPlanCountryIds.map(id => [id, loadCountryContext(id)]),
+);
+
+// Coalition-wide eco weights (Bug 2 fix): every homeland country's eco beam is
+// weighted by the AGGREGATE coalition demand, not its own narrow demand list —
+// see computeCoalitionPlanWeights's docstring for why (a country whose own force
+// plan barely touches a resource still needs to invest in it if the shared pool
+// needs it badly, e.g. Italy's electronics-tile city for India/Japan's SASF/UAV
+// demand). The eco beam's own scoring is otherwise fully unconditional/undamped —
+// this only changes which weights it's handed.
+console.log("[coalition] computing coalition-wide eco weights (aggregate demand across every homeland country)...");
+function buildCoalitionEcoWeights(): PlanWeights {
+  return computeCoalitionPlanWeights(
+    Array.from(countryContexts.values())
+      .filter(ctx => ctx.status === "homeland")
+      .map(ctx => {
+        const { activeDemands } = classifyDemands(ctx.demands, ctx.doctrine, catalog);
+        return {
+          doctrine: ctx.doctrine,
+          demands: activeDemands.map(d => ({ unitId: d.unitId, effectiveCount: Math.ceil(d.count / getBatchSize(d.unitId, catalog)) })),
+        };
+      }),
+    catalog, plan.truce_days,
+  );
+}
+const baseCoalitionEcoWeights = buildCoalitionEcoWeights();
+console.log(`  ${(Object.entries(baseCoalitionEcoWeights) as [Resource, number][]).map(([r, w]) => `${r}=${w.toFixed(2)}`).join(", ")}`);
+
+/**
+ * @param ecoWeights Weights fed to Unit 1.5's eco beam — defaults to the base
+ *   coalition-wide weights; round 2 (see main loop) passes deficit-boosted weights.
+ * @param ecoOverride When supplied, skips re-running the (expensive) eco beam
+ *   search entirely and uses this result instead (round 2's targeted re-run
+ *   already produced it — see the main loop), so flip point/backfill/balance are
+ *   all recomputed consistently without redoing the whole-country beam search.
+ */
+function analyseCountry(countryId: string, ecoWeights: PlanWeights = baseCoalitionEcoWeights, ecoOverride?: CountryEcoBeamResult): CountryAnalysis {
+  const ctx = countryContexts.get(countryId) ?? loadCountryContext(countryId);
+  const { country, doctrine, status, captureAbsHour, demands } = ctx;
 
   console.log(`[${countryId}] running actual eco build (Unit 1.5) + force projection (status=${status})...`);
 
-  const demands = countryPlan?.demands ?? [];
   const { activeDemands } = classifyDemands(demands, doctrine, catalog);
+  // Unit 2's fold-in (computeCountryForceProjection below) keeps using this
+  // country's own plan weights — a genuinely country-scoped decision (RO
+  // level/city assignment cost comparisons), unrelated to shared-pool priorities.
   const planWeights = computePlanWeights(
     activeDemands.map(d => ({ unitId: d.unitId, effectiveCount: Math.ceil(d.count / getBatchSize(d.unitId, catalog)) })),
     catalog, doctrine, plan.truce_days,
   );
-
-  // Unit 1.5: the "actual eco build" — Unit 1's beam engine, weighted by the force
-  // plan's real resource footprint, with relocate_headquarters capped to at most
-  // one city. This is what drives Unit 3's cost/income accounting below. Unit 1's
-  // own unconstrained/theoretical run (smoke:eco-plan) is intentionally not used
-  // here — it's a per-city-isolated reference ceiling, not the real plan.
-  const actualEco = runActualEcoBuild(
+  // Unit 1.5: the "actual eco build" — Unit 1's beam engine, weighted by
+  // `ecoWeights` (coalition-wide by default; deficit-boosted in round 2 — see the
+  // main loop), with relocate_headquarters capped to at most one city. This is what drives Unit 3's
+  // cost/income accounting below. Unit 1's own unconstrained/theoretical run
+  // (smoke:eco-plan) is intentionally not used here — it's a per-city-isolated
+  // reference ceiling, not the real plan.
+  const actualEco = ecoOverride ?? runActualEcoBuild(
     country, scenario, buildings,
     { hoursToSimulate, beamWidth, topN, unconstrained: true },
-    status, captureAbsHour, planWeights,
+    status, captureAbsHour, ecoWeights,
   );
   const actualEcoResultsByCity = new Map<string, CityEcoResult>(
     actualEco.cityResults.map(r => [r.cityId.slice(r.cityId.indexOf(":") + 1), r]),
@@ -176,6 +237,34 @@ function analyseCountry(countryId: string): CountryAnalysis {
     maxRoLevel,
     planWeights,
     actualEcoResultsByCity,
+  });
+
+  // Phase 2 (Bug 1): re-simulate hourly production for any city with backfilled
+  // steps (guaranteed builds pulled forward into idle eco-phase time), so the
+  // balance sheet credits their real production bonus (e.g. recruiting_office's
+  // manpower bonus) at their real, earlier completion hour — instead of ecoIncome
+  // only ever reflecting the beam's own organically-chosen actions. Does not
+  // change ecoBuildCost (below) or forceProjection.costs — those already cost the
+  // full required levels regardless of build timing (formula-based, see
+  // country-force-projection.ts), so crediting backfilled cost there too would
+  // double-count it.
+  const captureRelHour = captureAbsHour !== undefined ? Math.max(0, captureAbsHour - scenarioAbsHour) : 0;
+  const resimulatedCityResults: CityEcoResult[] = actualEco.cityResults.map(cityResult => {
+    const bareCityId = cityResult.cityId.slice(cityResult.cityId.indexOf(":") + 1);
+    const slot = forceProjection.citySlots.find(s => s.cityId === bareCityId);
+    if (!slot || slot.ecoBackfillSteps.length === 0) return cityResult;
+
+    const extraActions = slot.ecoBackfillSteps.map(step => ({
+      cityId: cityResult.cityId,
+      buildingId: step.buildingId as BuildingId,
+      targetLevel: step.toLevel,
+      startHour: step.startHour - scenarioAbsHour,
+    }));
+    const hourlyCityProduction = resimulateHourlyProductionWithExtraActions(
+      country, bareCityId, status, scenario, buildings,
+      cityResult.bestActions, extraActions, hoursToSimulate, captureRelHour,
+    );
+    return { ...cityResult, hourlyCityProduction };
   });
 
   const ecoBuildCost: ResourceCost = {};
@@ -198,7 +287,7 @@ function analyseCountry(countryId: string): CountryAnalysis {
     catalog,
     scenarioAbsHour,
     hoursToSimulate,
-    cityResults: actualEco.cityResults,
+    cityResults: resimulatedCityResults,
     forceProjection,
     ecoBuildCost,
     garrisonUpkeep,
@@ -284,6 +373,12 @@ function renderCombinedInfraSection(analysis: CountryAnalysis): string {
           rows.push({ absHour: (a.startHour ?? 0) + scenarioAbsHour, step: `[eco] ${a.buildingId.replaceAll("_", " ")} L${a.targetLevel}` });
         }
       }
+      // Guaranteed post-flip builds (e.g. recruiting_office L2) pulled forward into
+      // otherwise-idle eco-phase queue time — never in bestActions (the beam never
+      // organically chose them), so rendered from their own source, not credited levels.
+      for (const b of slot.ecoBackfillSteps) {
+        rows.push({ absHour: b.startHour, step: `[eco-backfill] ${b.name}` });
+      }
       rows.push({ absHour: slot.flipPointAbsHour, step: `→ FLIP — eco to military` });
       for (const s of slot.infraSteps) {
         rows.push({ absHour: s.startHour, step: `[infra] ${s.name}` });
@@ -337,7 +432,7 @@ function renderBuildPlanHtml(analysis: CountryAnalysis): string {
 
   // 3. Combined infrastructure build (eco + mob)
   html += `<h2>Infrastructure Build (eco + military, combined per city)</h2>\n`;
-  html += `<p class="label">Eco steps shown only up to each city's flip point (credited toward the military chain, matching what buildCityInfraStepsFromEco actually skips); "→ FLIP" marks the switch to military infra; mob queue follows.</p>\n`;
+  html += `<p class="label">Eco steps shown only up to each city's flip point (credited toward the military chain, matching what buildCityInfraStepsFromEco actually skips); "[eco-backfill]" steps are guaranteed post-flip builds pulled forward into otherwise-idle eco-phase queue time; "→ FLIP" marks the switch to military infra; mob queue follows.</p>\n`;
   html += renderCombinedInfraSection(analysis);
 
   // 4. Force projection
@@ -378,21 +473,90 @@ fs.mkdirSync(path.resolve("tmp"), { recursive: true });
 
 const countryIds = countryFilter === "all" ? Object.keys(plan.countries) : [countryFilter];
 
-const countryBalances: CountryResourceBalance[] = [];
-for (const countryId of countryIds) {
-  const analysis = analyseCountry(countryId);
-  countryBalances.push(analysis.balance);
-
+function writeCountryHtml(countryId: string, analysis: CountryAnalysis): void {
   const bpHtml = buildHtml(`Build Plan — ${analysis.balance.countryName}`, renderBuildPlanHtml(analysis));
   const bpOutPath = path.resolve(`tmp/bp-${countryId}.html`);
   fs.writeFileSync(bpOutPath, bpHtml, "utf8");
   console.log(`  → wrote ${bpOutPath}`);
 }
 
+// Round 1: every plan country (regardless of RP_COUNTRY — the deficit check below
+// needs the real coalition-wide balance), base coalition-wide eco weights. Writes
+// each RP_COUNTRY-selected country's HTML immediately as it completes (rather than
+// waiting for the whole run) so progress is visible on disk; round 2 (below)
+// re-writes it again for any country it actually boosts.
+console.log("[coalition] round 1: eco build + force projection (base coalition weights) for every plan country...");
+const round1 = new Map<string, CountryAnalysis>();
+for (const id of allPlanCountryIds) {
+  const analysis = analyseCountry(id);
+  round1.set(id, analysis);
+  if (countryIds.includes(id)) writeCountryHtml(id, analysis);
+}
+const round1Coalition = computeCoalitionResourceBalance(Array.from(round1.values()).map(a => a.balance));
+
+const round1GrossAvailable: Record<Resource, number> = zeroResources();
+for (const r of POOLED_RESOURCES) round1GrossAvailable[r] = round1Coalition.pooledEcoIncome[r] + round1Coalition.pooledStartingBalance[r];
+const boostedEcoWeights = boostWeightsFromDeficit(baseCoalitionEcoWeights, round1Coalition.netPooledBalance, round1GrossAvailable);
+const deficitResources = new Set(POOLED_RESOURCES.filter(r => round1Coalition.netPooledBalance[r] < 0));
+console.log(`[coalition] round 1 deficits (boost-eligible): ${[...deficitResources].join(", ") || "none"}`);
+
+// Round 2: boost-only correction — for any country with a city whose native
+// resource is in a real, already-simulated deficit, re-run JUST that city's beam
+// with deficit-boosted weights (never reduces any weight elsewhere), then redo
+// flip point/backfill/balance for that country against the boosted reality.
+// Countries with no deficit-resource city are left exactly as round 1 produced.
+const finalAnalyses = new Map<string, CountryAnalysis>();
+for (const [countryId, r1] of round1) {
+  const ctx = countryContexts.get(countryId)!;
+  const deficitCities = ctx.status === "homeland"
+    ? ctx.country.cities.filter(c => deficitResources.has(c.resource as Resource))
+    : [];
+  if (deficitCities.length === 0) {
+    finalAnalyses.set(countryId, r1);
+    continue;
+  }
+
+  console.log(`  [${countryId}] round 2: boosting deficit-resource investment in ${deficitCities.map(c => c.id).join(", ")}`);
+  const hqCityId = r1.actualEco.cityResults
+    .find(r => r.bestActions.some(a => a.buildingId === "relocate_headquarters"))
+    ?.cityId.slice(countryId.length + 1);
+
+  const boostedByBareCityId = new Map<string, CityEcoResult>();
+  for (const city of deficitCities) {
+    const rerun = runCityEcoBeam(
+      ctx.country, scenario, buildings,
+      { hoursToSimulate, beamWidth, topN, unconstrained: true, resourceWeights: boostedEcoWeights, hqCityId },
+      ctx.status, city.id, ctx.captureAbsHour,
+    );
+    const result = rerun.cityResults[0];
+    if (result) boostedByBareCityId.set(city.id, result);
+  }
+
+  const mergedCityResults = r1.actualEco.cityResults.map(c => {
+    const bareCityId = c.cityId.slice(c.cityId.indexOf(":") + 1);
+    return boostedByBareCityId.get(bareCityId) ?? c;
+  });
+  const boostedEco: CountryEcoBeamResult = { scenarioAbsHour: r1.actualEco.scenarioAbsHour, cityResults: mergedCityResults };
+  const boostedAnalysis = analyseCountry(countryId, boostedEcoWeights, boostedEco);
+  finalAnalyses.set(countryId, boostedAnalysis);
+  if (countryIds.includes(countryId)) writeCountryHtml(countryId, boostedAnalysis);
+}
+
+const countryBalances: CountryResourceBalance[] = countryIds.map(id => finalAnalyses.get(id)!.balance);
+
 const coalition = computeCoalitionResourceBalance(countryBalances);
 
 let aggBody = `<h1>Coalition Resource Projection</h1>\n`;
 aggBody += `<p class="label">Scenario: ${escapeHtml(scenarioId)} · Plan: ${escapeHtml(planId)} · Deadline: ${fmtAbsHour(deadlineAbsHour)} (${plan.truce_days} days) · Garrison disband day ${garrisonDisbandDay}</p>\n`;
+
+aggBody += `<h2>Coalition Eco Weights</h2>\n`;
+aggBody += `<p class="label">Round 1: every homeland country's eco beam is weighted by this base coalition-wide aggregate demand (Σ mob + avg-upkeep cost across every homeland country's own demands). Round 2: any resource still in real deficit after round 1 (${[...deficitResources].join(", ") || "none"}) gets its weight boosted (never reduced) for cities that produce it, and only those cities' beams are re-run. The beam's own scoring is otherwise unconditional/undamped throughout.</p>\n`;
+aggBody += htmlTable(
+  (Object.entries(baseCoalitionEcoWeights) as [Resource, number][])
+    .sort((a, b) => b[1] - a[1])
+    .map(([r, w]) => ({ resource: r, "round 1 weight": w.toFixed(3), "round 2 weight": (boostedEcoWeights[r] ?? w).toFixed(3) })),
+  ["resource", "round 1 weight", "round 2 weight"],
+);
 
 aggBody += `<h2>Coalition Balance Sheet (pooled resources)</h2>\n`;
 const grossAvailable: Record<Resource, number> = zeroResources();

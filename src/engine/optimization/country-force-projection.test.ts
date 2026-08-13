@@ -209,13 +209,30 @@ test("computeCountryForceProjection credits eco-built levels and forces RO first
   const baselineByCity = new Map(baseline.citySlots.map(s => [s.cityId, s]));
 
   for (const slot of ecoCredited.citySlots) {
-    // RO must be the first infra step whenever RO is actually required (roLevel > 0).
-    if (slot.roLevel > 0 && slot.infraSteps.length > 0) {
-      assert.equal(slot.infraSteps[0].name.startsWith("recruiting office"), true);
+    // RO must be first whenever it's still required and not yet fully backfilled —
+    // checked across the combined, chronologically-sorted backfill+infra sequence,
+    // since RO may now be fully absorbed into ecoBackfillSteps (pulled forward into
+    // idle eco-phase time) rather than appearing in infraSteps at all.
+    if (slot.roLevel > 0) {
+      const combined = [...slot.ecoBackfillSteps, ...slot.infraSteps].sort((a, b) => a.startHour - b.startHour);
+      const roStillNeeded = combined.some(s => s.buildingId === "recruiting_office");
+      if (roStillNeeded) {
+        assert.equal(combined[0].buildingId, "recruiting_office", `RO should be first in the combined backfill+infra sequence for ${slot.cityId}`);
+      }
     }
     // Infra construction starts exactly at the (eco-credited) flip point.
     if (slot.infraSteps.length > 0) {
       assert.equal(slot.infraSteps[0].startHour, slot.flipPointAbsHour);
+    }
+    // Backfilled steps must never duplicate into the post-flip chain (structural
+    // de-dup: once a level is credited via the augmented eco result fed into
+    // computeFlipPoint, buildRemainingChain can no longer emit it).
+    for (const b of slot.ecoBackfillSteps) {
+      assert.ok(
+        !slot.infraSteps.some(s => s.buildingId === b.buildingId && s.toLevel === b.toLevel),
+        `backfilled ${b.buildingId} L${b.toLevel} for ${slot.cityId} must not also appear in infraSteps`,
+      );
+      assert.ok(b.endHour <= slot.flipPointAbsHour, `backfilled step for ${slot.cityId} must complete at or before the flip point`);
     }
 
     // Eco-crediting should never make the chain longer than building from scratch —
@@ -230,5 +247,147 @@ test("computeCountryForceProjection credits eco-built levels and forces RO first
         `eco-credited infra chain for ${slot.cityId} (${ecoTotalHours}h) should not exceed the formula-based chain (${baselineTotalHours}h)`,
       );
     }
+  }
+});
+
+// ── Dead-window cities (SASF + warhead/uav/awacs sharing a queue) ───────────
+
+test("computeCountryForceProjection: India's SASF demand pins to exactly Mumbai/Kolkata/New Delhi, splitting the 34-unit count across them", () => {
+  const scenarioId = "elite/antarctica";
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const catalog = loadMergedUnitCatalogForScenario(scenarioId);
+  const plan = loadScenarioCoalitionPlan(scenarioId, "pnth-v-iron-2026-aug");
+  const country = loadScenarioCountry(scenarioId, "india");
+  const countryPlan = plan.countries.india;
+  const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
+  const deadlineAbsHour = scenarioAbsHour + plan.truce_days * 24;
+
+  const result = computeCountryForceProjection({
+    country, doctrine: country.country.doctrine, status: countryPlan.status,
+    demands: countryPlan.demands,
+    scenario, buildings, catalog,
+    scenarioAbsHour, deadlineAbsHour,
+    truceDays: plan.truce_days,
+    maxRoLevel: 5,
+  });
+
+  const sasfDemand = countryPlan.demands.find(d => d.unitId === "stealth_air_superiority_fighter");
+  assert.ok(sasfDemand, "fixture assumption: India demands stealth_air_superiority_fighter");
+  assert.deepEqual(sasfDemand!.preferred_cities, ["mumbai", "kolkata", "new_delhi"]);
+
+  const sasfSlots = result.citySlots.filter(s => s.primaryUnitId === "stealth_air_superiority_fighter");
+  assert.deepEqual(sasfSlots.map(s => s.cityId).sort(), ["kolkata", "mumbai", "new_delhi"]);
+  const totalSasf = sasfSlots.reduce(
+    (s, slot) => s + slot.mobQueue.filter(e => e.unitId === "stealth_air_superiority_fighter").reduce((s2, e) => s2 + e.count, 0),
+    0,
+  );
+  assert.equal(totalSasf, sasfDemand!.count);
+});
+
+test("computeCountryForceProjection: India's dead-window SASF cities mobilise conventional_warhead well before the primary unit's own readiness, using otherwise-idle mob-queue capacity", () => {
+  const scenarioId = "elite/antarctica";
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const catalog = loadMergedUnitCatalogForScenario(scenarioId);
+  const plan = loadScenarioCoalitionPlan(scenarioId, "pnth-v-iron-2026-aug");
+  const country = loadScenarioCountry(scenarioId, "india");
+  const countryPlan = plan.countries.india;
+  const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
+  const deadlineAbsHour = scenarioAbsHour + plan.truce_days * 24;
+
+  const result = computeCountryForceProjection({
+    country, doctrine: country.country.doctrine, status: countryPlan.status,
+    demands: countryPlan.demands,
+    scenario, buildings, catalog,
+    scenarioAbsHour, deadlineAbsHour,
+    truceDays: plan.truce_days,
+    maxRoLevel: 5,
+  });
+
+  const mumbai = result.citySlots.find(s => s.cityId === "mumbai");
+  assert.ok(mumbai, "fixture assumption: mumbai is a pinned SASF city");
+  const warheadStep = mumbai!.mobSteps.find(s => s.unitId === "conventional_warhead");
+  const sasfStep = mumbai!.mobSteps.find(s => s.unitId === "stealth_air_superiority_fighter");
+  assert.ok(warheadStep, "warhead should have been absorbed into the SASF city's mob queue");
+  assert.ok(sasfStep);
+  assert.ok(
+    warheadStep!.endAbsHour <= sasfStep!.startAbsHour,
+    "warhead must fully mobilise before SASF starts (queue is sequential — this only checks ordering, not the dead-window timing claim below)",
+  );
+  // The real claim: warhead starts near secret_weapons_lab/arms_industry L1
+  // completion, not near the FULL air_base L5 chain completion (which is what
+  // the old shared-infraOpenHour bug would have produced — confirmed empirically
+  // to be around hour 247 before this fix, vs. air_base L5 completing around 193).
+  const secretLabStep = mumbai!.infraSteps.find(s => s.buildingId === "secret_weapons_lab");
+  assert.ok(secretLabStep);
+  assert.ok(
+    warheadStep!.startAbsHour < secretLabStep!.endHour + 50,
+    `warhead should start soon after secret_weapons_lab completes (${secretLabStep!.endHour}), not near the end of the full chain — got ${warheadStep!.startAbsHour}`,
+  );
+});
+
+test("computeCountryForceProjection: India's dead-window build order puts secret_weapons_lab before recruiting_office's remaining levels", () => {
+  const scenarioId = "elite/antarctica";
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const catalog = loadMergedUnitCatalogForScenario(scenarioId);
+  const plan = loadScenarioCoalitionPlan(scenarioId, "pnth-v-iron-2026-aug");
+  const country = loadScenarioCountry(scenarioId, "india");
+  const countryPlan = plan.countries.india;
+  const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
+  const deadlineAbsHour = scenarioAbsHour + plan.truce_days * 24;
+
+  const result = computeCountryForceProjection({
+    country, doctrine: country.country.doctrine, status: countryPlan.status,
+    demands: countryPlan.demands,
+    scenario, buildings, catalog,
+    scenarioAbsHour, deadlineAbsHour,
+    truceDays: plan.truce_days,
+    maxRoLevel: 5,
+  });
+
+  const mumbai = result.citySlots.find(s => s.cityId === "mumbai");
+  assert.ok(mumbai);
+  const secretLabStep = mumbai!.infraSteps.find(s => s.buildingId === "secret_weapons_lab");
+  const roL2Step = mumbai!.infraSteps.find(s => s.buildingId === "recruiting_office" && s.toLevel >= 2);
+  assert.ok(secretLabStep, "fixture assumption: secret_weapons_lab is in Mumbai's infra chain (formula-based, no eco credit in this test)");
+  if (roL2Step) {
+    assert.ok(
+      secretLabStep!.startHour < roL2Step.startHour,
+      "secret_weapons_lab must be scheduled before recruiting_office's remaining levels in a dead-window city",
+    );
+  }
+});
+
+test("computeCountryForceProjection: a non-dead-window city (single unit type queue) keeps the default RO-first build order, unaffected", () => {
+  const scenarioId = "elite/antarctica";
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const catalog = loadMergedUnitCatalogForScenario(scenarioId);
+  const plan = loadScenarioCoalitionPlan(scenarioId, "pnth-v-iron-2026-aug");
+  const country = loadScenarioCountry(scenarioId, "india");
+  const countryPlan = plan.countries.india;
+  const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
+  const deadlineAbsHour = scenarioAbsHour + plan.truce_days * 24;
+
+  const result = computeCountryForceProjection({
+    country, doctrine: country.country.doctrine, status: countryPlan.status,
+    demands: countryPlan.demands,
+    scenario, buildings, catalog,
+    scenarioAbsHour, deadlineAbsHour,
+    truceDays: plan.truce_days,
+    maxRoLevel: 5,
+  });
+
+  // bengaluru/chennai are pure conventional_warhead overflow cities (single unit
+  // type in the queue) — isDeadWindowSlot requires >= 2 distinct unit types, so
+  // these must use the default (RO-first) ordering, not the dead-window one.
+  const warheadOnlyCity = result.citySlots.find(
+    s => s.primaryUnitId === "conventional_warhead" && s.mobQueue.every(e => e.unitId === "conventional_warhead"),
+  );
+  assert.ok(warheadOnlyCity, "fixture assumption: at least one pure-warhead overflow city exists");
+  if (warheadOnlyCity!.infraSteps.length > 0) {
+    assert.equal(warheadOnlyCity!.infraSteps[0].buildingId, "recruiting_office", "non-dead-window cities keep RO first");
   }
 });

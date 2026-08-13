@@ -79,6 +79,7 @@ test("computeCountryResourceBalance: city present in citySlots is flip-truncated
           mobQueue: [],
           infraOpenHour: 2,
           flipPointAbsHour: 2,
+          ecoBackfillSteps: [],
           infraSteps: [],
           mobSteps: [],
         },

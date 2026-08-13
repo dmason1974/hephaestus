@@ -181,6 +181,16 @@ function buildingPoolForCity(
   resourceWeights?: Partial<Record<Resource, number>>,
   hqCityId?: string
 ): EcoCandidateBuildingId[] {
+  // Zero-build baseline for occupied countries in the real (weighted) build path.
+  // `resourceWeights !== undefined` distinguishes this from Unit 1's own unconstrained
+  // theoretical ceiling (eco-plan.ts never sets this key, so it's always `undefined`
+  // there and this branch never fires for it). Full exclusion, not a narrowed list —
+  // the same `!hasWeights || weight >= threshold` unconstrained-fallback below applies
+  // uniformly to every production building, so narrowing to arms_industry/annex_city
+  // alone would leave air_base/naval_base/underground_bunkers exposed to the same bug.
+  if (countryStatus === "occupied" && resourceWeights !== undefined) {
+    return [];
+  }
   const cityId = `${country.country.id}:${city.id}`;
   // Manpower and morale buildings are always candidates.
   const pool: EcoCandidateBuildingId[] = ["military_hospital", "underground_bunkers", "recruiting_office"];

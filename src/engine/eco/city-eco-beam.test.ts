@@ -75,3 +75,38 @@ test("runCityEcoBeam never builds relocate_headquarters in a city that isn't the
   assert.ok(naples);
   assert.equal(naples.bestActions.some(a => a.buildingId === "relocate_headquarters"), false);
 });
+
+test("runCityEcoBeam builds nothing for an occupied country when resourceWeights is supplied (even empty)", () => {
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const country = loadScenarioCountry(scenarioId, "madagascar");
+
+  const result = runCityEcoBeam(
+    country, scenario, buildings,
+    { hoursToSimulate: 400, beamWidth: 10, topN: 3, unconstrained: true, resourceWeights: {} },
+    "occupied", undefined, undefined,
+  );
+
+  for (const city of result.cityResults) {
+    assert.deepEqual(city.bestActions, [], `${city.cityId} should have zero build actions`);
+  }
+});
+
+test("runCityEcoBeam still builds annex_city unconstrained for an occupied country with no resourceWeights key (Unit 1's theoretical ceiling stays untouched)", () => {
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const country = loadScenarioCountry(scenarioId, "madagascar");
+
+  const result = runCityEcoBeam(
+    country, scenario, buildings,
+    { hoursToSimulate: 400, beamWidth: 10, topN: 3, unconstrained: true },
+    "occupied", undefined, undefined,
+  );
+
+  for (const city of result.cityResults) {
+    assert.ok(
+      city.bestActions.some(a => a.buildingId === "annex_city"),
+      `${city.cityId} should still build annex_city when resourceWeights is entirely absent`,
+    );
+  }
+});

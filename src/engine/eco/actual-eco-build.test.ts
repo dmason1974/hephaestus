@@ -69,6 +69,23 @@ test("selectHeadquartersCity respects a scenario-level manual override without r
   assert.equal(selected, "milan");
 });
 
+test("runActualEcoBuild returns zero build actions for every city of an occupied country with empty plan weights", () => {
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const country = loadScenarioCountry(scenarioId, "norway");
+
+  const result = runActualEcoBuild(
+    country, scenario, buildings,
+    { hoursToSimulate: 600, beamWidth: 8, topN: 3, unconstrained: true },
+    "occupied", undefined, {},
+  );
+
+  assert.equal(result.cityResults.length, country.cities.length);
+  for (const city of result.cityResults) {
+    assert.deepEqual(city.bestActions, [], `${city.cityId} should build nothing — a demand-less occupied country must not fall back to unconstrained construction`);
+  }
+});
+
 test("selectHeadquartersCity returns undefined for an occupied country", () => {
   const scenario = loadScenarioFile(scenarioId);
   const buildings = loadBuildingsFile();

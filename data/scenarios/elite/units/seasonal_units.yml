@@ -9,6 +9,115 @@ resources:
   - cash
   - manpower
 units:
+  elite_attack_helicopter:
+    name: Elite Attack Helicopter
+    category: Air
+    doctrine:
+      - eastern
+    levels:
+      "1":
+        requirements:
+          - air_base level 3
+          - secret_weapons_lab level 1
+          - arms_industry level 1
+          - helicopter_gunship level 1
+        research:
+          eastern:
+            unlock_day: 2
+            time:
+              hours: 21
+            cost:
+              supplies: 1200
+              rares: 1325
+              cash: 2625
+        mobilisation:
+          eastern:
+            time:
+              days: 1
+              hours: 4
+            cost:
+              components: 1075
+              manpower: 550
+              electronics: 1125
+              cash: 4200
+        daily_upkeep:
+          eastern:
+            cost:
+              manpower: 60
+              fuel: 60
+              electronics: 50
+              cash: 180
+      "2":
+        requirements:
+          - air_base level 4
+          - secret_weapons_lab level 1
+          - arms_industry level 1
+          - helicopter_gunship level 4
+          - elite_attack_helicopter level 1
+        research:
+          eastern:
+            unlock_day: 10
+            time:
+              days: 1
+              hours: 1
+              minutes: 30
+            cost:
+              supplies: 1925
+              rares: 2125
+              cash: 4200
+        mobilisation:
+          eastern:
+            time:
+              days: 1
+              hours: 7
+            cost:
+              components: 1475
+              manpower: 1000
+              electronics: 1900
+              cash: 6125
+        daily_upkeep:
+          eastern:
+            cost:
+              manpower: 90
+              fuel: 90
+              electronics: 70
+              cash: 200
+      "3":
+        requirements:
+          - air_base level 5
+          - secret_weapons_lab level 1
+          - arms_industry level 1
+          - helicopter_gunship level 6
+          - elite_attack_helicopter level 2
+        research:
+          eastern:
+            unlock_day: 20
+            time:
+              days: 1
+              hours: 6
+              minutes: 45
+            cost:
+              supplies: 3000
+              rares: 3325
+              cash: 5850
+        mobilisation:
+          eastern:
+            time:
+              days: 1
+              hours: 12
+            cost:
+              components: 2000
+              manpower: 1450
+              rares: 750
+              electronics: 2625
+              cash: 7100
+        daily_upkeep:
+          eastern:
+            cost:
+              manpower: 110
+              fuel: 110
+              electronics: 90
+              cash: 230
   deployable_gear:
     name: Deployable Gear
     category: Loadout

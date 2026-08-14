@@ -633,6 +633,8 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 | `motorized_infantry` | ⚠ Western only | `infantry_units.yml`; old flat format with bare `doctrine: Western` string — european/eastern have no data at all. Used as a Western-values placeholder for all doctrines in starting-garrison upkeep calcs (`scenario.yml`'s `starting_units`) pending real screenshots |
 | `tank_veteran` | ✓ Complete | all doctrines; multi-level; armoured_units |
 | `gunship` | ⚠ Inline upkeep only, not a catalog unit | Starting-garrison unit (`scenario.yml`'s `starting_units`), never researched/mobilised by the player — deliberately **not** added to `data/scenarios/elite/units/`. L1 daily upkeep confirmed from screenshots: `manpower: 25, fuel: 25, electronics: 25, cash: 80`, identical for eastern/european; western unconfirmed (borrowed from eastern/european, same value) |
+| `helicopter_gunship` | ✓ Complete | eastern only; `helicopter_units.yml`; 6 levels (real screenshot data); requires `air_base level 1` + `arms_industry level 1` at every level (own-level chain implicit via `helicopter_gunship level N-1`) |
+| `elite_attack_helicopter` | ✓ Complete | eastern only; `seasonal_units.yml`; 3 levels (real screenshot data); requires `air_base L3/4/5` + `secret_weapons_lab L1` + `arms_industry L1` + its own prior level. In-game the research prerequisite is "Any Helicopter (Tier N)" — an OR across `helicopter_gunship`/`attack_helicopter`/`asw_helicopter` that the engine's `requirements` array cannot express (every string is parsed as a mandatory AND, confirmed by tracing all five parsing sites — `unit-research-sim.ts`, `unit-mobilization-plan.ts`, `flip-point-solver.ts`, `joint-city-optimizer.ts`, `country-force-projection.ts` — no OR/alternative syntax exists anywhere). Per user direction, anchored to `helicopter_gunship` specifically (the eastern-doctrine unit actually in play) at levels 1/4/6 for EAH levels 1/2/3 respectively, rather than dropping the gate entirely |
 
 ---
 
@@ -1675,3 +1677,34 @@ stays exactly as Unit 2 computed it — already correctly JIT.
 
 Rebuilt: italy, south_africa, pakistan, new_zealand, australia, russia
 (eco/fp/bp), plus the 12-country coalition aggregate.
+
+## Two New Elite Units — Helicopter Gunship + Elite Attack Helicopter (session, 2026-08-14, continued)
+
+Added from real screenshot data (eastern doctrine only): `helicopter_gunship`
+(`helicopter_units.yml`, 6 levels, requires `air_base level 1` +
+`arms_industry level 1`) and `elite_attack_helicopter`
+(`seasonal_units.yml`, 3 levels, requires `air_base L3/4/5` +
+`secret_weapons_lab L1` + `arms_industry L1`). See the "Elite Unit Catalog
+Status" table for full detail.
+
+**Design question surfaced and resolved**: `elite_attack_helicopter`'s real
+in-game research prerequisite is "Any Helicopter (Tier N)" — an OR across
+three independent unit trees (`helicopter_gunship`, `attack_helicopter`,
+`asw_helicopter`). Traced all five places `requirements` strings get parsed
+(`unit-research-sim.ts`, `unit-mobilization-plan.ts`, `flip-point-solver.ts`,
+`joint-city-optimizer.ts`, `country-force-projection.ts`) and confirmed: every
+element of the array is parsed independently and accumulated as a mandatory
+AND (`Math.max(existing, parsed)` into a dependency map) — there is no OR/
+alternative syntax anywhere in the schema or engine, and an unparseable string
+is silently dropped with no warning. Per user direction, resolved by anchoring
+to `helicopter_gunship` specifically (the eastern-doctrine unit actually in
+play this session) rather than inventing unsupported syntax or silently
+dropping the gate: `elite_attack_helicopter` level 1/2/3 requires
+`helicopter_gunship` level 1/4/6 respectively, confirmed level-by-level by the
+user. If a future session needs true OR-across-units support (e.g. a western
+or european country using `attack_helicopter`/`asw_helicopter` as its base
+instead), that requires a schema/engine change — not present today.
+
+`npm test`: only the 5 pre-existing baseline failures (naval/seasonal empty
+standard-tier catalogs — see "Test Suite — Pre-existing Failures" above), no
+new failures.

@@ -219,11 +219,14 @@ export type EcoBackfillStep = MilitaryInfraStep & {
  * guaranteed future building levels (`requiredLevels`) the eco beam never chose to
  * build because they didn't score positively.
  *
- * Greedy, priority-order, no skip-ahead: walks `orderBuildings`'s ordering and
- * schedules each required level sequentially if its full build time fits before
- * `windowEndAbsHour`; stops entirely at the first level that doesn't fit (a city
- * has one sequential build queue slot — skipping ahead to a smaller lower-priority
- * item would fight the same ordering convention used for the post-flip chain).
+ * Greedy, priority-order walk of `orderBuildings`'s ordering: schedules each
+ * required level sequentially if its full build time fits before
+ * `windowEndAbsHour`. A building whose next level doesn't fit is skipped (not
+ * aborted-from-entirely) so a later, cheaper item in the order — e.g.
+ * `recruiting_office` ordered after a long-pole `air_base` climb in a dead-window
+ * city — still gets a chance to backfill. This can't reorder or double-process
+ * anything: remaining budget only shrinks as the walk proceeds, so a building that
+ * doesn't fit now will never fit later in this same walk either.
  */
 export function computeEcoBackfill(
   cityEcoResult: CityEcoResult,
@@ -245,13 +248,13 @@ export function computeEcoBackfill(
   const steps: EcoBackfillStep[] = [];
   let cur = startHour;
 
-  outer: for (const buildingId of orderedIds) {
+  for (const buildingId of orderedIds) {
     const targetLevel = requiredLevels[buildingId] ?? 0;
     let level = currentLevels[buildingId] ?? 0;
     while (level < targetLevel) {
       const nextLevel = level + 1;
       const dur = buildingLevelHours(buildings, buildingId, nextLevel);
-      if (dur <= 0 || cur + dur > windowEndAbsHour) break outer;
+      if (dur <= 0 || cur + dur > windowEndAbsHour) break;
       steps.push({ buildingId, fromLevel: level, toLevel: nextLevel, buildTimeHours: dur, startHour: cur, endHour: cur + dur });
       cur += dur;
       level = nextLevel;

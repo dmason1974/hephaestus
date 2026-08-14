@@ -53,13 +53,20 @@ test("computeEcoBackfill schedules a guaranteed level that fits in the idle wind
   assert.equal(steps[0].endHour, 126);
 });
 
-test("computeEcoBackfill stops at the first level that doesn't fit and does not skip ahead to a smaller lower-priority item", () => {
+test("computeEcoBackfill skips a building that doesn't fit and still backfills a later, cheaper one", () => {
   // Default order (CHAIN_ORDER) checks arms_industry before recruiting_office.
-  // arms_industry L1 costs 9h; recruiting_office L1 costs only 0.5h and would fit
-  // alone, but must not be scheduled ahead of the higher-priority item that doesn't fit.
+  // arms_industry L1 costs 9h and doesn't fit in the 5h window, but that must not
+  // block recruiting_office L1 (0.5h) — which fits — from being backfilled. Once a
+  // building fails to fit, remaining budget only shrinks, so it's skipped for the
+  // rest of the walk rather than aborting the whole thing.
   const eco = makeEcoResult({ lastEcoBuildCompletionAbsHour: 100 });
   const steps = computeEcoBackfill(eco, { arms_industry: 1, recruiting_office: 1 }, 105, buildings);
-  assert.deepEqual(steps, []);
+  assert.equal(steps.length, 1);
+  assert.equal(steps[0].buildingId, "recruiting_office");
+  assert.equal(steps[0].fromLevel, 0);
+  assert.equal(steps[0].toLevel, 1);
+  assert.equal(steps[0].startHour, 100);
+  assert.equal(steps[0].endHour, 100.5);
 });
 
 test("computeEcoBackfill respects a custom orderBuildings (e.g. RO-first) and schedules multiple levels sequentially", () => {

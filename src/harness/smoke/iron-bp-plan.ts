@@ -45,6 +45,7 @@ import {
   computeCountryForceProjection,
   computeSteppedUpkeep,
   getLevelSteps,
+  getUnitBuildingRequirements,
   type InfraStep,
 } from "../../engine/optimization/country-force-projection.js";
 import { calculateMobilizationCost, calculateUpkeepCost } from "../../engine/optimization/cost-calculator.js";
@@ -211,6 +212,113 @@ const result = computeCountryForceProjection({
   maxRoLevel,
 });
 
+// ── Shifted infra/mob timing (RO2 backfill must genuinely precede the rest of
+// the infra chain; RO3+ is deferred to the end, after secret_weapons_lab) ─────
+//
+// Only RO2 has a standalone benefit from the moment it's built (manpower bonus)
+// — the file's own original design comment already said as much ("Only RO2 is
+// backfilled... it's the one step with a standalone benefit"), even though the
+// code backfilled every hop up to slot.roLevel. RO3+ has no such benefit before
+// it's actually needed, so — per the user's direction — it's deferred to build
+// AFTER secret_weapons_lab instead of being pulled forward with RO2. This
+// matters for feasibility, not just tidiness: pulling RO3 forward (with air_base
+// now starting earlier post the secret_weapons_lab-after-air_base fix) pushed
+// the whole chain's completion past some cities' deadline-anchored SASF mob
+// start; deferring RO3 to the very end shortens the pre-mobilisation chain by
+// RO3's own duration.
+//
+// `chainSteps` (air_base, secret_weapons_lab, then any RO3+ hops last) are
+// genuinely re-sequenced back-to-back starting right after the RO2 backfill —
+// not just uniformly shifted by a delta, since RO3+ moved to a different
+// position in the sequence than Unit 2 originally put it in. Every mob step's
+// start floor — including the primary's — is re-derived from the shifted
+// completion of its own required building: per user direction, a residual gap
+// between the primary's deadline-anchored start and its own (rescheduled)
+// infra completion should just delay the primary by that amount ("that is what
+// will happen in practice") rather than being flagged as a warning. This can
+// only push a start later, never earlier, so it can't turn a feasible plan
+// infeasible.
+type ShiftedSlotTiming = {
+  roStep: InfraStep | undefined;
+  otherSteps: InfraStep[];
+  backfillEndAbsHour: number;
+  mobSteps: (typeof result.citySlots)[number]["mobSteps"];
+};
+
+const shiftedTimingByCity = new Map<string, ShiftedSlotTiming>();
+for (const slot of result.citySlots) {
+  const { completionAbsHour } = ecoStepsAndCompletion(slot.cityId);
+
+  // Eco already credits RO L1. Only the L1→L2 hop is pulled forward as the
+  // backfill (RO2's standalone manpower benefit); any hop beyond L2 (L2→L3,
+  // L3→L4, ...) is deferred — see chainSteps below.
+  const ro2Hop = slot.infraSteps.find((s: InfraStep) => s.buildingId === "recruiting_office" && s.toLevel === 2 && s.toLevel <= slot.roLevel);
+  const deferredRoHops = slot.infraSteps
+    .filter((s: InfraStep) => s.buildingId === "recruiting_office" && s.toLevel > 2 && s.toLevel <= slot.roLevel)
+    .sort((a, b) => a.toLevel - b.toLevel);
+  const roStep: InfraStep | undefined = ro2Hop
+    ? { ...ro2Hop, name: "recruiting office L2", startHour: completionAbsHour, endHour: completionAbsHour + ro2Hop.durH }
+    : undefined;
+  const backfillEndAbsHour = roStep ? roStep.endHour : completionAbsHour;
+
+  // Only reschedule when there's an actual RO2 backfill to place — a city with
+  // RO L1 (no backfill at all, e.g. Japan's AWACS-sharing cities) has nothing to
+  // resolve here, so its otherSteps/mobSteps must stay exactly as Unit 2
+  // computed them. Rescheduling unconditionally (an earlier version of this fix
+  // did) was itself a bug: it forced otherSteps to start at completionAbsHour
+  // even when Unit 2's own original chain already started earlier (or had a
+  // different, already-correct timing this iron-eco-derived value knows nothing
+  // about) — confirmed regressing Japan's already-validated dead-window AWACS
+  // sharing (Tokyo showed an 84h gap that doesn't exist in Unit 2's own output).
+  const rawOtherSteps = slot.infraSteps
+    .filter((s: InfraStep) => s.buildingId !== "recruiting_office" && s.buildingId !== "arms_industry")
+    .sort((a, b) => a.startHour - b.startHour);
+
+  // air_base + secret_weapons_lab (Unit 2's own relative order preserved),
+  // then any deferred RO3+ hops last — re-sequenced back-to-back from
+  // backfillEndAbsHour, not just uniformly shifted (RO3+ changed position).
+  const otherSteps: InfraStep[] = roStep
+    ? (() => {
+        const chainSteps = [...rawOtherSteps, ...deferredRoHops];
+        let cursor = backfillEndAbsHour;
+        return chainSteps.map((s: InfraStep) => {
+          const start = cursor;
+          const end = start + s.durH;
+          cursor = end;
+          return { ...s, name: s.buildingId === "recruiting_office" ? `recruiting office L${s.toLevel}` : s.name, startHour: start, endHour: end };
+        });
+      })()
+    : rawOtherSteps;
+
+  // Mob-start floors only need re-deriving when otherSteps was actually
+  // rescheduled (roStep exists) — otherwise otherSteps is untouched Unit 2
+  // output and slot.mobSteps is already consistent with it. Applies to the
+  // primary unit too now (not just fillers) — per user direction, a small
+  // residual gap between the primary's deadline-anchored mob start and its own
+  // infra chain's (rescheduled) completion should just delay the primary by
+  // that amount rather than being flagged as a warning; this can only push a
+  // start later; never earlier, so it can't turn a feasible plan infeasible.
+  const mobSteps = roStep
+    ? slot.mobSteps
+        .map(m => {
+          const reqs = getUnitBuildingRequirements(m.unitId, catalog, buildings);
+          let readinessFloor = scenarioAbsHour;
+          for (const [buildingId, level] of reqs) {
+            if (buildingId === "recruiting_office" || buildingId === "arms_industry") continue;
+            const step = otherSteps.find((s: InfraStep) => s.buildingId === buildingId && s.toLevel === level);
+            if (step) readinessFloor = Math.max(readinessFloor, step.endHour);
+          }
+          const newStart = Math.max(m.startAbsHour, readinessFloor);
+          return { ...m, startAbsHour: newStart, endAbsHour: newStart + m.durationHours };
+        })
+        // Shifting a filler's start later can change relative ordering — downstream
+        // code (e.g. `mobSteps[0]` as the flip point) assumes ascending start order.
+        .sort((a, b) => a.startAbsHour - b.startAbsHour)
+    : slot.mobSteps;
+
+  shiftedTimingByCity.set(slot.cityId, { roStep, otherSteps, backfillEndAbsHour, mobSteps });
+}
+
 // ── Resource balance inputs ────────────────────────────────────────────────
 
 const hoursToSimulate = plan.truce_days * 24;
@@ -340,14 +448,11 @@ if (feasible) {
   for (const slot of result.citySlots) {
     assignedCityIds.add(slot.cityId);
     const { completionAbsHour } = ecoStepsAndCompletion(slot.cityId);
-    const roStep = slot.infraSteps.find((s: InfraStep) => s.buildingId === "recruiting_office" && s.toLevel === slot.roLevel);
-    const otherSteps = slot.infraSteps.filter(
-      (s: InfraStep) => s.buildingId !== "recruiting_office" && s.buildingId !== "arms_industry"
-    );
+    const { roStep, otherSteps, mobSteps } = shiftedTimingByCity.get(slot.cityId)!;
     if (roStep && roStep.toLevel > 1) addInto(ro2BackfillCost, roStep.cost);
     for (const step of otherSteps) addInto(armyBaseCost, step.cost);
 
-    const flipAbsHour = slot.mobSteps.length > 0 ? slot.mobSteps[0].startAbsHour : completionAbsHour;
+    const flipAbsHour = mobSteps.length > 0 ? mobSteps[0].startAbsHour : completionAbsHour;
     addInto(flipTruncatedCityIncome, cityIncomeThroughFlip(slot.cityId, flipAbsHour - scenarioAbsHour));
   }
 }
@@ -459,13 +564,10 @@ const upkeepPerHourByRelHour: Array<Record<Resource, number>> = Array.from({ len
 if (feasible) {
   for (const slot of result.citySlots) {
     const { completionAbsHour } = ecoStepsAndCompletion(slot.cityId);
-    const roStep = slot.infraSteps.find((s: InfraStep) => s.buildingId === "recruiting_office" && s.toLevel === slot.roLevel);
-    const otherSteps = slot.infraSteps.filter(
-      (s: InfraStep) => s.buildingId !== "recruiting_office" && s.buildingId !== "arms_industry"
-    );
+    const { roStep, otherSteps, mobSteps } = shiftedTimingByCity.get(slot.cityId)!;
     if (roStep && roStep.toLevel > 1) costEvents.push({ hour: completionAbsHour, cost: roStep.cost });
     for (const step of otherSteps) costEvents.push({ hour: step.startHour, cost: step.cost });
-    for (const m of slot.mobSteps) {
+    for (const m of mobSteps) {
       const perUnitHours = m.count > 0 ? (m.endAbsHour - m.startAbsHour) / m.count : 0;
       const perUnitCost = calculateMobilizationCost(m.unitId, 1, 1, catalog, country.country.doctrine);
       for (let i = 0; i < m.count; i++) {
@@ -541,7 +643,8 @@ function incomeAtHour(absHour: number): Record<Resource, number> {
   if (feasible) {
     for (const slot of result.citySlots) {
       const hourly = hourlyProductionByCity.get(`${country.country.id}:${slot.cityId}`) ?? [];
-      const flipAbsHour = slot.mobSteps.length > 0 ? slot.mobSteps[0].startAbsHour : deadlineAbsHour;
+      const shiftedMobSteps = shiftedTimingByCity.get(slot.cityId)?.mobSteps ?? slot.mobSteps;
+      const flipAbsHour = shiftedMobSteps.length > 0 ? shiftedMobSteps[0].startAbsHour : deadlineAbsHour;
       const flipRel = flipAbsHour - scenarioAbsHour;
       const idx = relHour < flipRel ? relHour : Math.max(0, Math.round(flipRel) - 1);
       const prod = hourly[idx] ?? {};
@@ -647,7 +750,7 @@ if (!feasible) {
   html += `</div>\n`;
 
   html += `<h2>Build Plan</h2>\n`;
-  html += `<p class="label">"[eco]" steps are the unchanged iron eco build; "[eco-backfill]" is RO2 pulled forward to the earliest free point (manpower bonus from day 1 of being built, so no benefit to delaying it); "[infra]" steps (e.g. army_base) keep their exact original force-projection timestamps unaltered — they have no standalone benefit, so building them early would only add upkeep for no gain, leaving a genuine idle gap before them. Build Queue (infra) and Mobilisation Queue (units) are genuinely separate parallel queues, shown as separate tables.</p>\n`;
+  html += `<p class="label">"[eco]" steps are the unchanged iron eco build; "[eco-backfill]" is RO2/RO3 pulled forward to the earliest free point (manpower bonus from day 1 of being built, so no benefit to delaying it); "[infra]" steps (e.g. air_base, secret_weapons_lab) keep their original force-projection durations/spacing but are shifted later, as a block, whenever the RO2/RO3 backfill would otherwise overlap them — RO2/RO3 genuinely precedes the rest of the chain rather than running in parallel with it. Build Queue (infra) and Mobilisation Queue (units) are genuinely separate parallel queues, shown as separate tables.</p>\n`;
 
   for (const slot of result.citySlots) {
     const city = country.cities.find(c => c.id === slot.cityId);
@@ -659,39 +762,28 @@ if (!feasible) {
     // Eco already covers RO1 — from-scratch fp chain lists both RO0→1 and RO1→2
     // steps (it doesn't know that), so pick specifically the step that reaches
     // the target roLevel, not just the first recruiting_office step found.
-    const roStep = slot.infraSteps.find((s: InfraStep) => s.buildingId === "recruiting_office" && s.toLevel === slot.roLevel);
-    const otherSteps = slot.infraSteps.filter(
-      (s: InfraStep) => s.buildingId !== "recruiting_office" && s.buildingId !== "arms_industry"
-    );
+    const { roStep, otherSteps, backfillEndAbsHour, mobSteps } = shiftedTimingByCity.get(slot.cityId)!;
 
     // Only RO2 is backfilled to the earliest free point (it's the one step with
     // a standalone benefit — manpower bonus — from the moment it's built). Every
-    // other required step (army_base etc.) has no benefit until it's actually
-    // needed, so building it early would only add upkeep for no gain — keep it
-    // at its exact original force-projection timestamps, unaltered.
-    let backfillEndAbsHour = completionAbsHour;
+    // other required step (air_base, secret_weapons_lab) is shifted later as a
+    // block when it would otherwise overlap the backfill — see
+    // `shiftedTimingByCity` above.
     if (roStep && roStep.toLevel > 1) {
-      const start = completionAbsHour;
-      const end = start + roStep.durH;
-      buildQueueRows.push({ "#": buildQueueRows.length + 1, at: fmtAbsHour(start), step: `[eco-backfill] recruiting office L${roStep.toLevel}` });
-      backfillEndAbsHour = end;
+      buildQueueRows.push({ "#": buildQueueRows.length + 1, at: fmtAbsHour(completionAbsHour), step: `[eco-backfill] recruiting office L${roStep.toLevel}` });
     }
     for (const step of otherSteps) {
       buildQueueRows.push({ "#": buildQueueRows.length + 1, at: fmtAbsHour(step.startHour), step: `[infra] ${step.name}` });
     }
 
-    const flipAbsHour = slot.mobSteps.length > 0 ? slot.mobSteps[0].startAbsHour : backfillEndAbsHour;
-    const mobQueueRows = slot.mobSteps.map((m, i) => ({
+    const flipAbsHour = mobSteps.length > 0 ? mobSteps[0].startAbsHour : backfillEndAbsHour;
+    const mobQueueRows = mobSteps.map((m, i) => ({
       "#": i + 1,
       at: fmtAbsHour(m.startAbsHour),
       step: `[mob] ${m.unitId.replaceAll("_", " ")} ×${m.count}`,
     }));
 
     html += `<h3>${escapeHtml(cityLabel)} — ${escapeHtml(slot.primaryUnitId.replaceAll("_", " "))}, RO L${slot.roLevel}</h3>\n`;
-    const earliestOtherStart = otherSteps.length > 0 ? Math.min(...otherSteps.map((s: InfraStep) => s.startHour)) : undefined;
-    if (earliestOtherStart !== undefined && backfillEndAbsHour > earliestOtherStart) {
-      html += `<p class="infeasible">WARNING: RO2 backfill (ends ${fmtAbsHour(backfillEndAbsHour)}) runs past the original infra start (${fmtAbsHour(earliestOtherStart)}).</p>\n`;
-    }
     html += `<p class="label"><strong>Flip point: ${fmtAbsHour(flipAbsHour)}</strong> — eco/build until then, mobilisation after.</p>\n`;
     html += `<div class="pair">\n`;
     html += `<div><h4>Build Queue</h4>\n`;

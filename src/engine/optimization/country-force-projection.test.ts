@@ -285,7 +285,7 @@ test("computeCountryForceProjection: India's SASF demand pins to exactly Mumbai/
   assert.equal(totalSasf, sasfDemand!.count);
 });
 
-test("computeCountryForceProjection: India's dead-window SASF cities mobilise conventional_warhead well before the primary unit's own readiness, using otherwise-idle mob-queue capacity", () => {
+test("computeCountryForceProjection: India's dead-window SASF cities mobilise uav well before the primary unit's own readiness, using otherwise-idle mob-queue capacity", () => {
   const scenarioId = "elite/antarctica";
   const scenario = loadScenarioFile(scenarioId);
   const buildings = loadBuildingsFile();
@@ -307,23 +307,23 @@ test("computeCountryForceProjection: India's dead-window SASF cities mobilise co
 
   const mumbai = result.citySlots.find(s => s.cityId === "mumbai");
   assert.ok(mumbai, "fixture assumption: mumbai is a pinned SASF city");
-  const warheadStep = mumbai!.mobSteps.find(s => s.unitId === "conventional_warhead");
+  const uavStep = mumbai!.mobSteps.find(s => s.unitId === "uav");
   const sasfStep = mumbai!.mobSteps.find(s => s.unitId === "stealth_air_superiority_fighter");
-  assert.ok(warheadStep, "warhead should have been absorbed into the SASF city's mob queue");
+  assert.ok(uavStep, "uav should have been absorbed into the SASF city's mob queue (merged pinned-demand slot)");
   assert.ok(sasfStep);
   assert.ok(
-    warheadStep!.endAbsHour <= sasfStep!.startAbsHour,
-    "warhead must fully mobilise before SASF starts (queue is sequential — this only checks ordering, not the dead-window timing claim below)",
+    uavStep!.endAbsHour <= sasfStep!.startAbsHour,
+    "uav must fully mobilise before SASF starts (queue is sequential — this only checks ordering, not the dead-window timing claim below)",
   );
-  // The real claim: warhead starts near secret_weapons_lab/arms_industry L1
-  // completion, not near the FULL air_base L5 chain completion (which is what
-  // the old shared-infraOpenHour bug would have produced — confirmed empirically
-  // to be around hour 247 before this fix, vs. air_base L5 completing around 193).
-  const secretLabStep = mumbai!.infraSteps.find(s => s.buildingId === "secret_weapons_lab");
-  assert.ok(secretLabStep);
+  // The real claim: uav starts near air_base L1/arms_industry L1 completion (its
+  // own, much smaller, requirement set), not near the FULL air_base L5 chain
+  // completion SASF itself needs (which is what the old shared-infraOpenHour bug
+  // would have produced).
+  const airBaseL5Step = mumbai!.infraSteps.find(s => s.buildingId === "air_base" && s.toLevel >= 5);
+  assert.ok(airBaseL5Step);
   assert.ok(
-    warheadStep!.startAbsHour < secretLabStep!.endHour + 50,
-    `warhead should start soon after secret_weapons_lab completes (${secretLabStep!.endHour}), not near the end of the full chain — got ${warheadStep!.startAbsHour}`,
+    uavStep!.startAbsHour < airBaseL5Step!.endHour,
+    `uav should start well before air_base L5 completes (${airBaseL5Step!.endHour}), not near the end of the full chain — got ${uavStep!.startAbsHour}`,
   );
 });
 

@@ -37,13 +37,22 @@ countries:
         # resource types the coalition eco weights already flag as highest-priority
         # non-cash need, so the arms_industry/air_base build these cities do for
         # SASF doubles as real eco investment. Lets Sendai/Tokyo/Fujisawa's
-        # mobilisation queue produce AWACS (needs only air_base L4) during the long
-        # air_base L5 climb instead of sitting idle.
+        # mobilisation queue produce AWACS (needs only air_base L4) + fixed_wing_veteran
+        # during the long air_base L5 climb instead of sitting idle.
         preferred_cities: [tokyo, fujisawa, sendai]
+        # Forces RO3 here even though SASF alone would settle for RO1 — needed so
+        # AWACS (pinned below, sharing these same three cities) has enough
+        # mobilisation throughput; ditches the separate air_base L4 investment
+        # Oita (fuel) previously needed as a dedicated AWACS city.
+        min_ro: 3
       - unitId: awacs
         count: 8
+        preferred_cities: [tokyo, fujisawa, sendai]
       - unitId: fixed_wing_veteran
         count: 1
+        # Pinned to Tokyo (capital), mobilising alongside SASF/AWACS in the same
+        # dead-window queue.
+        preferred_cities: [tokyo]
 
   russia:
     # Eastern — Moscow: components pop6, air_base 1
@@ -88,17 +97,36 @@ countries:
         count: 34
         # Split across Mumbai + Kolkata (supplies) + New Delhi (electronics) — same
         # rationale as Japan above. Lets these cities' mobilisation queue produce
-        # conventional_warhead (needs only secret_weapons_lab L1 + arms_industry L1,
-        # no air_base at all) during the long air_base L5 climb instead of idling.
+        # fixed_wing_veteran + uav (both need only air_base L1, no secret_weapons_lab)
+        # during the long air_base L5 climb instead of idling. conventional_warhead
+        # deliberately moved OFF these cities (see below) — it only needs
+        # secret_weapons_lab, not air_base, so it doesn't need to share this
+        # particular dead window and was starving RO2/RO3 backfill here.
         preferred_cities: [mumbai, kolkata, new_delhi]
       - unitId: fixed_wing_veteran
         count: 1
+        # Pinned to New Delhi, mobilised first (ahead of SASF): only needs
+        # air_base L1 + recruiting_office L1, both of which New Delhi builds anyway
+        # as an early byproduct of its own air_base climb toward L5 for SASF — no
+        # dedicated air_base investment needed in Hyderabad (rares, lowest-weighted
+        # resource) purely for this one unit.
+        preferred_cities: [new_delhi]
       - unitId: uav
         count: 15
+        # Moved off Ahmedabad (now a pure conventional_warhead city, see below) into
+        # the dead-window capacity conventional_warhead vacated in the SASF cities.
+        preferred_cities: [mumbai, kolkata, new_delhi]
       - unitId: conventional_cruise_missile
         count: 120
+      - unitId: ballistic_missile
+        count: 120  # placeholder, mirrored from conventional_cruise_missile's count — not a confirmed target, flag for review
       - unitId: conventional_warhead
         count: 240  # batch_size: 4 — 60 mobilisation slots; enough warheads for 120 missiles (2 each) at game start
+        # Moved exclusively to the fuel/components-tile cities (20 slots each) —
+        # frees Mumbai/Kolkata/New Delhi's dead-window capacity entirely for
+        # fixed_wing_veteran + uav instead, and removes the RO2/RO3-starvation
+        # pressure at its root for those three cities.
+        preferred_cities: [bengaluru, chennai, ahmedabad]
 
   # Chosen on economics (2)
   australia:

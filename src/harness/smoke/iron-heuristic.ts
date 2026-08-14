@@ -2,13 +2,15 @@
 // identically by iron-eco-plan.ts and iron-bp-plan.ts. Kept in one place so the two
 // scripts can't drift now that they're run per-country in a loop.
 
-// supplies/electronics/rares cities → RO1, then arms_industry straight to L5.
-// components/fuel cities → RO1, then arms_industry to a lower target only. Nothing
-// else in either case — no beam continuation for this heuristic.
+// supplies/electronics cities → RO1, then arms_industry straight to L5. rares
+// cities → RO1, then arms_industry to L3 only (per user direction — rares is
+// capped lower than supplies/electronics, applied across the air builds and the
+// MRL builds alike). components/fuel cities → RO1, then arms_industry to a lower
+// target only. Nothing else in any case — no beam continuation for this heuristic.
 export const AI_TARGET_BY_RESOURCE: Record<string, number> = {
   supplies: 5,
   electronics: 5,
-  rares: 5,
+  rares: 3,
   components: 2,
   fuel: 1,
 };

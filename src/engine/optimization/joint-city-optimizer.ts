@@ -735,7 +735,7 @@ function estimateRoLevelForFixedCityCount(
  * @param deadlineAbsHour  Absolute hour of the truce deadline.
  */
 export function foldInDemands(
-  demands: Array<{ unitId: string; effectiveCount: number; preferredCities?: string[] }>,
+  demands: Array<{ unitId: string; effectiveCount: number; preferredCities?: string[]; minRo?: number }>,
   cityIds: string[],
   catalog: UnitCatalog,
   buildings: BuildingsFile,
@@ -763,7 +763,11 @@ export function foldInDemands(
   for (const demand of pinnedDemands) {
     const { unitId, effectiveCount, preferredCities } = demand;
     const numCities = preferredCities!.length;
-    const minRo = getUnitMinRo(unitId, catalog);
+    // Plan-level override (Demand.min_ro) can force a higher RO floor than this
+    // demand alone would ever pick — needed when a later, separately-pinned
+    // demand (e.g. awacs) will share this same city and needs more RO
+    // throughput than the first demand (e.g. SASF) requires by itself.
+    const minRo = Math.max(getUnitMinRo(unitId, catalog), demand.minRo ?? 0);
     const est = estimateRoLevelForFixedCityCount(
       unitId, effectiveCount, numCities, minRo, maxRoLevel,
       scenarioAbsHour, deadlineAbsHour, catalog, buildings, doctrine, moraleAtAbsHour, planWeights,
@@ -776,6 +780,30 @@ export function foldInDemands(
       const allocated = ci === numCities - 1
         ? effectiveCount - unitsPerCity * (numCities - 1)
         : unitsPerCity;
+
+      // Two pinned demands can name the same city (e.g. SASF and uav both pinned
+      // to mumbai) — merge into the existing slot's shared queue via the same
+      // absorption machinery the unpinned path uses (including its dead-window
+      // capacity cap), rather than pushing a second, duplicate CityMobSlot for the
+      // same cityId. Without this, dead-window sharing between two *pinned*
+      // demands silently doesn't happen — each ends up in its own disconnected
+      // slot instead of one shared mob queue.
+      const existingSlotIdx = citySlots.findIndex(s => s.cityId === cid);
+      if (existingSlotIdx !== -1) {
+        const options = evaluateAbsorptionOptions(
+          citySlots, unitId, allocated, minRo, catalog, buildings, doctrine, moraleAtAbsHour, planWeights, maxRoLevel, scenarioAbsHour,
+        ).filter(o => o.slotIdx === existingSlotIdx);
+        if (options.length > 0) {
+          const opt = options[0];
+          applyAbsorption(
+            citySlots[opt.slotIdx], unitId, Math.min(opt.nAbsorbable, allocated), opt.insertIdx, opt.neededRo,
+            catalog, buildings, doctrine, moraleAtAbsHour, planWeights, scenarioAbsHour,
+          );
+        }
+        usedCityIds.add(cid);
+        continue;
+      }
+
       citySlots.push(buildNewSlot(
         cid, unitId, allocated, roLevel,
         catalog, buildings, doctrine, moraleAtAbsHour, planWeights,

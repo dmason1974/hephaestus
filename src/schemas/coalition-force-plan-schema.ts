@@ -19,6 +19,12 @@ const demandSchema = z
     // count evenly across them, instead of the default cost-driven city search in
     // foldInDemands. Optional — city assignment stays fully automatic when absent.
     preferred_cities: z.array(z.string().min(1)).min(1).optional(),
+    // Overrides the recruiting_office level a pinned demand's city search floors
+    // at (estimateRoLevelForFixedCityCount otherwise picks the cheapest RO level
+    // that fits this demand's own count, unaware another demand may later share
+    // the same city and need more RO throughput than this demand alone would
+    // ever choose). Only meaningful alongside preferred_cities.
+    min_ro: z.number().int().min(1).max(5).optional(),
   })
   .strict();
 

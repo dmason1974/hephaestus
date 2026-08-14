@@ -172,7 +172,8 @@ units:
       - european
     levels:
       "1":
-        requirements: []
+        requirements:
+          - ballistic_missile level 1
         warheads_per_launch: 1
         research:
           # Research program: Gryphon
@@ -382,5 +383,53 @@ units:
           european:
             cost: {}
 
-  # TODO: Ballistic Missile, ICBM — data pending screenshots.
+  ballistic_missile:
+    name: Ballistic Missile
+    category: Missile
+    doctrine:
+      - western
+      - eastern
+      - european
+    levels:
+      "1":
+        requirements:
+          - conventional_warhead level 1
+        warheads_per_launch: 1
+        research:
+          # Research program: Scud. Confirmed doctrine-generic (same values across
+          # western/eastern/european) by the user — not a placeholder.
+          western:
+            unlock_day: 2
+            time: { hours: 21 }
+            cost: { supplies: 2250, fuel: 2500, cash: 7000 }
+          eastern:
+            unlock_day: 2
+            time: { hours: 21 }
+            cost: { supplies: 2250, fuel: 2500, cash: 7000 }
+          european:
+            unlock_day: 2
+            time: { hours: 21 }
+            cost: { supplies: 2250, fuel: 2500, cash: 7000 }
+        mobilisation:
+          # Not mobilised as a unit — warhead consumption model pending schema
+          # extension (see TODO below). Structural placeholder, same pattern as
+          # conventional_cruise_missile.
+          western:
+            time: { minutes: 0 }
+            cost: {}
+          eastern:
+            time: { minutes: 0 }
+            cost: {}
+          european:
+            time: { minutes: 0 }
+            cost: {}
+        daily_upkeep:
+          western:
+            cost: {}
+          eastern:
+            cost: {}
+          european:
+            cost: {}
+
+  # TODO: Ballistic Missile levels 2+, ICBM — data pending screenshots.
   # TODO: Pershing I (Conventional Ballistic Missile) — warhead consumption cost needs schema extension.

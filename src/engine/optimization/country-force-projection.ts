@@ -201,23 +201,37 @@ function isStrictRequirementSubset(small: Map<string, number>, big: Map<string, 
  * — NOT a global replacement of `makeInfraOrderBuildings`, per this session's
  * decision; see CLAUDE.md for the note on reconsidering a global default later).
  *
- * `secret_weapons_lab` moves to the front (right after whatever recruiting_office
- * progress the eco phase already credited — see below) instead of sorting last
- * under `ecoScore` (it has no production_bonus_pct, so it always scored worst
- * under the default rule): this is what unlocks warhead-mobilisation-eligibility
- * (or any other secret_weapons_lab-gated filler) as early as possible. Everything
- * else (arms_industry, air_base) is still ecoScore-ordered, same as the default.
+ * `secret_weapons_lab` is ecoScore-ordered along with `arms_industry`/`air_base`
+ * (not front-loaded ahead of them): it has no `production_bonus_pct`, so it always
+ * sorts after both, which have real eco value while being built. An earlier
+ * version of this function front-loaded `secret_weapons_lab` specifically to
+ * unlock `conventional_warhead`'s mobilisation-eligibility as early as possible —
+ * but that only matters when a filler sharing the queue actually needs
+ * `secret_weapons_lab`, and per the user's direction this is deliberately *not*
+ * conditioned on that: AI (arms_industry) levels are currently set
+ * deterministically per city (not derived per-filler), and warhead-producing
+ * cities have a low deterministic AI target anyway (fuel: L1 only; components:
+ * L1→L2 — see `AI_TARGET_BY_RESOURCE` in `iron-heuristic.ts`), so deferring
+ * `secret_weapons_lab` until after the eco-benefit buildings costs little there
+ * even though warhead does need it. Applies uniformly regardless of whether a
+ * city is SASF-producing or warhead-producing.
  * `recruiting_office` moves to the END instead of the front.
  *
  * Why moving RO to the end doesn't delay its day-1 manpower benefit: RO L1 is
  * already forced as the very first ECO-PHASE action (`forceRO` in
  * `city-eco-beam.ts`, unconditional whenever resourceWeights is supplied) —
- * entirely upstream of this ordering function, which only governs the POST-FLIP
- * *remaining* chain. By the time this function runs, RO is normally already
- * credited to L1 (see `buildCityInfraStepsFromEco`'s crediting), so "RO last"
- * here almost always only defers L2+, not L1 — matching "RO1 first, RO2+ last"
- * without needing to split one building's level range into two ordering
- * positions (which `orderBuildings`'s ids-permutation shape can't express).
+ * entirely upstream of this ordering function. By the time this function runs, RO
+ * is normally already credited to L1 (see `buildCityInfraStepsFromEco`'s
+ * crediting), so "RO last" here almost always only defers L2+, not L1 — matching
+ * "RO1 first, RO2+ last" without needing to split one building's level range into
+ * two ordering positions (which `orderBuildings`'s ids-permutation shape can't
+ * express).
+ *
+ * This ordering governs BOTH the eco-backfill pass and the post-flip remaining
+ * chain — `buildCityInfraStepsFromEco` feeds the same `orderBuildings` into both
+ * `computeEcoBackfill` and `computeFlipPoint`/`buildRemainingChain` (an earlier
+ * version of this comment claimed backfill was unaffected; it wasn't — see
+ * `computeEcoBackfill`'s "skip, don't abort" behavior).
  * Known gap: the formula-based fallback path (`buildCityInfraSteps`, used only
  * when a city has no Unit 1.5 eco result) has no eco-phase RO credit, so in that
  * fallback specifically RO L1 would also be deferred — an accepted, minor
@@ -234,8 +248,7 @@ function makeDeadWindowOrderBuildings(weights: PlanWeights, buildings: Buildings
       + (l1.flat_bonus?.manpower ?? 0) * mpWeight / 1000;
   }
   return (ids: string[]) => [
-    ...ids.filter(id => id === "secret_weapons_lab"),
-    ...ids.filter(id => id !== "secret_weapons_lab" && id !== "recruiting_office").sort((a, b) => ecoScore(b) - ecoScore(a)),
+    ...ids.filter(id => id !== "recruiting_office").sort((a, b) => ecoScore(b) - ecoScore(a)),
     ...ids.filter(id => id === "recruiting_office"),
   ];
 }
@@ -722,6 +735,7 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
       unitId: d.unitId,
       effectiveCount: Math.ceil(d.count / getBatchSize(d.unitId, catalog)),
       preferredCities: d.preferred_cities,
+      minRo: d.min_ro,
     })),
     countryAllCityIds,
     catalog,
@@ -742,6 +756,24 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
   for (const { demand, effectiveCount } of demandResults) {
     const uid = demand.unitId;
     unitDemandCounts[uid] = effectiveCount;
+    researchTargets[uid] = determineMaximumFeasibleLevel(
+      catalog, uid,
+      { ...scenario, truce_length_days: truceDays },
+      { deadlineAbsoluteHour: deadlineAbsHour, doctrine, slots: 1 },
+    ).maxLevel;
+  }
+
+  // Launcher-platform units (e.g. missiles) are never mobilised — correctly
+  // excluded from activeDemands/foldInDemands above — but they still have real
+  // research data and are needed to make the warheads they fire usable. Feed them
+  // into the research schedule too, without a latestCompletionByUnitLevel L1
+  // anchor (they have no city mob-queue to derive one from): their impact score
+  // (mob + upkeep, both zero) is minimal, so the existing "higher weight → more
+  // deferred" priority rule should schedule them early relative to real-upkeep
+  // units on its own.
+  for (const demand of launcherDemands) {
+    const uid = demand.unitId;
+    unitDemandCounts[uid] = demand.count;
     researchTargets[uid] = determineMaximumFeasibleLevel(
       catalog, uid,
       { ...scenario, truce_length_days: truceDays },
@@ -818,9 +850,19 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
     const firstL1EndForJit = combinedResearch.segments.find(
       s => s.unitId === firstEntry?.unitId && s.level === 1,
     )?.endAbsoluteHourExclusive ?? deadlineAbsHour;
+    // A non-dead-window queue that's entirely zero-upkeep (e.g. a pure
+    // conventional_warhead overflow city) gains nothing from deadline-JIT-anchoring
+    // — there's no upkeep-days to save by delaying, and doing so strands the city
+    // idle for however long remains between its infra finishing and the deadline-
+    // anchored target, even after the eco phase has exhausted every profitable
+    // action. Drop the deadline term in that case so the flip point (derived from
+    // firstMobStart below) lands as early as infra/research allow instead.
+    const allZeroUpkeep = slot.mobQueue.every(e => e.upkeepRateScalar === 0);
     const firstMobStart = deadWindow
       ? Math.max(slot.infraOpenHour, deadlineAbsHour - primaryTotalHours, primaryL1End)
-      : Math.max(slot.infraOpenHour, deadlineAbsHour - slot.usedHours, firstL1EndForJit);
+      : allZeroUpkeep
+        ? Math.max(slot.infraOpenHour, firstL1EndForJit)
+        : Math.max(slot.infraOpenHour, deadlineAbsHour - slot.usedHours, firstL1EndForJit);
 
     function buildChain(extra?: Partial<Record<string, number>>): {
       flipPointAbsHour: number; infraSteps: InfraStep[]; ecoBackfillSteps: InfraStep[]; infraDoneHour: number;
@@ -919,7 +961,14 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
         const l1End = combinedResearch.segments.find(
           s => s.unitId === entry.unitId && s.level === 1,
         )?.endAbsoluteHourExclusive ?? deadlineAbsHour;
-        const mobStart = Math.max(infraDoneHour + cumBefore, jitMobStart, l1End);
+        // Zero-upkeep units (e.g. conventional_warhead) have nothing to gain from
+        // deadline-JIT-anchoring — delaying mob start saves no upkeep-days, so
+        // anchoring to jitMobStart here just strands the city idle once the eco
+        // phase has exhausted every profitable/required action, for no benefit.
+        // Start as soon as infra + research allow instead.
+        const mobStart = entry.upkeepRateScalar === 0
+          ? Math.max(infraDoneHour + cumBefore, l1End)
+          : Math.max(infraDoneHour + cumBefore, jitMobStart, l1End);
         const mobEnd = mobStart + entry.totalMobHours;
 
         mobSteps.push({

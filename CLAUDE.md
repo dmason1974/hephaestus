@@ -1062,3 +1062,293 @@ Tasks deferred until after UAT of the current coalition force plan engine output
 8. **Province mobilisation costs** — ✅ Done for **Unit 2** (`force-projection.ts`). New engine module `src/engine/simulation/province-mobilization-plan.ts` (`planProvinceMobilization`): capacity is **one mobilisation slot per province** (same rule as cities; total capacity = country's `provinces.total`), mercenary_outpost build cost/time comes from `data/buildings.yml` (real screenshot data, all 3 levels), mobilisation duration scales with province morale via `effectiveDurationFromMorale` (`src/engine/timing/activity-duration.ts`) then further reduced by mercenary_outpost's country-wide speed bonus. Reuses existing `cost-calculator.ts` functions (`calculateMobilizationCost`, `calculateBuildingCost`, `calculateUpkeepCost`) unmodified — no cost logic duplicated. Wired into `force-projection.ts` in place of the old silent skip; verified end-to-end for Russia's 12 commando (mercenary_outpost L1 build 12h → mobilise 20h → completes hour 32; correct costs and flat upkeep for the remaining truce window). Still ⬜ open for `coalition-force-plan.ts` (three separate skip sites, untouched — superseded harness). **Design decision confirmed**: `combat_outpost` no longer grants a mobilisation speed bonus (already true in `data/buildings.yml` before this session — L1 data had no such field; L2/L3 were simply *missing* from the catalog entirely and have now been added from screenshots, still with no mobilisation-speed field, consistent with the bonus having moved to `mercenary_outpost` at +0/25/50% (L1/L2/L3)).
 
 9. **Flip point now exposed (informational only)** — `force-projection.ts`'s City Mob Build Plans section already computed a correct, whole-queue-aware, JIT-derived infra start time per city (previously an unlabeled local variable, `jitInfraStart`) — it's now explicitly labeled **"Flip point: day X"** in the output. Investigated whether "infra starts at hour 0" (`joint-city-optimizer.ts`'s `infraOpenHour = scenarioAbsHour + totalInfraHours`) was a cost bug — it isn't: `jitStart = Math.max(infraOpenHour, deadlineAbsHour − T)` already always picks the correct latest-feasible value regardless, so no cost numbers changed. Also added a formal `CityMobSlot.flipPointHour` field (computed through absorption too) as a reusable API — a simpler, research-timing-unaware version of the same idea, for future consumers that don't have `combinedResearch.segments` in scope. **✅ Now used to bound/truncate eco income** — `computeCountryForceProjection`'s `flipPointAbsHour` (the research-aware successor to this field) is what Unit 3's `coalition-resource-balance.ts` truncates each city's eco income against, closing the loop this item left open. `CityMobSlot.flipPointHour` itself is still the simpler, research-unaware version, unused by Unit 3.
+
+---
+
+## Iron Pipeline — Hand-Specified, Deterministic Bypass ✅ COVERS ALL 12 PNTH COUNTRIES
+
+### Why This Exists
+
+UAT of the automated coalition-weight eco engine (the beam-search decision-making
+layer — `computeCoalitionPlanWeights` → `runActualEcoBuild` → `boostWeightsFromDeficit`,
+see UAT Round 3 above) found it miscalibrated: under-invests in short resources
+(supplies, electronics), over-invests in resources that are already comfortably
+supplied (fuel, components). Rather than debug the automated decision-making layer
+directly, the user's direction was to build a parallel, **hand-specified** eco
+heuristic — deliberately simple and manually verifiable — reusing the same trusted
+simulation primitives (`scheduleBuildSegments`, `simulateBuildOrder`,
+`simulateProvinceBuildOrder`, and Unit 2's `computeCountryForceProjection`
+**unmodified**) so any discrepancy against the production pipeline's real output is a
+signal about the *beam's decision-making*, not about the underlying simulation math
+(which both pipelines share and both trust).
+
+Deliberately scoped to Italy first for manual validation before rolling out further —
+see the git history / project memory for the original single-country session. This
+session extended it to all remaining 11 PNTH V Iron countries and, along the way,
+found and fixed three real accounting bugs specific to the iron pipeline's own
+hand-rolled aggregation code (not present in the production pipeline, which already
+handled these cases correctly via `coalition-resource-balance.ts`).
+
+### The Heuristic
+
+`src/harness/smoke/iron-heuristic.ts` — shared, resource-keyed (not country-keyed)
+constants used by every iron script:
+
+- **`AI_TARGET_BY_RESOURCE`** (homeland cities): supplies/electronics/rares → RO1 then
+  `arms_industry` straight to L5; components → L1→L2 only; fuel → L1 only. No further
+  buildings — no beam continuation.
+- **`PROVINCE_BUILD_ORDER`** (homeland provinces): supplies cohorts get
+  `L1→L2→L3 local_industry → L1 combat_outpost`; electronics cohorts get
+  `L1→L2 local_industry → L1 combat_outpost → L3 local_industry` (a different order
+  from supplies — both empirically ROI-positive, transcribed from Italy's real beam
+  output). rares/components/fuel/non-resource cohorts: no build, base production only.
+- **`OCCUPIED_AI_TARGET_BY_RESOURCE`** (occupied cities): **only** supplies/electronics
+  cities get any improvement at all — annex then `arms_industry`→L5. Every other
+  resource city (fuel/rares/components) gets **zero** improvements — no annex, stays
+  at the base 25% occupied production rate for the whole window. (First implementation
+  wrongly annexed every city regardless of resource; corrected immediately when the
+  user caught it — "only supply and electronic cities are in scope for annex and arms
+  industries.")
+- **`OCCUPIED_PROVINCE_BUILD_ORDER`**: supplies **and** electronics cohorts both get
+  the *same* sequence (`L1→L2 local_industry → L1 combat_outpost → L3 local_industry`)
+  — unlike the homeland map above, where they differ. Provinces can never be annexed
+  (`ProvinceBuildAction`'s building set is `local_industry`/`combat_outpost`/
+  `mercenary_outpost` only — annexation is a city-only mechanic).
+- **Zero yield before `capture_day`** (occupied countries only, from the plan YAML) —
+  applies to both city and province production. Nothing in
+  `simulateBuildOrder`/`simulateProvinceBuildOrder` enforces this automatically
+  (`cityStatus`/`ProvinceState.cityStatus` only controls the production *rate*, not an
+  on/off "not ours yet" switch) — both `iron-bp-plan.ts` and `iron-occupied-plan.ts`
+  zero it manually, and `BuildAction`/`ProvinceBuildAction`'s `startRelHour` field
+  gates the first build action of each city/province so nothing can even start
+  building before capture.
+
+### The Five Scripts
+
+All read `IRON_SCENARIO` (default `elite/antarctica`) / `IRON_PLAN` (default
+`pnth-v-iron-2026-aug`) / `IRON_COUNTRY` (**required**, no `"all"` batch mode — one
+country per invocation, deliberately, unlike the production harnesses' `_COUNTRY=all`
+convention) from the environment.
+
+1. **`iron-eco-plan.ts`** → `tmp/iron-eco-<country>.html` — eco build only: City Eco
+   Build Plans, Province Eco Build Plans, City Production Summary (full-window gross
+   yield). Homeland only.
+2. **`iron-fp-plan.ts`** → `tmp/iron-fp-<country>.html` — runs the plan's real demands
+   for that country through the **unmodified** Unit 2 engine
+   (`computeCountryForceProjection`), standalone/decoupled (no `planWeights`/
+   `actualEcoResultsByCity` — infra chains build from scratch, not eco-credited).
+   Homeland only.
+3. **`iron-bp-plan.ts`** → `tmp/iron-bp-<country>.html` — the real output; integrates
+   1+2. RO2 (wherever Unit 2 specified it) is backfilled to the earliest point the eco
+   phase's queue is actually free; `arms_industry` from Unit 2's infra chain is
+   dropped (already covered by eco); every other infra step (`army_base` etc.) keeps
+   its exact original Unit 2 timestamps (no standalone benefit, so no reason to build
+   early); mob queue timing is never shifted (stays JIT/deadline-anchored). Also
+   computes a full Resource Balance + hourly cash-flow-walk Resource Minima section.
+   Homeland only.
+4. **`iron-occupied-plan.ts`** → `tmp/iron-eco-<country>.html` **+**
+   `tmp/iron-bp-<country>.html` — eco-only (no force projection at all; occupied
+   countries have no demands), writes both files in one run since there's no
+   separate "fp" stage to merge. Same Resource Balance/Minima shape as `iron-bp-plan.ts`
+   (Starting Balance/Mobilisation/Upkeep hardcoded zero) so the aggregate parses it
+   identically.
+5. **`iron-resource-projection.ts`** → `tmp/iron-resource-projection.html` — the
+   coalition aggregate. **Parses the already-generated `tmp/iron-bp-<country>.html`
+   files rather than recomputing anything** (explicit user direction, see "Design
+   Decision" below) — regex over each file's Resource Balance table, header line,
+   Force Projection demand-label line, and (for the pooled minima — see below) an
+   embedded JSON `<script>` tag. `IRON_COUNTRIES` env var (comma-separated, default
+   `italy,south_africa,pakistan,new_zealand`) selects which countries to pool.
+
+### Design Decision — Parse, Don't Recompute (Then One Deliberate Exception)
+
+First draft of the aggregate re-ran the full eco+force-projection computation for
+every country (extracting `iron-bp-plan.ts`'s internals into a shared module). User
+rejected this: the per-country HTML files already exist and already contain every
+number needed — "it is just a case of reading the iron-bp\<country\>.html and taking
+the info from there." Rebuilt as a small regex parser instead; no HTML-parser
+dependency needed (none exists in this project — this is the project's own
+hand-generated table format, not third-party HTML).
+
+**One deliberate exception**: the Coalition Resource Minima table. Summing each
+country's own minima *value* is not a valid pooled minimum — countries hit their own
+worst hour at wildly different points in the window (confirmed empirically: some
+homeland countries bottom out on day 2, others on day 29, nearly the full 28 days
+apart), so summing them treats simultaneous-alignment as fact when it never happens.
+Per user direction ("recompute properly from source"), `iron-bp-plan.ts` and
+`iron-occupied-plan.ts` now both embed their raw hourly net-flow array as a machine-
+readable `<script type="application/json" id="iron-hourly-net-flow"
+data-scenario-abs-hour="..." data-resource-order="...">` tag — still no engine
+recomputation, just a second, richer data format inside the same already-generated
+files. The aggregate parses this, sums real per-hour deltas across all feasible
+countries (aligned by hour index), and walks the *summed* series to find the true
+minimum, matching how the production pipeline's `computeCoalitionResourceBalance`
+pools `hourlyNetFlow` arrays. **Why this distinction matters**: a negative
+*per-country* minimum is usually resolvable by redistribution from the shared pool —
+not a real constraint. A negative *true pooled* minimum is not resolvable — the whole
+coalition is short at that hour, a genuine constraint on the plan as sequenced. Only
+the latter is worth getting exactly right.
+
+### Three Real Bugs Found and Fixed via UAT This Session
+
+All three were found by the user noticing a number that looked wrong relative to
+another number it should have been comparable to — not by code review. Each led to
+tracing the actual data rather than guessing (the one time a guess was made — that
+India's warhead upkeep was undercounted by a `unitsPerEvent=1` hardcoding bug — it was
+wrong and retracted immediately: `conventional_warhead` has no `daily_upkeep` at all,
+so the bug is real but numerically inert).
+
+1. **Unassigned cities' eco income silently dropped to zero.**
+   `iron-bp-plan.ts`'s `flipTruncatedCityIncome` loop only iterated
+   `result.citySlots` (cities Unit 2's fold-in actually assigned a demand to) — any
+   city not needed for a demand (Japan: 3 of 7 cities; Russia: 3 of 7) earned zero
+   income while its RO1/`arms_industry` build cost was still charged (that loop
+   already covered every city, unconditionally). Surfaced when the user noticed
+   Japan's components net balance was "orders of magnitude" worse than India's for no
+   demand-driven reason — India happens to use all 7 cities, Japan doesn't. Fixed:
+   unassigned cities now contribute full-window (untruncated) income via
+   `cityIncomeThroughFlip(city.id, hoursToSimulate)`, in both the totals and the
+   hourly walk. A new "Eco-Only Cities (no military demand)" section was added to
+   `iron-bp-<country>.html` so every city is visible, not just the assigned ones.
+   Verified: the 6 countries using 7/7 cities (italy/south_africa/pakistan/
+   new_zealand/india/australia) produced byte-identical output before/after — the fix
+   is a genuine no-op where it should be.
+
+2. **Coalition Resource Minima summed each country's own minimum instead of pooling
+   real per-hour data** — see "Design Decision" above for the fix. Result: pooled
+   minima swung from wildly pessimistic phantom deficits (e.g. supplies −69,826,
+   electronics −71,774) to the true walk, where **every pooled resource stays
+   positive across the entire 28-day window** — no genuine insolvency point in the
+   current plan.
+
+3. **Province build/mobilisation costs were entirely missing from the hourly walk.**
+   `costEvents` in both `iron-bp-plan.ts` and `iron-occupied-plan.ts` only ever
+   looped over *city* build segments (RO/annex/`arms_industry`) — province segments
+   were never added, even though `provinceBuildCost` was correctly included in the
+   Resource Balance totals the whole time. Diagnosed with temporary debug
+   instrumentation (`IRON_DEBUG_RECONCILE=1` env var, left in both files — opt-in,
+   harmless) comparing walked income/cost sums against the totals per resource, run
+   against Norway (simplest case: no mob/upkeep/research, isolates the bug to eco
+   income/infra cost only). The cost gap was exactly zero for fuel/rares/electronics
+   but real for supplies/components/cash — an exact fingerprint match to
+   `combat_outpost`/`local_industry`'s actual cost data (those two buildings cost only
+   supplies/components/cash, confirmed in `data/buildings.yml`). A second, much
+   larger instance explained Russia's outlier-sized gap (cash +232,804 vs ~+15,900
+   for similarly-sized countries): province **mobilisation** costs (Commando's
+   `mercenary_outpost` build + mob cost + ongoing upkeep) were also never walked.
+   Fixed by calling `scheduleBuildSegments` directly for province cohorts (mirroring
+   what `simulateProvinceBuildOrder` already does internally) to get real per-step
+   start hours, and by adding `result.provinceMobResults`-derived cost events
+   (mercenary_outpost build at scenario start, mob cost once it completes — both
+   confirmed ASAP/hour-0-start via `country-force-projection.ts`'s own comment — plus
+   a flat upkeep rate from completion to deadline, matching the existing
+   `garrisonHourlyRate` convention). A smaller, related bug fixed alongside:
+   `iron-occupied-plan.ts`'s post-capture province income was divided by the full
+   `hoursToSimulate` instead of the post-capture window length
+   (`hoursToSimulate - captureRelHour`), under-distributing it. **Verified**: Norway
+   reconciles to an exact zero gap on every resource, both income and cost, after the
+   fix. Pooled coalition-wide, the walk-vs-totals gap collapsed from tens/hundreds of
+   thousands down to low hundreds (e.g. electronics +18,787 → +1,737, cash +334,395 →
+   −49) — now normal rounding/approximation noise, not a structural omission. The true
+   pooled minima shrank accordingly once the walk started deducting costs it had been
+   silently skipping (electronics minima +21,325 → +4,545) — thinner margins, still
+   positive, still no genuine insolvency point.
+
+### Result vs. the Production Pipeline (all 12 countries, post-fix)
+
+| Resource | Prod Net | Iron Net | Note |
+|---|---|---|---|
+| supplies | −15,416 | +106,505 | prod deficit — known under-investment |
+| components | +130,357 | +52,933 | prod surplus, likely over-invested |
+| fuel | +75,538 | +20,851 | prod surplus, likely over-invested |
+| rares | +154,351 | +233,812 | both surplus |
+| electronics | −103,957 | +9,825 | prod deficit — known under-investment |
+| cash | +134,479 | +753,952 | iron far ahead |
+
+Framing that matters more than the column-by-column tally: a bigger components/fuel
+surplus for prod is just idle resources that could have funded something else — not a
+"win" in any meaningful sense. A deficit means the plan as computed literally cannot
+be paid for as sequenced. Prod fails that test twice (supplies, electronics); iron
+fails it zero times. Prod's "wins" on components/fuel are exactly the two resources
+the beam has been flagged as over-investing in since the original Italy session — this
+whole-coalition run is confirmation at scale, not just a single-country anecdote.
+
+### Known Open Issues (flagged for UAT, not yet fixed)
+
+- **Dead-window city sharing doesn't reproduce in the decoupled iron run.** Japan's
+  AWACS (×8) and India's warhead/UAV/Fixed Wing Veteran demands each opened their own
+  separate city instead of absorbing into the `preferred_cities`-pinned SASF cities'
+  idle mobilisation capacity (the UAT Round 3 mechanic, extensively tuned in
+  production). Suspected cause: `iron-fp-plan.ts`/`iron-bp-plan.ts` call
+  `computeCountryForceProjection` "decoupled" (no `planWeights`/
+  `actualEcoResultsByCity`), routing the SASF infra chain through the **formula-based,
+  from-scratch builder** (`buildCityInfraSteps`) rather than the eco-credited path
+  (`buildCityInfraStepsFromEco`) — the former is flagged elsewhere in this doc as
+  "essentially unused in practice" in production (which always supplies real eco
+  results), so this may be the first real exercise of it for a dead-window scenario.
+- **Genuine (non-CSS) `WARNING: RO2 backfill ... runs past the original infra start`**
+  banners appear in `iron-bp-india.html`/`iron-bp-japan.html` (2–3 of their SASF/
+  dead-window cities each) — Russia and Australia have zero. Likely the same root
+  cause as above.
+- No optimal city-subset search (inherited limitation, same as the production
+  pipeline) — capital-first-ish ordering from Unit 2's fold-in.
+
+### Diagnosed But Not Fixed — Unit 3's Coalition Eco-Investment Weight Formula
+
+Not an iron-pipeline bug — a real defect in the **production** pipeline
+(`computeCoalitionPlanWeights`/`boostWeightsFromDeficit`, `joint-city-optimizer.ts`),
+diagnosed by comparing prod against the now-validated iron baseline above. Parked for
+a future session ("this is for another time") — recorded here so the diagnosis isn't
+lost.
+
+**Symptom**: prod has two real coalition-wide deficits (supplies −15,416, electronics
+−103,957) that iron doesn't have, while iron runs a smaller components/fuel surplus
+than prod.
+
+**Root cause, diagnosed in two steps, both from data already sitting in the balance
+sheets — no new instrumentation needed**:
+
+1. **Cash pollutes the weight formula.** `weight[resource] = Σ mobilisation_cost[r] ×
+   count + Σ daily_upkeep[r] × count × remaining_days` is currently computed across
+   all resource keys, including cash — but cash is never a city's native `resource`
+   field (no city produces it directly; it only ever shows up as `arms_industry`'s
+   flat per-level bonus). Since unit mob/upkeep costs typically have cash components
+   an order of magnitude larger than any material resource, cash's raw cost magnitude
+   crowds out the material-resource signal the formula is supposed to be measuring.
+   Fix: exclude cash (and manpower, same reasoning — no city produces manpower
+   either) from the weight formula entirely, not just down-weight them.
+
+2. **The formula has no capacity/scarcity term at all — it's pure demand.** Confirmed
+   by computing `cost[r] / income[r]` (income only — **not** gross available, which
+   includes the one-time starting balance and understates true ongoing utilization)
+   for both pipelines, from numbers already in each Coalition Balance Sheet:
+
+   | Resource | Iron util | Prod util | Delta |
+   |---|---|---|---|
+   | electronics | 115.2% | 153.4% | prod +38pt worse |
+   | supplies | 116.1% | 131.3% | prod +15pt worse |
+   | cash | 109.4% | 137.4% | prod +28pt worse |
+   | components | 122.2% | 110.8% | prod −11pt better |
+   | fuel | 121.5% | 106.9% | prod −15pt better |
+   | rares | 48.5% | 64.7% | prod +16pt (slack in both) |
+
+   Prod runs electronics/supplies materially hotter than iron while running
+   components/fuel more comfortably — ~11-15 points of headroom parked in
+   components/fuel that electronics/supplies don't have. Rares is slack in both
+   pipelines (nowhere near its production ceiling), the clearest resource to pull
+   investment from if something needs funding.
+
+**Proposed fix, in order** (not yet started):
+1. Instrument the current formula to confirm cash's contribution magnitude directly
+   (the diagnosis above is inferred from outcomes, not yet observed in the formula's
+   own intermediate values).
+2. Exclude cash/manpower from the weight formula.
+3. Rework `boostWeightsFromDeficit`'s single fixed-size boost pass into something that
+   iterates toward `cost[r]/income[r]` parity across resources, rather than stopping
+   after one round (CLAUDE.md's UAT Round 3 section already flags "a second boost
+   round would likely narrow further... not implemented" — this generalizes that idea
+   into a real convergence target instead of a second fixed pass).
+4. Re-validate against the iron baseline (`npm run smoke:iron-resource-projection`)
+   after each step — the target is prod's `cost/income` ratios landing close to level
+   across resources, not skewed 153%/131% on two resources and 107%/111% on two
+   others.

@@ -1,10 +1,10 @@
-// One-off, hand-specified "iron" eco heuristic for Italy — bypasses the coalition-weight
-// beam entirely. Build order per city is explicit (RO1, then arms_industry to a fixed
-// target level based on the city's native resource), simulated via the same primitives
-// the beam itself uses (scheduleBuildSegments), with no search/optimization anywhere in
-// this script. Province rows are transcribed by hand from tmp/eco-italy.html (already
-// computed by `smoke:eco-plan`) rather than re-run here — re-generate that file first if
-// Italy's province data or building costs change.
+// Hand-specified "iron" eco heuristic — bypasses the coalition-weight beam entirely.
+// Build order per city is explicit (RO1, then arms_industry to a fixed target level
+// based on the city's native resource), simulated via the same primitives the beam
+// itself uses (scheduleBuildSegments), with no search/optimization anywhere in this
+// script. Province build sequences come from the shared IRON heuristic's
+// PROVINCE_BUILD_ORDER (resource-keyed, not country-specific).
+// Run via IRON_COUNTRY=<id> npm run smoke:iron-eco-plan.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -31,6 +31,7 @@ import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { scenarioTruceLengthDays } from "../../schemas/scenario-schema.js";
+import { AI_TARGET_BY_RESOURCE, PROVINCE_BUILD_ORDER } from "./iron-heuristic.js";
 
 const RESOURCE_KEYS: Resource[] = ["supplies", "components", "fuel", "rares", "electronics", "cash", "manpower"];
 
@@ -42,26 +43,17 @@ function fmt(n: number): string {
   return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
-const scenarioId = "elite/antarctica";
-const countryId = "italy";
+const scenarioId = process.env.IRON_SCENARIO ?? "elite/antarctica";
+const countryId = process.env.IRON_COUNTRY;
+if (!countryId) {
+  throw new Error("IRON_COUNTRY is required, e.g. IRON_COUNTRY=south_africa npm run smoke:iron-eco-plan");
+}
 
 const scenario = loadScenarioFile(scenarioId);
 const buildings = loadBuildingsFile(path.resolve("data/buildings.yml"));
 const country = loadScenarioCountry(scenarioId, countryId);
 const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
 const truceDays = scenarioTruceLengthDays(scenario) ?? 28;
-
-// ── The heuristic ────────────────────────────────────────────────────────────
-// supplies/electronics/rares cities → RO1, then arms_industry straight to L5.
-// components/fuel cities → RO1, then arms_industry to L1 only. Nothing else in
-// either case — no beam continuation for this first pass.
-const AI_TARGET_BY_RESOURCE: Record<string, number> = {
-  supplies: 5,
-  electronics: 5,
-  rares: 5,
-  components: 2,
-  fuel: 1,
-};
 
 // ── HTML helpers (copied verbatim from eco-plan.ts so output format matches) ──
 
@@ -190,38 +182,22 @@ for (const city of country.cities) {
 
 html += `<table>${seqRows.join("")}</table>`;
 
-// ── Province income — transcribed from tmp/eco-italy.html, not recomputed here ─
-// Rule: eco beam plan kept as-is for supplies/electronics cohorts (Italy has no
-// rares provinces); every other cohort (components, fuel, non-resource) shown
-// with no build investment, base production only.
+// ── Province income — computed from the country's real province cohorts ──────
+// Rule: supplies/electronics cohorts get PROVINCE_BUILD_ORDER's build sequence;
+// every other cohort (components, fuel, rares, non-resource) shown with no build
+// investment, base production only (see iron-heuristic.ts for the rationale).
 
-type TranscribedProvinceRow = {
-  cohort: string;
-  resource: string;
-  provinceCount: number;
-  sequence: string;
-};
+const provinceCohorts = buildProvinceCohortsFromCountry(country);
 
-const PROVINCE_ROWS: TranscribedProvinceRow[] = [
-  {
-    cohort: "supplies_provinces",
-    resource: "supplies",
-    provinceCount: 1,
-    sequence: "L1 local industry → L2 local industry → L3 local industry → L1 combat outpost",
-  },
-  {
-    cohort: "electronics_provinces",
-    resource: "electronics",
-    provinceCount: 1,
-    sequence: "L1 local industry → L2 local industry → L1 combat outpost → L3 local industry",
-  },
-  { cohort: "components_provinces", resource: "components", provinceCount: 1, sequence: "(no builds)" },
-  { cohort: "fuel_provinces", resource: "fuel", provinceCount: 1, sequence: "(no builds)" },
-  { cohort: "non_resource_provinces", resource: "—", provinceCount: 26, sequence: "(no builds)" },
-];
+function provinceSequenceLabel(resource: string | undefined): string {
+  const steps = (resource && PROVINCE_BUILD_ORDER[resource]) ?? [];
+  return steps.length === 0
+    ? "(no builds)"
+    : steps.map(s => `L${s.targetLevel} ${s.buildingId.replaceAll("_", " ")}`).join(" → ");
+}
 
 html += `\n<h2>Province Eco Build Plans</h2>\n`;
-html += `<p class="label">Transcribed from tmp/eco-italy.html: supplies/electronics cohorts keep the beam-computed sequence; every other cohort gets no build (base production only).</p>\n`;
+html += `<p class="label">supplies/electronics cohorts get the iron heuristic's build sequence; every other cohort gets no build (base production only).</p>\n`;
 
 const provRows: string[] = [];
 provRows.push(`<tr>
@@ -230,21 +206,22 @@ provRows.push(`<tr>
   <th>Provinces</th>
   <th>Eco Build Sequence</th>
 </tr>`);
-for (const pr of PROVINCE_ROWS) {
+for (const cohort of provinceCohorts) {
+  const cohortLabel = cohort.cohortId.split(":")[1] ?? cohort.cohortId;
   provRows.push(`<tr>
-    <td>${escapeHtml(pr.cohort)}</td>
-    <td>${escapeHtml(pr.resource)}</td>
-    <td style="text-align:center">${pr.provinceCount}</td>
-    <td>${escapeHtml(pr.sequence)}</td>
+    <td>${escapeHtml(cohortLabel)}</td>
+    <td>${escapeHtml(cohort.resource ?? "—")}</td>
+    <td style="text-align:center">${cohort.totalProvinceCount}</td>
+    <td>${escapeHtml(provinceSequenceLabel(cohort.resource))}</td>
   </tr>`);
 }
 html += `<table>${provRows.join("")}</table>`;
 
 // ── Resource yield (full truce window) — direct simulation, no beam search ────
 // City yield: same explicit buildOrder as above, run through the full window.
-// Province yield: fixed simulation per cohort — the same transcribed sequences
-// for supplies/electronics (matches eco-italy.html exactly), empty build order
-// for every other cohort (no build required, base production only).
+// Province yield: fixed simulation per cohort — PROVINCE_BUILD_ORDER's sequence
+// for supplies/electronics, empty build order for every other cohort (no build
+// required, base production only).
 
 const hoursToSimulate = truceDays * 24;
 
@@ -287,22 +264,6 @@ for (const row of citySimulation.perHourPerCity) {
   if (!total) continue;
   for (const r of RESOURCE_KEYS) total[r] += row.production[r] ?? 0;
 }
-
-const provinceCohorts = buildProvinceCohortsFromCountry(country);
-const PROVINCE_BUILD_ORDER: Record<string, Array<{ buildingId: "local_industry" | "combat_outpost"; targetLevel: number }>> = {
-  supplies: [
-    { buildingId: "local_industry", targetLevel: 1 },
-    { buildingId: "local_industry", targetLevel: 2 },
-    { buildingId: "local_industry", targetLevel: 3 },
-    { buildingId: "combat_outpost", targetLevel: 1 },
-  ],
-  electronics: [
-    { buildingId: "local_industry", targetLevel: 1 },
-    { buildingId: "local_industry", targetLevel: 2 },
-    { buildingId: "combat_outpost", targetLevel: 1 },
-    { buildingId: "local_industry", targetLevel: 3 },
-  ],
-};
 
 const provinceYieldByCohort: Array<{ cohortId: string; resource: string; provinceCount: number; total: Record<Resource, number> }> = [];
 for (const cohort of provinceCohorts) {
@@ -395,6 +356,6 @@ summaryRows.push(`<tr style="font-weight:bold;background:#f8f8f8">
 html += `<table>${summaryRows.join("")}</table>`;
 
 const outHtml = buildHtml(`Iron Eco Plan — ${country.country.name}`, html);
-const outPath = path.resolve("tmp/iron-eco-italy.html");
+const outPath = path.resolve(`tmp/iron-eco-${countryId}.html`);
 fs.writeFileSync(outPath, outHtml, "utf8");
 console.log(`→ wrote ${outPath}`);

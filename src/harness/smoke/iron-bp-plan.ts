@@ -1,6 +1,7 @@
-// Integration step: combines the iron eco build (iron-eco-italy.html, untouched)
-// with the existing, trusted Unit 2 force-projection engine (iron-fp-italy.html)
-// into one "build plan" HTML, matching bp-italy.html's format. Manual integration
+// Integration step: combines the iron eco build (iron-eco-<country>.html, untouched)
+// with the existing, trusted Unit 2 force-projection engine (iron-fp-<country>.html)
+// into one "build plan" HTML, matching bp-<country>.html's format.
+// Run via IRON_COUNTRY=<id> npm run smoke:iron-bp-plan. Manual integration
 // rules (per user direction, not derived by any engine change):
 //   - RO2 (wherever the force projection specified it) is backfilled to the
 //     earliest point the eco phase's build queue is actually free — day 2 h01 for
@@ -46,7 +47,7 @@ import {
   getLevelSteps,
   type InfraStep,
 } from "../../engine/optimization/country-force-projection.js";
-import { calculateMobilizationCost } from "../../engine/optimization/cost-calculator.js";
+import { calculateMobilizationCost, calculateUpkeepCost } from "../../engine/optimization/cost-calculator.js";
 import { computeGarrisonUpkeep } from "../../engine/optimization/garrison-upkeep.js";
 import type { ResourceCost } from "../../engine/optimization/types.js";
 import {
@@ -65,10 +66,14 @@ import { loadScenarioCoalitionPlan } from "../../scenarios/io/load-coalition-pla
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { loadMergedUnitCatalogForScenario } from "../../scenarios/io/load-unit-catalog.js";
+import { AI_TARGET_BY_RESOURCE, PROVINCE_BUILD_ORDER } from "./iron-heuristic.js";
 
-const scenarioId = "elite/antarctica";
-const planId = "pnth-v-iron-2026-aug";
-const countryId = "italy";
+const scenarioId = process.env.IRON_SCENARIO ?? "elite/antarctica";
+const planId = process.env.IRON_PLAN ?? "pnth-v-iron-2026-aug";
+const countryId = process.env.IRON_COUNTRY;
+if (!countryId) {
+  throw new Error("IRON_COUNTRY is required, e.g. IRON_COUNTRY=south_africa npm run smoke:iron-bp-plan");
+}
 const maxRoLevel = 5;
 
 const plan = loadScenarioCoalitionPlan(scenarioId, planId);
@@ -140,15 +145,7 @@ ${body}
 </html>`;
 }
 
-// ── Eco phase (identical to iron-eco-plan.ts — untouched) ─────────────────────
-
-const AI_TARGET_BY_RESOURCE: Record<string, number> = {
-  supplies: 5,
-  electronics: 5,
-  rares: 5,
-  components: 2,
-  fuel: 1,
-};
+// ── Eco phase (identical to iron-eco-plan.ts — shares iron-heuristic.ts) ──────
 
 const ecoCityStates: TimelineCityState[] = country.cities.map(city => ({
   cityId: `${country.country.id}:${city.id}`,
@@ -282,29 +279,39 @@ for (const city of country.cities) {
   for (let lvl = 1; lvl <= aiTarget; lvl++) addInto(cityEcoBuildCost, buildingLevelCost("arms_industry", lvl));
 }
 
-// Province income + build cost — same rule as iron-eco-italy.html: beam sequence
+// Province income + build cost — same rule as iron-eco-plan.ts: build sequence
 // kept for supplies/electronics cohorts, base-only (no build) for everything else.
 const provinceCohorts = buildProvinceCohortsFromCountry(country);
-const PROVINCE_BUILD_ORDER: Record<string, Array<{ buildingId: "local_industry" | "combat_outpost"; targetLevel: number }>> = {
-  supplies: [
-    { buildingId: "local_industry", targetLevel: 1 },
-    { buildingId: "local_industry", targetLevel: 2 },
-    { buildingId: "local_industry", targetLevel: 3 },
-    { buildingId: "combat_outpost", targetLevel: 1 },
-  ],
-  electronics: [
-    { buildingId: "local_industry", targetLevel: 1 },
-    { buildingId: "local_industry", targetLevel: 2 },
-    { buildingId: "combat_outpost", targetLevel: 1 },
-    { buildingId: "local_industry", targetLevel: 3 },
-  ],
-};
 const provinceIncome = zeroResources();
 const provinceBuildCost = zeroResources();
+// Province build costs were previously computed for the Resource Balance totals
+// (provinceBuildCost, below) but never fed into the hourly cash-flow walk's
+// costEvents — a real reconciliation gap (confirmed via a diagnostic probe on
+// Norway: walked cost exactly matched infraCostTotal for fuel/rares/electronics
+// but was short by exactly the missing local_industry/combat_outpost cost for
+// supplies/components/cash — those two buildings only cost those three
+// resources, which is what pinpointed the omission). scheduleBuildSegments is
+// called directly here (same as simulateProvinceBuildOrder does internally) just
+// to get each province build step's real start hour for costEvents timing.
+const provinceCostEvents: Array<{ hour: number; cost: ResourceCost }> = [];
 for (const cohort of provinceCohorts) {
   const steps = (cohort.resource && PROVINCE_BUILD_ORDER[cohort.resource]) ?? [];
   const actions: ProvinceBuildAction[] = steps.map(s => ({ provinceId: cohort.provinceId, buildingId: s.buildingId, targetLevel: s.targetLevel }));
   const simResult = simulateProvinceBuildOrder({ provinces: [{ ...cohort, cityStatus: "homeland" }], buildOrder: actions, buildings, scenario, hoursToSimulate });
+  const provinceTimelineState: TimelineCityState = {
+    cityId: cohort.provinceId,
+    countryId: country.country.id,
+    buildings: {
+      army_base: 0, air_base: 0, annex_city: 0, arms_industry: 0,
+      combat_outpost: 0, local_industry: 0, mercenary_outpost: 0,
+      naval_base: 0, recruiting_office: 0, relocate_headquarters: 0, underground_bunkers: 0,
+    },
+  };
+  const provinceSegments = scheduleBuildSegments({ cities: [provinceTimelineState], buildOrder: actions.map(a => ({ cityId: a.provinceId, buildingId: a.buildingId, targetLevel: a.targetLevel })), buildings, scenario });
+  const segs = provinceSegments.get(cohort.provinceId);
+  for (const s of [...(segs?.local_industry ?? []), ...(segs?.combat_outpost ?? [])]) {
+    provinceCostEvents.push({ hour: s.startMinute / 60, cost: buildingLevelCost(s.buildingId, s.toLevel) });
+  }
   const cohortIncome = zeroResources();
   for (const row of simResult.perHourAggregate) addInto(cohortIncome, row.production);
   // Manpower workaround: simulateProvinceBuildOrder floors production hourly
@@ -327,9 +334,11 @@ const feasible = !(result.reason === "no_demands" || result.reason === "no_activ
 const flipTruncatedCityIncome = zeroResources();
 const ro2BackfillCost = zeroResources();
 const armyBaseCost = zeroResources();
+const assignedCityIds = new Set<string>();
 
 if (feasible) {
   for (const slot of result.citySlots) {
+    assignedCityIds.add(slot.cityId);
     const { completionAbsHour } = ecoStepsAndCompletion(slot.cityId);
     const roStep = slot.infraSteps.find((s: InfraStep) => s.buildingId === "recruiting_office" && s.toLevel === slot.roLevel);
     const otherSteps = slot.infraSteps.filter(
@@ -341,6 +350,19 @@ if (feasible) {
     const flipAbsHour = slot.mobSteps.length > 0 ? slot.mobSteps[0].startAbsHour : completionAbsHour;
     addInto(flipTruncatedCityIncome, cityIncomeThroughFlip(slot.cityId, flipAbsHour - scenarioAbsHour));
   }
+}
+
+// Cities the fold-in never assigned a military demand to still exist and still
+// produce eco income for the full truce window under the iron heuristic — nothing
+// ever flips them to military infra, so nothing should truncate their income.
+// Previously silently dropped to zero here while their build cost
+// (cityEcoBuildCost, below) was already counted for every city regardless of
+// assignment — a real income/cost mismatch. Confirmed via Japan (3 of 7 cities
+// unassigned) showing a components net balance an order of magnitude worse than
+// India (7/7 assigned) for no demand-driven reason.
+const unassignedCities = country.cities.filter(c => !assignedCityIds.has(c.id));
+for (const city of unassignedCities) {
+  addInto(flipTruncatedCityIncome, cityIncomeThroughFlip(city.id, hoursToSimulate));
 }
 
 const startingBalance = zeroResources();
@@ -414,7 +436,7 @@ resourceBalanceHtml += `</tbody></table>\n`;
 //  - Upkeep for a unit begins the moment it COMPLETES mobilisation (unaffected
 //    by when the rest of its batch finishes).
 type CostEvent = { hour: number; cost: Partial<Record<Resource, number>> };
-const costEvents: CostEvent[] = [];
+const costEvents: CostEvent[] = [...provinceCostEvents];
 
 for (const city of country.cities) {
   const prefixedId = `${country.country.id}:${city.id}`;
@@ -476,26 +498,62 @@ if (feasible) {
     }
   }
 }
+// Province mobilisation (e.g. Russia's Commando) — its cost was already correctly
+// included in the Resource Balance totals (result.costs.provinceMobilisation /
+// provinceUpkeep) but never fed into this walk at all — same class of omission as
+// the missing province build costs above (confirmed as the dominant driver of
+// Russia's much larger walk-vs-totals gap vs. every other homeland country).
+// Mobilisation starts ASAP at hour 0 (confirmed in country-force-projection.ts's
+// own comment: "Mobilisation starts ASAP (hour 0) since there's no eco/infra
+// dependency gating it") — mercenary_outpost build cost at scenario start,
+// mobilisation cost once the outpost completes, upkeep as a flat rate from
+// completion to deadline (same flat-rate convention as garrisonHourlyRate below).
+const provinceUpkeepHourlyRate = zeroResources();
+for (const r of result.provinceMobResults) {
+  costEvents.push({ hour: scenarioAbsHour, cost: r.mercenaryOutpostBuildCost });
+  costEvents.push({ hour: scenarioAbsHour + r.mercenaryOutpostBuildHours, cost: r.mobilizationCost });
+  const completionAbsHour = scenarioAbsHour + r.completionHour;
+  const remainingHours = deadlineAbsHour - completionAbsHour;
+  if (remainingHours > 0) {
+    const upkeep = calculateUpkeepCost(r.unitId, r.level, r.count, remainingHours, catalog, country.country.doctrine);
+    for (const res of RESOURCE_KEYS) provinceUpkeepHourlyRate[res] += (upkeep[res] ?? 0) / remainingHours;
+  }
+}
+
 costEvents.sort((a, b) => a.hour - b.hour);
 
 function unitUpkeepPerHour(absHour: number): Record<Resource, number> {
   const relHour = absHour - scenarioAbsHour;
   if (relHour < 0 || relHour >= hoursToSimulate) return zeroResources();
-  return upkeepPerHourByRelHour[relHour];
+  const flow = { ...upkeepPerHourByRelHour[relHour] };
+  for (const r of result.provinceMobResults) {
+    const completionAbsHour = scenarioAbsHour + r.completionHour;
+    if (absHour >= completionAbsHour) {
+      for (const res of RESOURCE_KEYS) flow[res] += provinceUpkeepHourlyRate[res];
+    }
+  }
+  return flow;
 }
 
 function incomeAtHour(absHour: number): Record<Resource, number> {
   const total = zeroResources();
+  const relHour = absHour - scenarioAbsHour;
   if (feasible) {
     for (const slot of result.citySlots) {
       const hourly = hourlyProductionByCity.get(`${country.country.id}:${slot.cityId}`) ?? [];
-      const relHour = absHour - scenarioAbsHour;
       const flipAbsHour = slot.mobSteps.length > 0 ? slot.mobSteps[0].startAbsHour : deadlineAbsHour;
       const flipRel = flipAbsHour - scenarioAbsHour;
       const idx = relHour < flipRel ? relHour : Math.max(0, Math.round(flipRel) - 1);
       const prod = hourly[idx] ?? {};
       for (const r of RESOURCE_KEYS) total[r] += prod[r] ?? 0;
     }
+  }
+  // Unassigned cities are never flipped — their raw hourly production applies for
+  // the whole window, same reasoning as flipTruncatedCityIncome above.
+  for (const city of unassignedCities) {
+    const hourly = hourlyProductionByCity.get(`${country.country.id}:${city.id}`) ?? [];
+    const prod = hourly[relHour] ?? {};
+    for (const r of RESOURCE_KEYS) total[r] += prod[r] ?? 0;
   }
   for (const r of RESOURCE_KEYS) total[r] += provinceIncome[r] / hoursToSimulate;
   return total;
@@ -512,18 +570,29 @@ for (const r of RESOURCE_KEYS) minima[r] = { value: startingBalance[r], hour: sc
 const firstNegative = {} as Record<Resource, { value: number; hour: number } | undefined>;
 for (const r of RESOURCE_KEYS) firstNegative[r] = startingBalance[r] < 0 ? { value: startingBalance[r], hour: scenarioAbsHour } : undefined;
 
+// hourlyNetFlow (index 0 = scenarioAbsHour) is exported alongside the rendered
+// minima table (as a JSON script tag, see below) so a coalition aggregate can pool
+// real per-hour deltas across countries — summing each country's own *minima value*
+// is not a true pooled minimum, since countries hit their own worst hour at wildly
+// different points in the window (confirmed empirically: some homeland countries
+// bottom out on day 2, others on day 29) — only a real hour-aligned sum is correct.
+const hourlyNetFlow: Array<Record<Resource, number>> = [];
+
 let eventIdx = 0;
 for (let h = scenarioAbsHour; h < deadlineAbsHour; h++) {
   const inc = incomeAtHour(h);
   const uk = unitUpkeepPerHour(h);
+  const flow = zeroResources();
   for (const r of RESOURCE_KEYS) {
-    running[r] += inc[r] - uk[r];
-    if (h < garrisonDisbandAbsHour) running[r] -= garrisonHourlyRate[r];
+    flow[r] = inc[r] - uk[r];
+    if (h < garrisonDisbandAbsHour) flow[r] -= garrisonHourlyRate[r];
   }
   while (eventIdx < costEvents.length && Math.floor(costEvents[eventIdx].hour) <= h) {
-    for (const r of RESOURCE_KEYS) running[r] -= costEvents[eventIdx].cost[r] ?? 0;
+    for (const r of RESOURCE_KEYS) flow[r] -= costEvents[eventIdx].cost[r] ?? 0;
     eventIdx++;
   }
+  for (const r of RESOURCE_KEYS) running[r] += flow[r];
+  hourlyNetFlow.push(flow);
   for (const r of RESOURCE_KEYS) {
     if (running[r] < minima[r].value) minima[r] = { value: running[r], hour: h };
     if (firstNegative[r] === undefined && running[r] < 0) firstNegative[r] = { value: running[r], hour: h };
@@ -634,6 +703,16 @@ if (!feasible) {
     html += `</div>\n`;
   }
 
+  if (unassignedCities.length > 0) {
+    html += `<h2>Eco-Only Cities (no military demand)</h2>\n`;
+    html += `<p class="label">Not needed by the fold-in for any demand — still run the iron eco heuristic for the full ${plan.truce_days}-day window (never flipped), and their income is now counted in the Resource Balance above.</p>\n`;
+    for (const city of unassignedCities) {
+      const { rows: ecoRows } = ecoStepsAndCompletion(city.id);
+      html += `<h3>${escapeHtml(city.name)} (${escapeHtml(city.resource)})</h3>\n`;
+      html += renderTable(ecoRows, ["#", "at", "step"]);
+    }
+  }
+
   html += `<h2>Force Projection</h2>\n`;
   html += `<p class="label">${escapeHtml(result.demandLabels.join(" · "))}</p>\n`;
   if (result.infeasible) {
@@ -665,8 +744,17 @@ if (!feasible) {
   }
 }
 
+// Machine-readable hourly net flow, for a coalition aggregate to pool correctly —
+// summing each country's own minima value is NOT a true pooled minimum (countries
+// hit their own worst hour at very different points in the window); only a real
+// hour-aligned sum across countries is. Index 0 = scenarioAbsHour. Rounded to the
+// nearest whole unit — negligible precision loss, keeps the embed compact.
+html += `<script type="application/json" id="iron-hourly-net-flow" data-scenario-abs-hour="${scenarioAbsHour}" data-resource-order="${RESOURCE_KEYS.join(",")}">${JSON.stringify(
+  hourlyNetFlow.map(flow => RESOURCE_KEYS.map(r => Math.round(flow[r])))
+)}</script>\n`;
+
 fs.mkdirSync(path.resolve("tmp"), { recursive: true });
 const outHtml = buildHtml(`Iron Build Plan — ${country.country.name}`, html);
-const outPath = path.resolve("tmp/iron-bp-italy.html");
+const outPath = path.resolve(`tmp/iron-bp-${countryId}.html`);
 fs.writeFileSync(outPath, outHtml, "utf8");
 console.log(`→ wrote ${outPath}`);

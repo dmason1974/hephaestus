@@ -1,10 +1,11 @@
-// One-off "iron" force projection for Italy — reuses the existing, trusted Unit 2
-// engine (computeCountryForceProjection) exactly as-is, no engine changes. This is
+// "Iron" force projection — reuses the existing, trusted Unit 2 engine
+// (computeCountryForceProjection) exactly as-is, no engine changes. This is
 // the RO-level/city-count optimizer the user has confirmed already works; the goal
-// here is just to see where it lands for Italy's real PNTH V Iron demands, run
-// standalone (no eco-credit linkage to the iron-eco-italy.html build — decoupled
+// here is just to see where it lands for a country's real PNTH V Iron demands, run
+// standalone (no eco-credit linkage to the iron-eco-<country>.html build — decoupled
 // for this pass, i.e. planWeights/actualEcoResultsByCity both omitted, same as the
 // existing force-projection.ts harness already does for every country it runs).
+// Run via IRON_COUNTRY=<id> npm run smoke:iron-fp-plan.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -18,9 +19,12 @@ import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { loadMergedUnitCatalogForScenario } from "../../scenarios/io/load-unit-catalog.js";
 
-const scenarioId = "elite/antarctica";
-const planId = "pnth-v-iron-2026-aug";
-const countryId = "italy";
+const scenarioId = process.env.IRON_SCENARIO ?? "elite/antarctica";
+const planId = process.env.IRON_PLAN ?? "pnth-v-iron-2026-aug";
+const countryId = process.env.IRON_COUNTRY;
+if (!countryId) {
+  throw new Error("IRON_COUNTRY is required, e.g. IRON_COUNTRY=south_africa npm run smoke:iron-fp-plan");
+}
 const maxRoLevel = 5;
 
 const plan = loadScenarioCoalitionPlan(scenarioId, planId);
@@ -228,6 +232,6 @@ if (result.reason === "no_demands") {
 
 fs.mkdirSync(path.resolve("tmp"), { recursive: true });
 const outHtml = buildHtml(`Iron Force Projection — ${country.country.name}`, html);
-const outPath = path.resolve("tmp/iron-fp-italy.html");
+const outPath = path.resolve(`tmp/iron-fp-${countryId}.html`);
 fs.writeFileSync(outPath, outHtml, "utf8");
 console.log(`→ wrote ${outPath}`);

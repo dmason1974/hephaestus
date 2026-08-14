@@ -120,6 +120,36 @@ RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=russia npm run smoke:resource-projection
 # Config: RP_SCENARIO, RP_PLAN (required), RP_COUNTRY, RP_MAX_RO, RP_BEAM_WIDTH, RP_TOP_N, RP_GARRISON_DISBAND_DAY, RP_OUTPUT_FILE
 ```
 
+### Iron Pipeline (hand-specified, deterministic bypass)
+
+A parallel, hand-specified alternative to the coalition-weight beam above — a fixed
+resource-keyed eco heuristic (RO1 everywhere; `arms_industry`→L5 for
+supplies/electronics/rares cities, lower targets for components/fuel) plus the
+existing, unmodified Unit 2 engine, used to sanity-check whether the beam's automated
+investment decisions are actually well-calibrated. See CLAUDE.md's "Iron Pipeline"
+section for the full history, including three real accounting bugs this exercise
+surfaced and fixed. Covers all 12 countries in the active PNTH V Iron plan (8
+homeland + 4 occupied).
+
+```bash
+# Homeland countries (demands from the plan YAML) — 3 files per country:
+IRON_COUNTRY=italy npm run smoke:iron-eco-plan   # tmp/iron-eco-italy.html — eco build only
+IRON_COUNTRY=italy npm run smoke:iron-fp-plan    # tmp/iron-fp-italy.html — force projection only
+IRON_COUNTRY=italy npm run smoke:iron-bp-plan    # tmp/iron-bp-italy.html — merged, the real output
+# Config: IRON_SCENARIO, IRON_PLAN, IRON_COUNTRY (required)
+
+# Occupied countries — eco-only, no force projection, annex+AI5 restricted to
+# supplies/electronics cities, zero yield before capture_day:
+IRON_COUNTRY=norway npm run smoke:iron-occupied-plan   # tmp/iron-eco-norway.html + tmp/iron-bp-norway.html
+
+# Coalition aggregate — parses the already-generated tmp/iron-bp-<country>.html
+# files (does not recompute) and pools them, including a true hour-aligned pooled
+# minima walk (not a naive sum of each country's own minimum — see CLAUDE.md):
+IRON_COUNTRIES=italy,south_africa,pakistan,new_zealand,norway,madagascar,solomon_islands,mozambique,india,japan,russia,australia \
+  npm run smoke:iron-resource-projection   # tmp/iron-resource-projection.html
+# Config: IRON_COUNTRIES (comma-separated, defaults to the first 4), IRON_OUTPUT_FILE
+```
+
 ### Research and Force Planning
 
 ```bash

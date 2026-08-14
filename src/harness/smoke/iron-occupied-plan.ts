@@ -1,9 +1,9 @@
 // Hand-specified "iron" eco heuristic for OCCUPIED countries — no force projection
 // (these countries have no demands in the plan; eco income only, feeding the shared
-// coalition pool). Heuristic (per user direction): only supplies/electronics cities
-// are in scope for any improvement at all — annex, then arms_industry straight to
-// L5. Other-resource cities (fuel/rares/components) get NO improvements — no annex,
-// no arms_industry, base occupied-rate (25%) production only, forever. Any
+// coalition pool). Heuristic (per user direction): only electronics cities are in
+// scope for any improvement at all — annex, then arms_industry straight to L5.
+// Other-resource cities (fuel/rares/components/supplies) get NO improvements — no
+// annex, no arms_industry, base occupied-rate (25%) production only, forever. Any
 // supplies/electronics province gets
 // L1 local industry -> L2 local industry -> L1 combat outpost -> L3 local industry
 // (same sequence for both resources, unlike the homeland heuristic where they
@@ -158,7 +158,7 @@ const segmentsByCity = scheduleBuildSegments({ cities: cityStates, buildOrder, b
 
 let html = `<h1>${escapeHtml(country.country.name)} — Iron Build Plan</h1>\n`;
 html += `<p class="label">Doctrine: ${escapeHtml(country.country.doctrine)} · Status: occupied · Deadline: ${fmtAbsHour(deadlineAbsHour)} (${plan.truce_days} days) · captured day ${captureDay}</p>\n`;
-html += `<p class="label">Hand-specified occupied-country build order, not the coalition-weight beam: only supplies/electronics cities are in scope for any improvement — annex first (18h, no earlier than capture day), then arms_industry &rarr; L5. Other-resource cities (fuel/rares/components) get no improvements at all — base occupied-rate production only. No force projection (no demands for occupied countries).</p>\n`;
+html += `<p class="label">Hand-specified occupied-country build order, not the coalition-weight beam: only electronics cities are in scope for any improvement — annex first (18h, no earlier than capture day), then arms_industry &rarr; L5. Other-resource cities (fuel/rares/components/supplies) get no improvements at all — base occupied-rate production only. No force projection (no demands for occupied countries).</p>\n`;
 
 // ── Resource balance inputs ────────────────────────────────────────────────
 
@@ -489,7 +489,7 @@ console.log(`→ wrote ${outPath}`);
 
 let ecoHtml = `<h1>${escapeHtml(country.country.name)} — Iron Eco Heuristic (Occupied)</h1>\n`;
 ecoHtml += `<p class="label">Doctrine: ${escapeHtml(country.country.doctrine)} · Status: occupied · Truce: ${plan.truce_days} days · captured day ${captureDay}</p>\n`;
-ecoHtml += `<p class="label">Hand-specified build order, not the coalition-weight beam: only supplies/electronics cities are in scope for any improvement — annex first, then arms_industry &rarr; L5. Other-resource cities get no improvements at all. Zero yield before capture day (city and province).</p>\n`;
+ecoHtml += `<p class="label">Hand-specified build order, not the coalition-weight beam: only electronics cities are in scope for any improvement — annex first, then arms_industry &rarr; L5. Other-resource cities get no improvements at all. Zero yield before capture day (city and province).</p>\n`;
 
 ecoHtml += `\n<h2>City Eco Build Plans</h2>\n`;
 const ecoCityRows: string[] = [];

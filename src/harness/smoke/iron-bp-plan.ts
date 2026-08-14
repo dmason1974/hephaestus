@@ -11,9 +11,17 @@
 //     already covered by the eco build (and a no-op either way, since
 //     scheduleBuildSegments skips any action whose targetLevel <= currentLevel).
 //   - Every other infra step (army_base etc.) carries over unaltered — same
-//     target levels, same durations as the force projection computed — just
-//     repositioned immediately after the RO2 backfill instead of after the old
-//     late RO2+AI sequence.
+//     target levels, same durations as the force projection computed. For a
+//     genuine dead-window city (`isDeadWindowSlot` — a primary unit sharing its
+//     mob queue with a filler whose requirements are a strict subset, e.g.
+//     Japan/India's SASF+AWACS/UAV/warhead cities) these steps ARE repositioned
+//     immediately after the RO2 backfill, since finishing the chain earlier makes
+//     the filler mobilisation-eligible sooner — a real benefit. For an ordinary
+//     single-unit-queue city (every MRL/MAAV ground-build city) there is no filler
+//     to benefit, so these steps are left at Unit 2's own JIT timing (finishing
+//     right as mobilisation starts) instead — repositioning them earlier there was
+//     a real bug: army_base has a genuine daily_upkeep cost, so building it up to
+//     two weeks before it's used just burns cash for nothing.
 //   - Mob queue timing is NOT shifted — it stays exactly where the force
 //     projection's JIT (deadline-anchored) calculation put it. Backfill finishing
 //     early just means more idle time before flip, not an earlier flip — same
@@ -46,6 +54,7 @@ import {
   computeSteppedUpkeep,
   getLevelSteps,
   getUnitBuildingRequirements,
+  isDeadWindowSlot,
   type InfraStep,
 } from "../../engine/optimization/country-force-projection.js";
 import { calculateMobilizationCost, calculateUpkeepCost } from "../../engine/optimization/cost-calculator.js";
@@ -274,10 +283,22 @@ for (const slot of result.citySlots) {
     .filter((s: InfraStep) => s.buildingId !== "recruiting_office" && s.buildingId !== "arms_industry")
     .sort((a, b) => a.startHour - b.startHour);
 
+  // Rescheduling otherSteps earlier only has a real benefit for a genuine
+  // dead-window city — a primary unit sharing its mob queue with a filler whose
+  // requirements are a strict subset (isDeadWindowSlot), where an earlier chain
+  // completion makes the filler mobilisation-eligible sooner. For an ordinary
+  // single-unit-queue city there's no filler to benefit, so pulling army_base etc.
+  // forward was pure waste — army_base has a real daily_upkeep cost, so finishing
+  // it up to two weeks before mobilisation actually starts just burns cash sitting
+  // idle. deferredRoHops (RO3+) still needs a placement even in that case, so it
+  // keeps the old re-chain behavior — no current city hits that combination, but
+  // this avoids introducing an unexercised code path for it.
+  const isDeadWindow = isDeadWindowSlot(slot.mobQueue, catalog, buildings);
+
   // air_base + secret_weapons_lab (Unit 2's own relative order preserved),
   // then any deferred RO3+ hops last — re-sequenced back-to-back from
   // backfillEndAbsHour, not just uniformly shifted (RO3+ changed position).
-  const otherSteps: InfraStep[] = roStep
+  const otherSteps: InfraStep[] = roStep && (isDeadWindow || deferredRoHops.length > 0)
     ? (() => {
         const chainSteps = [...rawOtherSteps, ...deferredRoHops];
         let cursor = backfillEndAbsHour;
@@ -291,14 +312,14 @@ for (const slot of result.citySlots) {
     : rawOtherSteps;
 
   // Mob-start floors only need re-deriving when otherSteps was actually
-  // rescheduled (roStep exists) — otherwise otherSteps is untouched Unit 2
-  // output and slot.mobSteps is already consistent with it. Applies to the
-  // primary unit too now (not just fillers) — per user direction, a small
-  // residual gap between the primary's deadline-anchored mob start and its own
-  // infra chain's (rescheduled) completion should just delay the primary by
+  // rescheduled (same gate as otherSteps above) — otherwise otherSteps is
+  // untouched Unit 2 output and slot.mobSteps is already consistent with it.
+  // Applies to the primary unit too now (not just fillers) — per user direction, a
+  // small residual gap between the primary's deadline-anchored mob start and its
+  // own infra chain's (rescheduled) completion should just delay the primary by
   // that amount rather than being flagged as a warning; this can only push a
   // start later; never earlier, so it can't turn a feasible plan infeasible.
-  const mobSteps = roStep
+  const mobSteps = roStep && (isDeadWindow || deferredRoHops.length > 0)
     ? slot.mobSteps
         .map(m => {
           const reqs = getUnitBuildingRequirements(m.unitId, catalog, buildings);

@@ -149,7 +149,7 @@ IRON_COUNTRY=norway npm run smoke:iron-occupied-plan   # tmp/iron-eco-norway.htm
 # Coalition aggregate — parses the already-generated tmp/iron-bp-<country>.html
 # files (does not recompute) and pools them, including a true hour-aligned pooled
 # minima walk (not a naive sum of each country's own minimum — see CLAUDE.md):
-IRON_COUNTRIES=italy,south_africa,pakistan,new_zealand,norway,madagascar,solomon_islands,mozambique,india,japan,russia,australia \
+IRON_COUNTRIES=italy,south_africa,pakistan,new_zealand,norway,madagascar,solomon_islands,iran,india,japan,russia,australia \
   npm run smoke:iron-resource-projection   # tmp/iron-resource-projection.html
 # Config: IRON_COUNTRIES (comma-separated, defaults to the first 4), IRON_OUTPUT_FILE
 ```

@@ -39,11 +39,12 @@ export const PROVINCE_BUILD_ORDER: Record<
   ],
 };
 
-// Occupied-country heuristic: annex everywhere, AI5 only for supplies/electronics
-// cities (rares/components/fuel cities get annex only — intentionally absent here,
-// unlike the homeland AI_TARGET_BY_RESOURCE which still invests a little in them).
+// Occupied-country heuristic: annex + AI5 for electronics cities only. supplies
+// cities are intentionally excluded (per user direction — no annex, no arms_industry,
+// base occupied-rate production only, same treatment as rares/components/fuel).
+// Currently only affects Norway, the only occupied country with a supplies-tile city
+// (Bergen, Stavanger) — Madagascar/Solomon Islands/Iran don't have one.
 export const OCCUPIED_AI_TARGET_BY_RESOURCE: Record<string, number> = {
-  supplies: 5,
   electronics: 5,
 };
 

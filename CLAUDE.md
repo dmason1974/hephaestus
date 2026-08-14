@@ -280,7 +280,7 @@ economics (highest supplies+electronics of the remaining candidates).
 |---|---|---|---|
 | Italy | european | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
 | Japan | western | homeland | Mainland-forced — 34 SASF (pinned to Tokyo/Fujisawa/Sendai, dead-window AWACS sharing — see UAT Round 3 below) + 8 AWACS + 1 Fixed Wing Veteran |
-| Russia | eastern | homeland | Mainland-forced — 30 Mobile SAM Launcher + 24 Special Forces + 12 Commando (province) |
+| Russia | eastern | homeland | Mainland-forced — 30 Mobile SAM Launcher + 24 Special Forces (pinned to Samara — electronics, see below) + 12 Commando (province) |
 | South Africa | european | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
 | Pakistan | western | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
 | India | eastern | homeland | Mainland-forced — 34 SASF (pinned to Mumbai/Kolkata/New Delhi, dead-window warhead/UAV sharing — see UAT Round 3 below) + 1 Fixed Wing Veteran + 15 UAV + 120 Cruise Missiles + 240 Warheads (60 mob slots) |
@@ -289,7 +289,7 @@ economics (highest supplies+electronics of the remaining candidates).
 | Norway | western | occupied, capture day 4 | Eco only (captured multi-city — ranked 3rd of remaining candidates but taken as a capture, not an active slot) |
 | Madagascar | european | occupied, capture day 2 | Eco only (captured AI nation, single city) |
 | Solomon Islands | european | occupied, capture day 2 | Eco only (captured AI nation, single city) |
-| Mozambique | european | occupied, capture day 2 | Eco only (captured AI nation, single city) |
+| Iran | eastern | occupied, capture day 2 | Eco only (captured AI nation, single city) |
 
 **Doctrine data gaps affecting this roster (now placeholder-filled)**: Russia's Mobile
 SAM Launcher (was `theatre_defense_system` — a hallucinated unit ID, corrected this
@@ -891,7 +891,7 @@ Province totals for the 14 PNTH countries (now correct in every `elite/antarctic
 - **7-city countries**: `total_provinces = VP − 34`
 - **1-city ("small AI") countries**: `total_provinces = VP − 4`
 
-Reusable for any other `elite/antarctica` country not yet filled in. Per-resource breakdowns are specific to a given playthrough (resource-tile assignment is randomised per game) — 9 of the 14 PNTH countries have a real user-supplied breakdown; Indonesia, United Kingdom, Iran, Madagascar, Solomon Islands still have an all-zero placeholder split pending that data (their `total` is correct either way).
+Reusable for any other `elite/antarctica` country not yet filled in. Per-resource breakdowns are specific to a given playthrough (resource-tile assignment is randomised per game) — 9 of the 14 PNTH countries have a real user-supplied breakdown, plus Iran now partially (1 fuel-tile province confirmed; remaining 9 provinces still unbroken-down); Indonesia, United Kingdom, Madagascar, Solomon Islands still have an all-zero placeholder split pending that data (their `total` is correct either way).
 
 ### Starting Units — Garrison Mechanic
 
@@ -1550,5 +1550,128 @@ infantry and commando builds** — likely Australia's `mechanized_infantry` (30,
 + `mobile_anti_air_vehicle` 70 + `mobile_radar` 7) and Russia's `commando` (12,
 province-mobilised) demands in the current PNTH V Iron plan, applying the same
 kind of UAT scrutiny (Iron Pipeline output vs. expected game mechanics) that
-surfaced this session's India/Japan fixes. Not yet investigated — no findings
-to report yet, just the stated intent to pick this up next.
+surfaced this session's India/Japan fixes. The Australia MAAV review happened
+later the same day — see below — and surfaced a real, general bug rather than
+an Australia-specific issue. Russia's commando province-mobilisation build is
+still unreviewed.
+
+## Captured-nation swap, Russia special_forces relocation, army_base
+idle-upkeep fix (session, 2026-08-14, continued)
+
+Three unrelated fixes to the PNTH V Iron plan, done later the same day as the
+India/Japan dead-window session above.
+
+### Mozambique → Iran swap
+
+User direction: "swap Mozambique for Iran in the coalition plan" — reflects
+the real game state of which AI nation is actually being captured. Iran
+(`data/scenarios/elite/antarctica/countries/iran.yml`) is a single-city AI
+nation, already correctly `status: occupied` hardcoded (matches the
+single-city-AI-nation convention — see Unit 1's "Country YAML — `status`
+Field" section), doctrine eastern, capital Tehran (components, pop 5).
+`pnth-v-iron-2026-aug.yml`'s captured-nations block swapped `mozambique` →
+`iran` (same shape: `status: occupied`, `capture_day: 2`, `demands: []`).
+Updated: the PNTH roster table above, `README.md`'s `IRON_COUNTRIES` example
+list, and `data/scenarios/elite/antarctica/coalition-plan.md`'s captured-nations
+table/capture-timing notes/"Not Selected" list.
+
+**Verified not a regression**: Iran's capital (Tehran) is a **components**
+city, same resource as Mozambique's Maputo — so under the occupied-AI
+heuristic (`OCCUPIED_AI_TARGET_BY_RESOURCE`, only supplies/electronics cities
+get any improvement), Iran's eco build is `(no builds)`, identical treatment
+to what Mozambique had. Confirmed via `iron-occupied-plan.ts` run.
+
+Iran's province data was also updated with real (partial) in-game info: 1 of
+its 10 total provinces has a **fuel** resource tile (previously an all-zero
+placeholder split, `total` was already correct). Fuel isn't in
+`OCCUPIED_PROVINCE_BUILD_ORDER` either (only supplies/electronics cohorts get
+a build), so this new fuel province also correctly gets `(no builds)` — base
+occupied-rate production only, confirmed via rerun.
+
+### Norway: supplies cities excluded from the occupied-AI heuristic
+
+User direction: "we need to rebuild norway so we are not annexing or making
+any eco improvements in the supply cities." `OCCUPIED_AI_TARGET_BY_RESOURCE`
+(`src/harness/smoke/iron-heuristic.ts`) dropped its `supplies: 5` entry,
+leaving only `electronics: 5` — supplies cities now get the same "no
+improvements at all" treatment as rares/components/fuel. Norway is currently
+the **only** occupied country with a supplies-tile city (Bergen, Stavanger) —
+Madagascar (rares), Solomon Islands (electronics), Iran (components) don't
+have one — so this is architecturally a global heuristic change but only
+actually affects Norway today. Verified: Bergen/Stavanger now show
+`(no builds)`; Kristiansand (Norway's electronics city) unaffected, still
+annexes + climbs `arms_industry` to L5.
+
+### Russia's special_forces demand: Moscow/Saint Petersburg → Samara
+
+User direction: "special forces should move from moscow to samara - so we get
+the airport buff there." Investigation found the demand was actually
+cost-driven-split 12/12 across Moscow (capital, components, already starts
+`air_base: 1`) and Saint Petersburg (supplies — the coalition's **lowest**
+`resource_priority` resource), not solely Moscow as the user's phrasing
+suggested. `special_forces` L1 requires `army_base L3` + `air_base L1` +
+`recruiting_office L1` — `air_base` is a hard eligibility gate, not a
+production bonus; the "airport buff" the user meant is `air_base`'s
+`production_bonus_pct`, which is wasted on Moscow (already has it) and Saint
+Petersburg (low-priority resource). Samara is Russia's **electronics** city
+(coalition's **highest**-priority resource per `resource_priority`), starts
+`air_base: 0`, and was unused by any other demand — pinning special_forces
+there turns the eligibility requirement into real eco investment, the same
+rationale already used for Japan/India's SASF `preferred_cities` pinning.
+
+Fix: `pnth-v-iron-2026-aug.yml`'s Russia `special_forces` demand gained
+`preferred_cities: [samara]` — no engine changes needed, reuses the existing
+`preferred_cities` pinning mechanism (`joint-city-optimizer.ts`'s
+`foldInDemands` pre-pass). Verified: all 24 special_forces now mobilise in
+Samara alone (RO auto-sized to L3), with real `air_base L1` + `army_base
+L1→L3` builds; Moscow/Saint Petersburg reverted to the normal cost-driven
+fold-in and picked up `mobile_sam_launcher` instead.
+
+### army_base idle-upkeep bug (found via the Australia MAAV review)
+
+Investigating "the army bases in some cities start v early so are wasting rss
+on maintenance while they stand idle - specifically the maav cities"
+(Australia) surfaced a **general bug**, not Australia-specific — confirmed
+identical in Italy/South Africa/Pakistan/New Zealand's MRL/MAAV cities too.
+`army_base` genuinely has a `daily_upkeep.cash` field at every level
+(`data/buildings.yml`, L1=100/day rising to L4=130) — a built-but-unused
+army_base really does burn cash for nothing.
+
+**Root cause**: Unit 2's own engine (`computeCountryForceProjection` /
+`buildCityInfraStepsFromEco`, `country-force-projection.ts`) already schedules
+a city's full infra chain — including `army_base` — to finish exactly when
+mobilisation starts (confirmed zero-gap against `iron-fp-<country>.html`,
+Unit 2's raw output). But `iron-bp-plan.ts`'s own integration step
+unconditionally re-chained every non-RO/AI infra step "back-to-back starting
+from `backfillEndAbsHour`" (right after the RO2 backfill, ~day 3–9) whenever a
+city got an RO2+ backfill — dragging `army_base` 7–14 days earlier than Unit
+2 originally placed it. This re-chaining logic was written for **genuine
+dead-window cities** (Japan/India's SASF cities sharing a queue with a filler
+like AWACS/UAV/warhead, from the India/Japan session above), where finishing
+the chain earlier genuinely helps by making the filler mobilisation-eligible
+sooner. It fired identically for **ordinary single-unit-queue cities**
+(every MRL/MAAV ground-build city), where there's no filler to benefit and the
+early completion was pure waste.
+
+**Fix**: `isDeadWindowSlot` (`country-force-projection.ts`, previously a
+private helper) is now exported. `iron-bp-plan.ts`'s `otherSteps` computation
+only applies the early re-chain when the city is a genuine dead-window slot
+(`isDeadWindowSlot(slot.mobQueue, catalog, buildings)`) or has deferred RO3+
+hops still needing placement (`deferredRoHops.length > 0` — an edge case no
+current city hits, kept to avoid an untested code path). Otherwise `otherSteps`
+stays exactly as Unit 2 computed it — already correctly JIT.
+
+**Verified**:
+- Australia's 3 MAAV cities (Adelaide/Gold Coast/Sydney): `army_base` now
+  finishes 1 hour before mobilisation starts, not up to 14 days early.
+- Italy's Rome (MRL) shows the same fix (army_base L4 completes ~1.3 days
+  before mob start — the residual gap is the chain's own build duration, not
+  slack).
+- Japan's and India's `iron-bp-<country>.html` output is **byte-identical**
+  before/after the fix (diffed directly) — confirms the dead-window cities
+  this logic was originally written for are completely unaffected.
+- `npm test`: only the 5 pre-existing baseline failures (naval/seasonal empty
+  catalogs), no new failures.
+
+Rebuilt: italy, south_africa, pakistan, new_zealand, australia, russia
+(eco/fp/bp), plus the 12-country coalition aggregate.

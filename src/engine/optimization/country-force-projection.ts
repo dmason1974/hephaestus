@@ -172,7 +172,7 @@ function makeInfraOrderBuildings(weights: PlanWeights, buildings: BuildingsFile)
  * the infra chain is built — every other slot (no such relationship) keeps
  * `makeInfraOrderBuildings` exactly as today.
  */
-function isDeadWindowSlot(mobQueue: MobQueueEntry[], catalog: UnitCatalog, buildings: BuildingsFile): boolean {
+export function isDeadWindowSlot(mobQueue: MobQueueEntry[], catalog: UnitCatalog, buildings: BuildingsFile): boolean {
   const unitIds = [...new Set(mobQueue.map(e => e.unitId))];
   if (unitIds.length < 2) return false;
   const reqsByUnit = new Map(unitIds.map(id => [id, getUnitBuildingRequirements(id, catalog, buildings)]));

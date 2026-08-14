@@ -63,6 +63,13 @@ countries:
         count: 30
       - unitId: special_forces
         count: 24
+        # Pinned to Samara (electronics — coalition's highest-priority resource)
+        # instead of the cost-driven Moscow/Saint Petersburg split: air_base L1 is
+        # a hard mobilisation requirement for special_forces regardless of city, so
+        # pointing it at Samara turns that requirement into real eco investment
+        # (electronics) instead of wasting it on Moscow, which already starts with
+        # air_base 1, or Saint Petersburg (supplies — lowest coalition priority).
+        preferred_cities: [samara]
       - unitId: commando
         count: 12
         mobilisation_source: province
@@ -173,8 +180,8 @@ countries:
     capture_day: 2
     demands: []
 
-  mozambique:
-    # Maputo: components pop4 — captured AI nation, occupied by day 2
+  iran:
+    # Tehran: components pop5 — captured AI nation, occupied by day 2
     status: occupied
     capture_day: 2
     demands: []

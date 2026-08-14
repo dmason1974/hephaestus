@@ -22,13 +22,13 @@ Doctrine mix: 3 European (Italy, South Africa, New Zealand) · 3 Western (Japan,
 | Norway | 7 (multi-city) | Fuel | 6 | Evaluated as active candidate (202,588 supplies+electronics, 3rd of remaining 6) but taken as a captured territory instead of an active slot |
 | Madagascar | 1 (AI nation) | Rares | 4 | |
 | Solomon Islands | 1 (AI nation) | Electronics | 4 | |
-| Mozambique | 1 (AI nation) | Components | 4 | |
+| Iran | 1 (AI nation) | Components | 5 | Swapped in for Mozambique (2026-08-14) |
 
 ## Not Selected
 
 **Evaluated as multi-city active candidates, not picked for an active slot or capture** — United Kingdom, Indonesia, Ukraine (see ranking below).
 
-**Small AI nations, not in coalition**: Iran, Ivory Coast, Oman.
+**Small AI nations, not in coalition**: Mozambique, Ivory Coast, Oman.
 
 ## Strategic Rationale
 
@@ -66,7 +66,7 @@ other homeland countries' garrisons (including their own mobile_radar) are disba
 on day 4 as normal.
 
 **Capture timing for this plan's 4 captured nations**: Norway by day 4; Madagascar,
-Solomon Islands, and Mozambique by day 2.
+Solomon Islands, and Iran by day 2.
 
 **Daily upkeep per homeland country, before the day-4 disband** (14×Motorized Infantry
 + 1×Mobile Radar + 1×Gunship):
@@ -92,5 +92,5 @@ supplies/fuel/electronics/manpower, for the ~4 days before disbanding.
 
 **Known engine gap**: the eco-plan and coalition-force-plan harnesses currently
 hardcode a day-4 capture delay for every occupied country. That's only correct for
-Norway here — Madagascar/Solomon Islands/Mozambique need day 2. Making capture day
+Norway here — Madagascar/Solomon Islands/Iran need day 2. Making capture day
 configurable per-country is real engine work, not yet done.

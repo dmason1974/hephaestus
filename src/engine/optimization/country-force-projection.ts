@@ -369,9 +369,9 @@ function buildCityInfraStepsFromEco(
 
 // ── Stepped upkeep helpers ────────────────────────────────────────────────
 
-type LevelStep = { absHour: number; level: number };
+export type LevelStep = { absHour: number; level: number };
 
-function getLevelSteps(
+export function getLevelSteps(
   unitId: string,
   segments: Array<{ unitId: string; level: number; endAbsoluteHourExclusive: number }>,
 ): LevelStep[] {
@@ -388,7 +388,7 @@ function getLevelSteps(
  * @param unitsPerEvent  units added per mob event (batchSize; 1 for non-batch)
  * @param tPerEvent  time per mob event (entry.tPerUnit)
  */
-function computeSteppedUpkeep(
+export function computeSteppedUpkeep(
   unitId: string,
   doctrine: string,
   mobStart: number,

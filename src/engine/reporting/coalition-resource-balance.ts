@@ -3,8 +3,12 @@ import { POOLED_RESOURCES } from "../../core/constants.js";
 import type { UnitCatalog } from "../../schemas/unit-schema.js";
 import type { CityEcoResult } from "../eco/city-eco-beam.js";
 import { zeroResourceMap, addResourcesInto, scaleResources, cityIncomeThroughFlip, cityFullEcoIncome } from "../eco/city-eco-income.js";
-import type { CountryForceProjectionResult } from "../optimization/country-force-projection.js";
-import { calculateMobilizationCost, calculateDailyUpkeep } from "../optimization/cost-calculator.js";
+import {
+  computeSteppedUpkeep,
+  getLevelSteps,
+  type CountryForceProjectionResult,
+} from "../optimization/country-force-projection.js";
+import { calculateMobilizationCost } from "../optimization/cost-calculator.js";
 import type { ResourceCost } from "../optimization/types.js";
 import type { GarrisonUpkeepResult } from "../optimization/garrison-upkeep.js";
 
@@ -116,43 +120,75 @@ export function computeCountryResourceBalance(input: CountryResourceBalanceInput
     hourlyNetFlow[0][r] -= ecoBuildCostFull[r];
   }
 
-  // Infra costs: deducted at each step's completion hour — both the guaranteed
-  // work pulled into the idle eco window (ecoBackfillSteps) and the post-flip
-  // military chain (infraSteps).
+  // Infra costs: deducted at each step's START hour (queued buildings spend
+  // their resources when the build starts, not when it completes) — both the
+  // guaranteed work pulled into the idle eco window (ecoBackfillSteps) and the
+  // post-flip military chain (infraSteps).
   for (const slot of forceProjection.citySlots) {
     for (const step of [...slot.ecoBackfillSteps, ...slot.infraSteps]) {
-      const idx = clampIndex(step.endHour - scenarioAbsHour, hoursToSimulate);
+      const idx = clampIndex(step.startHour - scenarioAbsHour, hoursToSimulate);
       for (const [r, amount] of Object.entries(step.cost)) {
         if (amount) hourlyNetFlow[idx][r as Resource] -= amount;
       }
     }
   }
 
-  // Mobilisation costs (deducted at batch start) + continuous L1-rate upkeep
-  // from batch completion to the deadline.
+  // Mobilisation costs: a batch of N units is N separate per-unit payments,
+  // each deducted as that unit starts mobilising — not one lump sum for the
+  // whole batch at batch start. Upkeep reuses computeSteppedUpkeep (the same
+  // event-based, research-level-aware integration result.costs.upkeep is
+  // built from) rather than a flat-level-1 approximation — it only returns a
+  // cumulative total for a given deadline, so per-hour charges are derived by
+  // calling it at each hour and differencing consecutive totals. Known
+  // simplification: treats each mob step's count as `count` individual 1-unit
+  // events (unitsPerEvent=1) — exact for non-batch units; batch units (e.g.
+  // warheads, batchSize>1) would need unitsPerEvent from the original demand
+  // classification, not available from CityForceProjectionSlot alone.
   for (const slot of forceProjection.citySlots) {
     for (const entry of slot.mobSteps) {
-      const mobIdx = clampIndex(entry.startAbsHour - scenarioAbsHour, hoursToSimulate);
-      let mobCost: ResourceCost = {};
+      if (entry.count <= 0) continue;
+      const perUnitHours = (entry.endAbsHour - entry.startAbsHour) / entry.count;
+
+      let perUnitCost: ResourceCost = {};
       try {
-        mobCost = calculateMobilizationCost(entry.unitId, 1, entry.count, catalog, doctrine);
+        perUnitCost = calculateMobilizationCost(entry.unitId, 1, 1, catalog, doctrine);
       } catch {
         // missing doctrine/level data — skip
-      }
-      for (const [r, amount] of Object.entries(mobCost)) {
-        if (amount) hourlyNetFlow[mobIdx][r as Resource] -= amount;
       }
 
-      let dailyUpkeep: ResourceCost = {};
-      try {
-        dailyUpkeep = calculateDailyUpkeep(entry.unitId, 1, catalog, doctrine);
-      } catch {
-        // missing doctrine/level data — skip
+      for (let i = 0; i < entry.count; i++) {
+        const unitStartAbsHour = entry.startAbsHour + i * perUnitHours;
+        const mobIdx = clampIndex(unitStartAbsHour - scenarioAbsHour, hoursToSimulate);
+        for (const [r, amount] of Object.entries(perUnitCost)) {
+          if (amount) hourlyNetFlow[mobIdx][r as Resource] -= amount;
+        }
       }
-      const hourlyUpkeep = scaleResources(dailyUpkeep, entry.count / 24);
-      const startH = clampIndex(entry.endAbsHour - scenarioAbsHour, hoursToSimulate);
-      for (let h = startH; h < hoursToSimulate; h++) {
-        addResourcesInto(hourlyNetFlow[h], scaleResources(hourlyUpkeep, -1));
+
+      const levelSteps = getLevelSteps(entry.unitId, forceProjection.researchSegments);
+      const startRelHour = clampIndex(entry.startAbsHour - scenarioAbsHour, hoursToSimulate);
+      let prevCumulative: ResourceCost = {};
+      for (let h = startRelHour; h < hoursToSimulate; h++) {
+        let cumulative: ResourceCost = {};
+        try {
+          cumulative = computeSteppedUpkeep(
+            entry.unitId,
+            doctrine,
+            entry.startAbsHour,
+            entry.count,
+            1,
+            perUnitHours,
+            scenarioAbsHour + h + 1,
+            levelSteps,
+            catalog
+          );
+        } catch {
+          // missing doctrine/level data — skip
+        }
+        for (const [r, amount] of Object.entries(cumulative)) {
+          const delta = (amount ?? 0) - (prevCumulative[r as Resource] ?? 0);
+          if (delta) hourlyNetFlow[h][r as Resource] -= delta;
+        }
+        prevCumulative = cumulative;
       }
     }
   }

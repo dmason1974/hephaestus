@@ -1275,21 +1275,12 @@ whole-coalition run is confirmation at scale, not just a single-country anecdote
 
 ### Known Open Issues (flagged for UAT, not yet fixed)
 
-- **Dead-window city sharing doesn't reproduce in the decoupled iron run.** Japan's
-  AWACS (×8) and India's warhead/UAV/Fixed Wing Veteran demands each opened their own
-  separate city instead of absorbing into the `preferred_cities`-pinned SASF cities'
-  idle mobilisation capacity (the UAT Round 3 mechanic, extensively tuned in
-  production). Suspected cause: `iron-fp-plan.ts`/`iron-bp-plan.ts` call
-  `computeCountryForceProjection` "decoupled" (no `planWeights`/
-  `actualEcoResultsByCity`), routing the SASF infra chain through the **formula-based,
-  from-scratch builder** (`buildCityInfraSteps`) rather than the eco-credited path
-  (`buildCityInfraStepsFromEco`) — the former is flagged elsewhere in this doc as
-  "essentially unused in practice" in production (which always supplies real eco
-  results), so this may be the first real exercise of it for a dead-window scenario.
-- **Genuine (non-CSS) `WARNING: RO2 backfill ... runs past the original infra start`**
-  banners appear in `iron-bp-india.html`/`iron-bp-japan.html` (2–3 of their SASF/
-  dead-window cities each) — Russia and Australia have zero. Likely the same root
-  cause as above.
+- ~~Dead-window city sharing doesn't reproduce in the decoupled iron run~~ — **fixed**,
+  see "India/Japan Dead-Window Fixes" below. Both bullets that used to be here (the
+  no-sharing symptom and the `WARNING: RO2 backfill ... runs past the original infra
+  start` banners) traced to the same root cause: `makeDeadWindowOrderBuildings`
+  front-loading `secret_weapons_lab` ahead of `air_base`, and `iron-bp-plan.ts`'s
+  RO2-backfill logic never reconciling its own timestamps against that ordering.
 - No optimal city-subset search (inherited limitation, same as the production
   pipeline) — capital-first-ish ordering from Unit 2's fold-in.
 
@@ -1352,3 +1343,212 @@ sheets — no new instrumentation needed**:
    after each step — the target is prod's `cost/income` ratios landing close to level
    across resources, not skewed 153%/131% on two resources and 107%/111% on two
    others.
+
+---
+
+## India/Japan Dead-Window Fixes + `min_ro` Pinning (session, 2026-08-14)
+
+UAT of India's `tmp/bp-india.html`/`tmp/iron-bp-india.html` surfaced four real
+engine bugs and one data gap, all found by the user spot-checking generated output
+against known game mechanics and in-game research-tree screenshots rather than by
+code review. All fixed and verified; India and Japan both confirmed correct by the
+user in the final review.
+
+### Four engine bugs fixed (general, not India-specific)
+
+1. **`computeEcoBackfill` aborted its whole backfill walk on the first level that
+   didn't fit** (`flip-point-solver.ts`) — instead of skipping just that building
+   and trying the next one in order. Since `air_base` (the long-pole in any genuine
+   dead-window city) almost always overflows the idle window on its own, and it sat
+   before `recruiting_office` in `makeDeadWindowOrderBuildings`'s order, RO2/RO3
+   never got a chance to backfill even when it would trivially fit. Fixed:
+   `break outer` → `break` (skip, don't abort) — a strict superset of what the walk
+   already attempted, so it can't cause double-processing or ordering violations.
+
+2. **Launcher-platform units (missiles) were excluded from research scheduling
+   entirely, not just mobilisation** (`country-force-projection.ts`).
+   `conventional_cruise_missile`/`ballistic_missile` correctly never get a city
+   mob-queue slot (`classifyDemands` routes them to `launcherDemands`), but the
+   research-target loop only iterated `activeDemands`-derived results — so their
+   real, full per-level research data (confirmed against user screenshots this
+   session — day 6/11/15/18/24 unlock days, matching exactly) was never fed to
+   `simulateUnitResearchTargets` at all. Fixed: `launcherDemands` now also feed
+   `researchTargets`/`unitDemandCounts`, with no `latestCompletionByUnitLevel`
+   anchor (they have no mob-queue to derive one from — the existing low-impact-
+   score priority rule schedules them reasonably on its own).
+
+3. **Zero-upkeep primary units in single-unit-queue cities were needlessly
+   deadline-JIT-anchored** (`country-force-projection.ts`). Bengaluru/Chennai's
+   `conventional_warhead` (zero `daily_upkeep` in every doctrine) sat idle ~7 real
+   days between finishing its one requirement (`secret_weapons_lab` L1) and
+   mobilisation actually starting — deadline-JIT-anchoring only makes sense to
+   *save* upkeep-days, which a zero-upkeep unit has none of. Fixed: when a
+   queue's every entry has `upkeepRateScalar === 0`, drop the
+   `deadline − usedHours` term from both `firstMobStart` and the per-entry
+   `mobStart` formula.
+
+4. **`conventional_cruise_missile` was missing its real research-tree
+   prerequisite** (`ballistic_missile level 1`) — `requirements: []` on all 6
+   levels. Confirmed from the user's in-game research-tree screenshots
+   (`RESEARCH | EASTERN`): the tree shows `conventional_warhead` (Guided Missile
+   Program) → `ballistic_missile` → `conventional_cruise_missile`, a real
+   two-hop chain, not the single hop originally assumed. Also confirmed missile
+   *research* has no building requirement at all (unlike warhead *mobilisation*,
+   which does need `secret_weapons_lab`) — an earlier diagnosis this session
+   assumed the opposite and was corrected before landing.
+
+### `ballistic_missile` added to the elite catalog
+
+`missile_units.yml` — research-only (`category: Missile`, all 3 doctrines), L1
+data from the user's screenshot ("Scud": unlock day 2, 21h, 2250 supplies/2500
+fuel/7000 cash — confirmed doctrine-generic, not a placeholder), requires
+`conventional_warhead level 1`. Mobilisation is a zero-cost/zero-time structural
+placeholder matching `conventional_cruise_missile`'s existing pattern — the real
+warhead-consumption mobilisation model is still a pending schema extension (see
+the `# TODO` comments in the file), deliberately out of scope this session.
+Levels 2+ undefined pending more screenshots.
+
+### India plan redesign — `preferred_cities` pinning
+
+`pnth-v-iron-2026-aug.yml`: `conventional_warhead` (240, 60 slots) moved off
+Mumbai/Kolkata/New Delhi entirely onto the fuel/components-tile cities
+(Bengaluru/Chennai/Ahmedabad, 20 slots each) — eliminates the RO2-starvation
+pressure at its root rather than just relying on bug 1's fix to recover it from
+an already-crowded dead-window queue. `uav` and `fixed_wing_veteran` moved into
+the SASF cities' now-freed dead-window capacity instead. Hyderabad (rares) drops
+to eco-only — it no longer needs a dedicated `air_base L1` investment purely for
+`fixed_wing_veteran`, since New Delhi already builds that as a byproduct of its
+own `air_base` climb for SASF. Added `ballistic_missile` as a new demand (count
+120, mirrored from `conventional_cruise_missile` as an explicit placeholder — no
+real target count given).
+
+**A latent bug found while implementing this**: `foldInDemands`'s pinned pre-pass
+(`joint-city-optimizer.ts`) created a *duplicate* `CityMobSlot` when two separate
+pinned demands named the same city (e.g. SASF and `uav` both pinned to Mumbai) —
+each opened its own disconnected slot instead of merging into one shared
+dead-window queue. Never exercised before this session because only one demand
+(SASF) had ever used `preferred_cities`. Fixed by routing the second pin through
+the existing absorption machinery (`evaluateAbsorptionOptions`/`applyAbsorption`)
+when a slot for that city already exists. Flagged to the user as an unplanned
+change to shared fold-in logic; user's direction was to keep it but treat any
+*further* changes to this function as "strategic core logic" they want to
+personally validate before it's touched again — not urgent, no action pending.
+
+### `secret_weapons_lab` build-order rule reworked
+
+`makeDeadWindowOrderBuildings` used to front-load `secret_weapons_lab` ahead of
+`arms_industry`/`air_base` specifically to unlock `conventional_warhead`'s
+mobilisation-eligibility early. Once warhead was pinned away from the SASF
+cities (above), that justification stopped applying to Mumbai/Kolkata/New
+Delhi's queues — and front-loading it there was actively wrong, since
+`secret_weapons_lab` has zero eco value (`production_bonus_pct`) while
+`arms_industry`/`air_base` have real value while being built. Reworked
+unconditionally (not conditional on filler composition) to just fold it into
+the normal ecoScore-sorted group — `recruiting_office` still forced last,
+unchanged. Applies to every dead-window city regardless of role, per user
+direction: AI (arms_industry) levels are set deterministically per city
+(`AI_TARGET_BY_RESOURCE`, not derived per-filler), and warhead-producing cities'
+AI target is low anyway (fuel: L1; components: L1→L2), so deferring
+`secret_weapons_lab` costs little there even though warhead does need it.
+
+### Iron Pipeline fixes (`iron-bp-plan.ts`)
+
+Moving `secret_weapons_lab` after `air_base` (above) shifted Unit 2's own
+`air_base` chain to start *earlier* than before — `iron-bp-plan.ts`'s separate,
+hand-rolled RO2-backfill logic (which pulls RO2 forward to "the earliest free
+point" while claiming every other infra step "keeps its exact original
+force-projection timestamps unaltered") was never updated to account for that
+shift, so the two became internally inconsistent (RO2's backfill overlapping
+`air_base`, surfaced as `WARNING: RO2 backfill ... runs past the original infra
+start` on every affected city).
+
+Fixed:
+- RO2's backfill now genuinely precedes the rest of the chain (real
+  reschedule, not just a warning); RO3+ (when the target RO level is ≥3) is
+  deferred to build *after* `secret_weapons_lab` instead of pulled forward with
+  RO2 — user's direction, closes most of the resulting gap since RO3 has no
+  standalone benefit before it's needed.
+- **A real, separate pre-existing bug found along the way**: the RO-backfill
+  step only ever counted the *last* hop's cost/duration (`.find(toLevel ===
+  roLevel)` picks one step object) — e.g. just the L2→L3 leg (28h) for an RO L3
+  target, silently dropping the L1→L2 leg (26h) entirely from both the
+  reschedule math and the Resource Balance's RO2-backfill cost total. Fixed by
+  summing every hop from eco's credited L1 up to the target level.
+- Filler mob-start floors (uav etc.) are re-derived from the rescheduled infra
+  timestamps — but **only when a real RO2+ backfill exists** for that city.
+  An earlier version of this fix rescheduled `otherSteps` unconditionally for
+  *every* city, including RO L1 cities with no backfill at all — this forced
+  Japan's Oita/Tokyo/Fujisawa/Sendai `air_base` chains to start at the iron-eco
+  heuristic's own completion hour instead of Unit 2's own already-correct,
+  already-validated (UAT Round 3) earlier timing, producing an 84h spurious gap
+  on Tokyo. Caught before shipping by checking Japan's output too, not just
+  India's — fixed by scoping the reschedule to fire only when `roStep` (the
+  RO2 hop) actually exists.
+- A primary unit's own mob start now delays to match its rescheduled infra
+  chain's completion when there's a small residual gap (Mumbai/Kolkata were
+  ~1-2h short) — "that is what will happen in practice," per the user, rather
+  than leaving a warning banner. Can only push a start *later*, never earlier,
+  so it can't turn a feasible plan infeasible.
+
+### `min_ro` — new plan-level pinning capability
+
+`estimateRoLevelForFixedCityCount` (`joint-city-optimizer.ts`) always picks the
+*cheapest* RO level that fits a pinned demand's own count — so when a second
+demand is later pinned to the same city (e.g. AWACS sharing SASF's cities),
+there was no way to make the *first* demand's pin choose a higher RO level than
+it alone would ever need. Added `Demand.min_ro?: number` (optional, 1-5,
+`coalition-force-plan-schema.ts`) — threaded into the pinned pre-pass as
+`Math.max(getUnitMinRo(unitId, catalog), demand.min_ro ?? 0)`. Once the first
+pin establishes `slot.roLevel` at the forced floor, a later pinned demand
+sharing the same city inherits it via the existing absorption merge (no further
+engine change needed — `evaluateAbsorptionOptions` already computes
+`neededRo = Math.max(slot.roLevel, minRo)`).
+
+### Japan redesign
+
+Used `min_ro` to drop AWACS's separate dedicated `air_base L4` investment in
+Oita (fuel — Japan's lowest-weighted resource) in favour of pushing AWACS
+capacity into Tokyo/Fujisawa/Sendai (Japan's SASF dead-window cities), per user
+direction. `stealth_air_superiority_fighter` demand gets `min_ro: 3` (would
+otherwise settle for RO1, unaware AWACS will share the queue); `awacs` (8) and
+`fixed_wing_veteran` (1, pinned to Tokyo — Japan's capital) both get
+`preferred_cities: [tokyo, fujisawa, sendai]` / `[tokyo]`. Oita drops to
+eco-only.
+
+**Investigated, left as-is**: user initially wanted `fixed_wing_veteran` to
+mobilise before AWACS in Tokyo (matching the earlier India ask for the same
+pattern). Traced to a real, already-documented gap: the Iron Pipeline's
+decoupled mode (no `actualEcoResultsByCity`) doesn't credit `recruiting_office`
+early the way the real eco-credited pipeline does (`forceRO` in
+`city-eco-beam.ts`) — so in this fallback, RO is subject to the same
+`makeDeadWindowOrderBuildings` ordering as everything else (RO forced *last*).
+`fixed_wing_veteran` uniquely requires `recruiting_office level 1` as a unit
+requirement (unusual — most units don't), so its readiness gets pushed almost
+to the end of the whole chain in this decoupled path, while AWACS (needs only
+`air_base L4`, no RO) becomes ready much earlier — hence AWACS mobilises first.
+Confirmed this is Unit 2's own unmodified output, not caused by anything this
+session touched. User's call: leave it (AWACS before FWV in Tokyo stands).
+
+### Global: rares AI target capped at L3
+
+`iron-heuristic.ts`'s `AI_TARGET_BY_RESOURCE.rares` — was `5` (same as
+supplies/electronics), now `3`, per user direction ("pin rare cities to arms
+industry 3 at most" — applies across the air builds and the MRL builds, i.e.
+every rares-tile city in every country's Iron Pipeline run, not India/Japan-
+specific).
+
+### Verification
+
+`npm test`: only the 5 pre-existing baseline failures (naval/seasonal empty
+catalogs). India and Japan Iron Pipeline output (`iron-bp-india.html`,
+`iron-bp-japan.html`) regenerated and confirmed correct by the user.
+
+### Next steps (flagged, not started)
+
+User's stated next focus for a future session: **review the mechanized
+infantry and commando builds** — likely Australia's `mechanized_infantry` (30,
++ `mobile_anti_air_vehicle` 70 + `mobile_radar` 7) and Russia's `commando` (12,
+province-mobilised) demands in the current PNTH V Iron plan, applying the same
+kind of UAT scrutiny (Iron Pipeline output vs. expected game mechanics) that
+surfaced this session's India/Japan fixes. Not yet investigated — no findings
+to report yet, just the stated intent to pick this up next.

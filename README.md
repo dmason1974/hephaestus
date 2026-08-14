@@ -114,7 +114,11 @@ FP_MAX_RO=3 FP_COUNTRY=indonesia npm run smoke:force-projection
 # A demand can carry `preferred_cities` (plan YAML) to pin it to named cities and
 # enable dead-window city sharing — a long-pole unit's city mobilises a cheaper
 # filler unit (e.g. warheads/UAV/AWACS alongside SASF) during its own idle build
-# time. See CLAUDE.md's "UAT Round 3" section for the full mechanic.
+# time. See CLAUDE.md's "UAT Round 3" section for the full mechanic. A pinned
+# demand can also carry `min_ro` to force a higher recruiting_office floor than
+# it alone would need, when a later demand will share the same pinned cities
+# and needs more mobilisation throughput (see CLAUDE.md's "India/Japan
+# Dead-Window Fixes" section).
 RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=all npm run smoke:resource-projection   # RP_PLAN is required — no default
 RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=russia npm run smoke:resource-projection   # single country
 # Config: RP_SCENARIO, RP_PLAN (required), RP_COUNTRY, RP_MAX_RO, RP_BEAM_WIDTH, RP_TOP_N, RP_GARRISON_DISBAND_DAY, RP_OUTPUT_FILE

@@ -28,12 +28,36 @@ const demandSchema = z
   })
   .strict();
 
+// cohort resource key (or "non_resource") -> homeland country id -> province count
+// credited to it. Only meaningful when status: occupied. Sum of values for a given
+// cohort must not exceed that cohort's real province count (validated at load time,
+// not here — zod can't express a cross-field constraint against country YAML data).
+// Keyed by plain z.string(), not z.enum(...) — z.record() with an enum/literal key
+// schema requires every enum member present (a full record), not a sparse/partial
+// map, which is not what a cohort-keyed credit map needs (confirmed: this broke
+// parsing of every existing plan file until switched to z.string() here).
+const PROVINCE_CREDIT_KEYS = ["supplies", "components", "fuel", "rares", "electronics", "non_resource"] as const;
+const provinceCreditsSchema = z.record(
+  z.string().min(1).refine(k => (PROVINCE_CREDIT_KEYS as readonly string[]).includes(k), {
+    message: `must be one of: ${PROVINCE_CREDIT_KEYS.join(", ")}`,
+  }),
+  z.record(z.string().min(1), z.number().int().min(1)),
+);
+
 const countryPlanSchema = z
   .object({
     status: z.enum(["homeland", "occupied"]),
     // Day this country is captured (only meaningful when status: occupied). Defaults
     // to day 4 at the call site when omitted.
     capture_day: z.number().int().min(1).optional(),
+    // Only meaningful when status: occupied. Bare city id -> homeland country id this
+    // city's production is transferred to (manpower is PER_COUNTRY_RESOURCES — never
+    // pooled — so without this an annexed city's manpower is stranded on this
+    // country's own dead ledger). A credited city is excluded entirely from this
+    // country's own report.
+    city_credits: z.record(z.string().min(1), z.string().min(1)).optional(),
+    // Only meaningful when status: occupied. See provinceCreditsSchema above.
+    province_credits: provinceCreditsSchema.optional(),
     demands: z.array(demandSchema),
   })
   .strict();

@@ -76,7 +76,8 @@ import { loadScenarioCoalitionPlan } from "../../scenarios/io/load-coalition-pla
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { loadMergedUnitCatalogForScenario } from "../../scenarios/io/load-unit-catalog.js";
-import { AI_TARGET_BY_RESOURCE, PROVINCE_BUILD_ORDER } from "./iron-heuristic.js";
+import { AI_TARGET_BY_RESOURCE, OCCUPIED_PROVINCE_BUILD_ORDER, PROVINCE_BUILD_ORDER } from "./iron-heuristic.js";
+import { computeOccupiedYield, provinceCreditKeyFromCohortId } from "./occupied-yield.js";
 
 const scenarioId = process.env.IRON_SCENARIO ?? "elite/antarctica";
 const planId = process.env.IRON_PLAN ?? "pnth-v-iron-2026-aug";
@@ -394,6 +395,117 @@ const forcedAirBaseDestructionAbsHour: Record<string, number> = Object.fromEntri
 );
 
 const citySimulation = simulateBuildOrder({ cities: fullCityStates, buildOrder: ecoBuildOrder, buildings, scenario, hoursToSimulate, forcedAirBaseDestructionAbsHour });
+
+// ── Captured territory (city_credits/province_credits) — cities/provinces
+// credited to this country from an occupied source (Norway's individual
+// cities, or a whole single-city AI nation like Iran) are computed here via
+// the same shared heuristic as iron-occupied-plan.ts (RO1 first, then
+// electronics-tile annex+AI5), scoped to only this country's credited share,
+// and folded into this country's own Resource Balance below. The source
+// country's own report (iron-occupied-plan.ts) excludes these same assets, so
+// nothing is double-counted. ──────────────────────────────────────────────
+type CapturedCityRow = { label: string; source: string; resource: string; seqLines: string; lastBuildStr: string };
+type CapturedProvinceRow = { label: string; source: string; resource: string; provinceCount: number; seqLabel: string };
+
+const capturedCityIncome = zeroResources();
+const capturedCityBuildCost = zeroResources();
+const capturedProvinceIncome = zeroResources();
+const capturedProvinceBuildCost = zeroResources();
+const capturedCityRows: CapturedCityRow[] = [];
+const capturedProvinceRows: CapturedProvinceRow[] = [];
+// Feed into the Resource Minima hourly walk further below — a captured city's
+// hourly production (treated like an unassigned homeland city: full
+// production every hour, already capture-zeroed before the source's own
+// capture day) and a captured province's flat post-capture-window rate
+// (windowed per-source, since a source's capture day may not be hour 0).
+const capturedCityHourly = new Map<string, Array<Record<Resource, number>>>();
+const capturedProvinceWindows: Array<{ captureRelHour: number; rate: Record<Resource, number> }> = [];
+const capturedCostEvents: Array<{ hour: number; cost: Partial<Record<Resource, number>> }> = [];
+
+for (const [sourceId, sourcePlan] of Object.entries(plan.countries)) {
+  if (sourcePlan.status !== "occupied") continue;
+  const myCities = Object.entries(sourcePlan.city_credits ?? {}).filter(([, target]) => target === countryId).map(([cityId]) => cityId);
+  const myProvinceCredits = Object.entries(sourcePlan.province_credits ?? {})
+    .map(([key, split]) => [key, split[countryId] ?? 0] as const)
+    .filter(([, count]) => count > 0);
+  if (myCities.length === 0 && myProvinceCredits.length === 0) continue;
+
+  const sourceCountry = loadScenarioCountry(scenarioId, sourceId);
+  const sourceCaptureDay = sourcePlan.capture_day ?? 4;
+  const sourceCaptureRelHour = toAbsoluteHour(sourceCaptureDay, 0) - scenarioAbsHour;
+  const sourceForcedAirBaseDestructionAbsHour: Record<string, number> = Object.fromEntries(
+    sourceCountry.cities
+      .filter(city => city.capital)
+      .map(city => [`${sourceCountry.country.id}:${city.id}`, toAbsoluteHour(airportDestroyDay + 1, 0)])
+  );
+
+  const yieldResult = computeOccupiedYield({
+    country: sourceCountry,
+    scenario,
+    buildings,
+    captureDay: sourceCaptureDay,
+    captureRelHour: sourceCaptureRelHour,
+    hoursToSimulate,
+    truceDays: plan.truce_days,
+    forcedAirBaseDestructionAbsHour: sourceForcedAirBaseDestructionAbsHour,
+    cityIdFilter: bareCityId => myCities.includes(bareCityId),
+    cohortCountOverride: (cohortId, fullCount) => {
+      const key = provinceCreditKeyFromCohortId(cohortId);
+      const credit = myProvinceCredits.find(([k]) => k === key);
+      return credit ? Math.min(credit[1], fullCount) : 0;
+    },
+  });
+
+  for (const bareCityId of myCities) {
+    const city = sourceCountry.cities.find(c => c.id === bareCityId);
+    if (!city) continue;
+    const prefixedId = `${sourceCountry.country.id}:${bareCityId}`;
+    addInto(capturedCityIncome, yieldResult.cityYieldByCity.get(prefixedId) ?? zeroResources());
+    capturedCityHourly.set(prefixedId, yieldResult.hourlyProductionByCity.get(prefixedId) ?? []);
+    const segs = yieldResult.segmentsByCity.get(prefixedId);
+    const allSegs = [...(segs?.recruiting_office ?? []), ...(segs?.annex_city ?? []), ...(segs?.arms_industry ?? []), ...(segs?.underground_bunkers ?? [])].sort((a, b) => a.startMinute - b.startMinute);
+    for (const s of allSegs) {
+      capturedCostEvents.push({ hour: s.startMinute / 60, cost: buildingLevelCost(s.buildingId, s.toLevel) });
+    }
+    const seqLines = allSegs.length === 0 ? "(no builds)" : allSegs.map(s => `L${s.toLevel} ${s.buildingId.replaceAll("_", " ")} @ ${fmtAbsHour(s.startMinute / 60)}`).join("\n");
+    const lastCompletionMinute = allSegs.length === 0 ? undefined : Math.max(...allSegs.map(s => s.endMinute));
+    capturedCityRows.push({
+      label: city.name,
+      source: sourceCountry.country.name,
+      resource: city.resource,
+      seqLines,
+      lastBuildStr: lastCompletionMinute === undefined ? "—" : fmtAbsHour(lastCompletionMinute / 60),
+    });
+  }
+  addInto(capturedCityBuildCost, yieldResult.cityEcoBuildCost);
+  addInto(capturedProvinceBuildCost, yieldResult.provinceBuildCost);
+  capturedCostEvents.push(...yieldResult.provinceCostEvents);
+
+  if (yieldResult.provinceYieldByCohort.some(pr => pr.provinceCount > 0)) {
+    const windowHours = Math.max(1, hoursToSimulate - sourceCaptureRelHour);
+    const rate = zeroResources();
+    for (const pr of yieldResult.provinceYieldByCohort) {
+      if (pr.provinceCount <= 0) continue;
+      for (const r of RESOURCE_KEYS) rate[r] += pr.total[r] / windowHours;
+    }
+    capturedProvinceWindows.push({ captureRelHour: sourceCaptureRelHour, rate });
+  }
+
+  for (const pr of yieldResult.provinceYieldByCohort) {
+    if (pr.provinceCount <= 0) continue;
+    addInto(capturedProvinceIncome, pr.total);
+    const key = provinceCreditKeyFromCohortId(pr.cohortId);
+    const steps = key !== "non_resource" ? (OCCUPIED_PROVINCE_BUILD_ORDER[key as keyof typeof OCCUPIED_PROVINCE_BUILD_ORDER] ?? []) : [];
+    capturedProvinceRows.push({
+      label: key,
+      source: sourceCountry.country.name,
+      resource: pr.resource,
+      provinceCount: pr.provinceCount,
+      seqLabel: steps.length === 0 ? "(no builds)" : steps.map(s => `L${s.targetLevel} ${s.buildingId.replaceAll("_", " ")}`).join(" → "),
+    });
+  }
+}
+
 const hourlyProductionByCity = new Map<string, Array<Record<Resource, number>>>();
 for (const city of country.cities) hourlyProductionByCity.set(`${country.country.id}:${city.id}`, []);
 for (const row of citySimulation.perHourPerCity) {
@@ -515,16 +627,21 @@ addInto(garrisonUpkeep, computeGarrisonUpkeep(scenario, catalog, country.country
 const ecoIncomeTotal = zeroResources();
 addInto(ecoIncomeTotal, flipTruncatedCityIncome);
 addInto(ecoIncomeTotal, provinceIncome);
+addInto(ecoIncomeTotal, capturedCityIncome);
+addInto(ecoIncomeTotal, capturedProvinceIncome);
 
 // Infra Costs: every building actually constructed in the integrated plan
-// (eco + RO2 backfill + province builds + army_base), regardless of which
-// phase it happened in — the eco-vs-force split was only ever an internal
-// computation detail, not a meaningful category to show separately.
+// (eco + RO2 backfill + province builds + army_base + captured territory),
+// regardless of which phase it happened in — the eco-vs-force split was only
+// ever an internal computation detail, not a meaningful category to show
+// separately.
 const infraCostTotal = zeroResources();
 addInto(infraCostTotal, cityEcoBuildCost);
 addInto(infraCostTotal, ro2BackfillCost);
 addInto(infraCostTotal, provinceBuildCost);
 addInto(infraCostTotal, armyBaseCost);
+addInto(infraCostTotal, capturedCityBuildCost);
+addInto(infraCostTotal, capturedProvinceBuildCost);
 
 const mobilisationCostTotal = zeroResources();
 addInto(mobilisationCostTotal, result.costs.mobilisation);
@@ -576,7 +693,7 @@ resourceBalanceHtml += `</tbody></table>\n`;
 //  - Upkeep for a unit begins the moment it COMPLETES mobilisation (unaffected
 //    by when the rest of its batch finishes).
 type CostEvent = { hour: number; cost: Partial<Record<Resource, number>> };
-const costEvents: CostEvent[] = [...provinceCostEvents];
+const costEvents: CostEvent[] = [...provinceCostEvents, ...capturedCostEvents];
 
 for (const city of country.cities) {
   const prefixedId = `${country.country.id}:${city.id}`;
@@ -694,6 +811,18 @@ function incomeAtHour(absHour: number): Record<Resource, number> {
     for (const r of RESOURCE_KEYS) total[r] += prod[r] ?? 0;
   }
   for (const r of RESOURCE_KEYS) total[r] += provinceIncome[r] / hoursToSimulate;
+  // Captured cities never flip — same treatment as unassignedCities (full
+  // hourly production applies for the whole window; already capture-zeroed
+  // before the source's own capture day by computeOccupiedYield).
+  for (const hourly of capturedCityHourly.values()) {
+    const prod = hourly[relHour] ?? {};
+    for (const r of RESOURCE_KEYS) total[r] += prod[r] ?? 0;
+  }
+  // Captured provinces: flat rate from each source's own capture day onward.
+  for (const w of capturedProvinceWindows) {
+    if (relHour < w.captureRelHour) continue;
+    for (const r of RESOURCE_KEYS) total[r] += w.rate[r];
+  }
   return total;
 }
 
@@ -838,6 +967,25 @@ if (!feasible) {
       html += `<h3>${escapeHtml(city.name)} (${escapeHtml(city.resource)})</h3>\n`;
       html += renderTable(ecoRows, ["#", "at", "step"]);
     }
+  }
+
+  if (capturedCityRows.length > 0) {
+    html += `<h2>Captured Cities</h2>\n`;
+    html += `<p class="label">Manpower generated by a captured city transfers to the capturing coalition country — production credited here is excluded from the source country's own report. RO1 is built first (capture day), then electronics-tile cities additionally get annex + arms_industry → L5.</p>\n`;
+    for (const row of capturedCityRows) {
+      html += `<h3>${escapeHtml(row.label)} (${escapeHtml(row.source)}, ${escapeHtml(row.resource)})</h3>\n`;
+      html += `<p class="label">Last build completes: ${escapeHtml(row.lastBuildStr)}</p>\n`;
+      html += `<table><tbody><tr><td style="white-space:pre-wrap">${escapeHtml(row.seqLines)}</td></tr></tbody></table>\n`;
+    }
+  }
+
+  if (capturedProvinceRows.length > 0) {
+    html += `<h2>Captured Provinces</h2>\n`;
+    html += `<p class="label">Credited province share by cohort — provinces have no individual identity, only an aggregate count per resource tile.</p>\n`;
+    html += renderTable(
+      capturedProvinceRows.map(r => ({ cohort: r.label, source: r.source, resource: r.resource, provinces: r.provinceCount, "build sequence": r.seqLabel })),
+      ["cohort", "source", "resource", "provinces", "build sequence"],
+    );
   }
 
   html += `<h2>Force Projection</h2>\n`;

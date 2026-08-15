@@ -48,6 +48,20 @@ export const OCCUPIED_AI_TARGET_BY_RESOURCE: Record<string, number> = {
   electronics: 5,
 };
 
+// Per-city exception to the shared heuristic above — NOT a resource-keyed rule,
+// deliberately scoped to one city. Beam-search-validated (400-width search, ~30k
+// sequences explored) this session: underground_bunkers L1 built before annex_city
+// is a small net-positive for Kristiansand specifically (pop 5) but net-negative for
+// Honiara (pop 4, same electronics resource) — the delay to annex's 25%->50%
+// production jump only pays for itself at Kristiansand's higher population. UB2+ is
+// a net loss everywhere tested. Do not generalize this into OCCUPIED_AI_TARGET_BY_RESOURCE.
+export const OCCUPIED_CITY_EXTRA_FIRST_BUILD: Record<
+  string,
+  { buildingId: "underground_bunkers"; targetLevel: number }
+> = {
+  kristiansand: { buildingId: "underground_bunkers", targetLevel: 1 },
+};
+
 // Same build sequence for both supplies and electronics provinces (unlike the
 // homeland PROVINCE_BUILD_ORDER above, where supplies and electronics differ) — per
 // user's exact instruction. rares/components/fuel/non-resource: no build.

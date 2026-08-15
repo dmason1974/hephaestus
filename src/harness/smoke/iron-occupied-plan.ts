@@ -1,41 +1,36 @@
 // Hand-specified "iron" eco heuristic for OCCUPIED countries — no force projection
 // (these countries have no demands in the plan; eco income only, feeding the shared
-// coalition pool). Heuristic (per user direction): only electronics cities are in
-// scope for any improvement at all — annex, then arms_industry straight to L5.
-// Other-resource cities (fuel/rares/components/supplies) get NO improvements — no
-// annex, no arms_industry, base occupied-rate (25%) production only, forever. Any
+// coalition pool). Heuristic: RO1 first in every city (unconditional), then only
+// electronics cities get further improvement — annex, then arms_industry straight
+// to L5. Other-resource cities (fuel/rares/components/supplies) get RO1 only — no
+// annex, no arms_industry, base occupied-rate (25%) production only otherwise. Any
 // supplies/electronics province gets
 // L1 local industry -> L2 local industry -> L1 combat outpost -> L3 local industry
 // (same sequence for both resources, unlike the homeland heuristic where they
 // differ); zero yield before the country's capture_day (city AND province).
+// Cities/provinces credited to a homeland country (Demand.city_credits/
+// province_credits) are EXCLUDED from this report entirely — their production is
+// transferred to that homeland's own iron-bp-<country>.html instead (see
+// occupied-yield.ts's computeOccupiedYield, shared with iron-bp-plan.ts), so
+// nothing is double-counted if a coalition-wide aggregate is ever run.
 // Run via IRON_COUNTRY=<id> npm run smoke:iron-occupied-plan.
 import fs from "node:fs";
 import path from "node:path";
 
-import {
-  CAPTURED_STARTING_MORALE_DAY1,
-  DEFAULT_MORALE_DECAY_D,
-  HOMELAND_TARGET_MORALE,
-  type Resource,
-} from "../../core/constants.js";
 import { scenarioStartAbsoluteHour, toAbsoluteHour } from "../../core/time.js";
-import { buildDailyProvinceResourceTable } from "../../engine/economy/province-production.js";
-import {
-  scheduleBuildSegments,
-  type BuildAction,
-  type TimelineCityState,
-} from "../../engine/orchestration/build-order-timeline.js";
-import { buildProvinceCohortsFromCountry } from "../../engine/provinces/province-cohorts.js";
-import { simulateBuildOrder, type CityState } from "../../engine/simulation/build-order-sim.js";
-import {
-  simulateProvinceBuildOrder,
-  type ProvinceBuildAction,
-} from "../../engine/simulation/province-build-order-sim.js";
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioCoalitionPlan } from "../../scenarios/io/load-coalition-plan.js";
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
-import { OCCUPIED_AI_TARGET_BY_RESOURCE, OCCUPIED_PROVINCE_BUILD_ORDER } from "./iron-heuristic.js";
+import { OCCUPIED_PROVINCE_BUILD_ORDER } from "./iron-heuristic.js";
+import {
+  RESOURCE_KEYS,
+  addInto,
+  buildingLevelCost,
+  computeOccupiedYield,
+  provinceCreditKeyFromCohortId,
+  zeroResources,
+} from "./occupied-yield.js";
 
 const scenarioId = process.env.IRON_SCENARIO ?? "elite/antarctica";
 const planId = process.env.IRON_PLAN ?? "pnth-v-iron-2026-aug";
@@ -57,19 +52,46 @@ const captureDay = countryPlan?.capture_day ?? 4;
 const captureAbsHour = toAbsoluteHour(captureDay, 0);
 const captureRelHour = captureAbsHour - scenarioAbsHour;
 
-const RESOURCE_KEYS: Resource[] = ["supplies", "components", "fuel", "rares", "electronics", "cash", "manpower"];
+// Plan mechanic: disbanding the starting-garrison gunships (day 4, see CLAUDE.md's
+// "Starting Units — Garrison Mechanic") forces destruction of each capital's original
+// airport (air_base level 1) the same day. Defaults to day 4; override with
+// IRON_AIRPORT_DESTROY_DAY=<day> for what-if variants.
+const airportDestroyDay = process.env.IRON_AIRPORT_DESTROY_DAY
+  ? Number(process.env.IRON_AIRPORT_DESTROY_DAY)
+  : 4;
+const forcedAirBaseDestructionAbsHour: Record<string, number> = Object.fromEntries(
+  country.cities
+    .filter(city => city.capital)
+    .map(city => [`${country.country.id}:${city.id}`, toAbsoluteHour(airportDestroyDay + 1, 0)])
+);
 
-function zeroResources(): Record<Resource, number> {
-  return { supplies: 0, components: 0, fuel: 0, rares: 0, electronics: 0, cash: 0, manpower: 0 };
-}
-
-function addInto(target: Record<Resource, number>, src: Partial<Record<Resource, number>>): void {
-  for (const r of RESOURCE_KEYS) target[r] += src[r] ?? 0;
-}
-
-function buildingLevelCost(buildingId: string, level: number): Partial<Record<Resource, number>> {
-  return buildings.buildings[buildingId as keyof typeof buildings.buildings]?.levels[String(level) as "1" | "2" | "3" | "4" | "5"]?.cost ?? {};
-}
+const {
+  segmentsByCity,
+  cityYieldByCity,
+  hourlyProductionByCity,
+  cityEcoBuildCost,
+  provinceCohorts,
+  provinceYieldByCohort,
+  provinceBuildCost,
+  provinceCostEvents,
+} = computeOccupiedYield({
+  country,
+  scenario,
+  buildings,
+  captureDay,
+  captureRelHour,
+  hoursToSimulate,
+  truceDays: plan.truce_days,
+  forcedAirBaseDestructionAbsHour,
+  cityIdFilter: bareCityId => !countryPlan?.city_credits?.[bareCityId],
+  cohortCountOverride: (cohortId, fullCount) => {
+    const key = provinceCreditKeyFromCohortId(cohortId);
+    const credits = countryPlan?.province_credits?.[key as keyof NonNullable<typeof countryPlan.province_credits>];
+    if (!credits) return fullCount;
+    const creditedSum = Object.values(credits).reduce((a, b) => a + b, 0);
+    return Math.max(0, fullCount - creditedSum);
+  },
+});
 
 // ── HTML helpers (copied verbatim from iron-eco-plan.ts so output format matches) ──
 
@@ -123,189 +145,12 @@ ${body}
 </html>`;
 }
 
-// ── City build order (annex first, then AI5 for supplies/electronics only) ────
-
-const cityStates: TimelineCityState[] = country.cities.map(city => ({
-  cityId: `${country.country.id}:${city.id}`,
-  capital: city.capital,
-  cityStatus: "occupied",
-  countryId: country.country.id,
-  buildings: {
-    army_base: 0,
-    air_base: city.starting.air_base,
-    annex_city: 0,
-    arms_industry: 0,
-    combat_outpost: 0,
-    local_industry: 0,
-    military_hospital: 0,
-    naval_base: city.starting.naval_base,
-    recruiting_office: 0,
-    relocate_headquarters: 0,
-    underground_bunkers: city.starting.underground_bunkers,
-  },
-}));
-
-const buildOrder: BuildAction[] = [];
-for (const city of country.cities) {
-  const aiTarget = OCCUPIED_AI_TARGET_BY_RESOURCE[city.resource];
-  if (aiTarget === undefined) continue; // fuel/rares/components: no improvements at all
-  const cityId = `${country.country.id}:${city.id}`;
-  buildOrder.push({ cityId, buildingId: "annex_city", targetLevel: 1, startRelHour: captureRelHour });
-  buildOrder.push({ cityId, buildingId: "arms_industry", targetLevel: aiTarget });
-}
-
-const segmentsByCity = scheduleBuildSegments({ cities: cityStates, buildOrder, buildings, scenario });
-
 let html = `<h1>${escapeHtml(country.country.name)} — Iron Build Plan</h1>\n`;
 html += `<p class="label">Doctrine: ${escapeHtml(country.country.doctrine)} · Status: occupied · Deadline: ${fmtAbsHour(deadlineAbsHour)} (${plan.truce_days} days) · captured day ${captureDay}</p>\n`;
-html += `<p class="label">Hand-specified occupied-country build order, not the coalition-weight beam: only electronics cities are in scope for any improvement — annex first (18h, no earlier than capture day), then arms_industry &rarr; L5. Other-resource cities (fuel/rares/components/supplies) get no improvements at all — base occupied-rate production only. No force projection (no demands for occupied countries).</p>\n`;
+html += `<p class="label">Hand-specified occupied-country build order, not the coalition-weight beam: RO1 first in every city, then electronics cities additionally get annex + arms_industry &rarr; L5. Other-resource cities get RO1 only. No force projection (no demands for occupied countries). Cities/provinces credited to a homeland country are excluded from this report entirely — see that country's own iron-bp-&lt;country&gt;.html.</p>\n`;
 
-// ── Resource balance inputs ────────────────────────────────────────────────
-
-const fullCityStates: CityState[] = country.cities.map(city => ({
-  cityId: `${country.country.id}:${city.id}`,
-  countryId: country.country.id,
-  capital: city.capital,
-  resource: city.resource,
-  startPop: city.population,
-  cityStatus: "occupied",
-  buildings: {
-    army_base: 0,
-    air_base: city.starting.air_base,
-    annex_city: 0,
-    arms_industry: 0,
-    combat_outpost: 0,
-    local_industry: 0,
-    military_hospital: 0,
-    naval_base: city.starting.naval_base,
-    recruiting_office: 0,
-    relocate_headquarters: 0,
-    underground_bunkers: city.starting.underground_bunkers,
-  },
-}));
-
-// Plan mechanic: disbanding the starting-garrison gunships (day 4, see CLAUDE.md's
-// "Starting Units — Garrison Mechanic") forces destruction of each capital's original
-// airport (air_base level 1) the same day — zeroes the capital's air_base production
-// bonus from the end of that day onward. Defaults to day 4; override with
-// IRON_AIRPORT_DESTROY_DAY=<day> for what-if variants. (Norway's capital Oslo also
-// starts with air_base:1, but capture-day zeroing already makes the destroy-day vs.
-// capture-day ordering moot — see CLAUDE.md.)
-const airportDestroyDay = process.env.IRON_AIRPORT_DESTROY_DAY
-  ? Number(process.env.IRON_AIRPORT_DESTROY_DAY)
-  : 4;
-const forcedAirBaseDestructionAbsHour: Record<string, number> = Object.fromEntries(
-  country.cities
-    .filter(city => city.capital)
-    .map(city => [`${country.country.id}:${city.id}`, toAbsoluteHour(airportDestroyDay + 1, 0)])
-);
-
-const citySimulation = simulateBuildOrder({ cities: fullCityStates, buildOrder, buildings, scenario, hoursToSimulate, forcedAirBaseDestructionAbsHour });
-
-// Capture-day zeroing: simulateBuildOrder has no concept of "not ours yet" — it
-// computes production from cityStatus for every hour of the window. Zero every
-// hour before captureRelHour here, matching city-eco-beam.ts's own approach.
-const hourlyProductionByCity = new Map<string, Array<Record<Resource, number>>>();
-for (const city of country.cities) hourlyProductionByCity.set(`${country.country.id}:${city.id}`, []);
-for (const row of citySimulation.perHourPerCity) {
-  const arr = hourlyProductionByCity.get(row.cityId);
-  if (!arr) continue;
-  arr[row.hour] = row.hour < captureRelHour ? zeroResources() : row.production;
-}
-
-const cityYieldByCity = new Map<string, Record<Resource, number>>();
-for (const city of country.cities) {
-  const total = zeroResources();
-  const hourly = hourlyProductionByCity.get(`${country.country.id}:${city.id}`) ?? [];
-  for (const prod of hourly) if (prod) addInto(total, prod);
-  cityYieldByCity.set(`${country.country.id}:${city.id}`, total);
-}
-
-// City eco build cost — annex L1 + AI-to-target, supplies/electronics cities only.
-const cityEcoBuildCost = zeroResources();
-for (const city of country.cities) {
-  const aiTarget = OCCUPIED_AI_TARGET_BY_RESOURCE[city.resource];
-  if (aiTarget === undefined) continue;
-  addInto(cityEcoBuildCost, buildingLevelCost("annex_city", 1));
-  for (let lvl = 1; lvl <= aiTarget; lvl++) addInto(cityEcoBuildCost, buildingLevelCost("arms_industry", lvl));
-}
-
-// ── Province income + build cost — supplies/electronics cohorts only, capture-zeroed ──
-
-const provinceCohorts = buildProvinceCohortsFromCountry(country);
 const provinceIncome = zeroResources();
-const provinceBuildCost = zeroResources();
-// Province build costs were previously computed for the Resource Balance totals
-// (provinceBuildCost, below) but never fed into the hourly cash-flow walk's
-// costEvents — confirmed via a diagnostic probe on Norway (walked cost matched
-// infraCostTotal exactly for fuel/rares/electronics but was short by exactly the
-// missing local_industry/combat_outpost cost for supplies/components/cash — those
-// two buildings only cost those three resources). scheduleBuildSegments is called
-// directly here (same as simulateProvinceBuildOrder does internally) just to get
-// each province build step's real start hour for costEvents timing.
-const provinceCostEvents: Array<{ hour: number; cost: Partial<Record<Resource, number>> }> = [];
-const provinceYieldByCohort: Array<{ cohortId: string; resource: string; provinceCount: number; total: Record<Resource, number> }> = [];
-for (const cohort of provinceCohorts) {
-  const steps = (cohort.resource && OCCUPIED_PROVINCE_BUILD_ORDER[cohort.resource]) ?? [];
-  const actions: ProvinceBuildAction[] = steps.map((s, i) => ({
-    provinceId: cohort.provinceId,
-    buildingId: s.buildingId,
-    targetLevel: s.targetLevel,
-    ...(i === 0 ? { startRelHour: captureRelHour } : {}),
-  }));
-  const simResult = simulateProvinceBuildOrder({
-    provinces: [{ ...cohort, cityStatus: "occupied" }],
-    buildOrder: actions,
-    buildings,
-    scenario,
-    hoursToSimulate,
-  });
-  const provinceTimelineState: TimelineCityState = {
-    cityId: cohort.provinceId,
-    countryId: country.country.id,
-    buildings: {
-      army_base: 0, air_base: 0, annex_city: 0, arms_industry: 0,
-      combat_outpost: 0, local_industry: 0, mercenary_outpost: 0,
-      naval_base: 0, recruiting_office: 0, relocate_headquarters: 0, underground_bunkers: 0,
-    },
-  };
-  const provinceSegments = scheduleBuildSegments({ cities: [provinceTimelineState], buildOrder: actions.map(a => ({ cityId: a.provinceId, buildingId: a.buildingId, targetLevel: a.targetLevel, startRelHour: a.startRelHour })), buildings, scenario });
-  const psegs = provinceSegments.get(cohort.provinceId);
-  for (const s of [...(psegs?.local_industry ?? []), ...(psegs?.combat_outpost ?? [])]) {
-    provinceCostEvents.push({ hour: s.startMinute / 60, cost: buildingLevelCost(s.buildingId, s.toLevel) });
-  }
-  const cohortIncome = zeroResources();
-  for (const row of simResult.perHourAggregate) {
-    if (row.hour < captureRelHour) continue;
-    addInto(cohortIncome, row.production);
-  }
-  // Manpower workaround (same bug/fix as iron-eco-plan.ts): simulateProvinceBuildOrder
-  // floors production hourly, zeroing manpower for small cohorts. Recompute from the
-  // daily-granularity table instead, summing only days >= captureDay (capture-zeroed).
-  const dailyManpower = buildDailyProvinceResourceTable(plan.truce_days, scenario.speed, {
-    resource: "manpower",
-    provinceCount: cohort.totalProvinceCount,
-    moraleParams: {
-      S: CAPTURED_STARTING_MORALE_DAY1,
-      T: HOMELAND_TARGET_MORALE,
-      N: 0,
-      D: DEFAULT_MORALE_DECAY_D,
-    },
-    cityStatus: "occupied",
-  });
-  cohortIncome.manpower = dailyManpower.rows
-    .filter(row => row.day >= captureDay)
-    .reduce((sum, row) => sum + row.amount, 0);
-
-  addInto(provinceIncome, cohortIncome);
-  for (const step of steps) addInto(provinceBuildCost, buildingLevelCost(step.buildingId, step.targetLevel));
-  provinceYieldByCohort.push({
-    cohortId: cohort.cohortId,
-    resource: cohort.resource ?? "—",
-    provinceCount: cohort.totalProvinceCount,
-    total: cohortIncome,
-  });
-}
+for (const pr of provinceYieldByCohort) addInto(provinceIncome, pr.total);
 
 // ── Resource balance (Starting Balance / Mobilisation / Upkeep all zero — occupied,
 // no force projection, no garrison) ────────────────────────────────────────
@@ -356,7 +201,7 @@ for (const city of country.cities) {
   const prefixedId = `${country.country.id}:${city.id}`;
   const segs = segmentsByCity.get(prefixedId);
   for (const s of [...(segs?.annex_city ?? []), ...(segs?.arms_industry ?? [])]) {
-    costEvents.push({ hour: s.startMinute / 60, cost: buildingLevelCost(s.buildingId, s.toLevel) });
+    costEvents.push({ hour: s.startMinute / 60, cost: buildingLevelCost(buildings, s.buildingId, s.toLevel) });
   }
 }
 costEvents.sort((a, b) => a.hour - b.hour);
@@ -440,13 +285,16 @@ const cityRows: string[] = [];
 cityRows.push(`<tr><th>City</th><th>Resource</th><th>Build Sequence</th><th>Last build completes</th></tr>`);
 for (const city of country.cities) {
   const cityId = `${country.country.id}:${city.id}`;
+  const creditedTo = countryPlan?.city_credits?.[city.id];
   const segs = segmentsByCity.get(cityId);
   const allSegs = [...(segs?.annex_city ?? []), ...(segs?.arms_industry ?? [])].sort((a, b) => a.startMinute - b.startMinute);
-  const seqLines = allSegs.length === 0
+  const seqLines = creditedTo
+    ? `→ credited to ${creditedTo}`
+    : allSegs.length === 0
     ? "(no builds)"
     : allSegs.map(s => `L${s.toLevel} ${s.buildingId.replaceAll("_", " ")} @ ${fmtAbsHour(s.startMinute / 60)}`).join("\n");
   const lastCompletionMinute = allSegs.length === 0 ? undefined : Math.max(...allSegs.map(s => s.endMinute));
-  const lastBuildStr = lastCompletionMinute === undefined ? "—" : fmtAbsHour(lastCompletionMinute / 60);
+  const lastBuildStr = creditedTo ? "—" : lastCompletionMinute === undefined ? "—" : fmtAbsHour(lastCompletionMinute / 60);
   const isCapital = city.capital;
   const cityLabel = isCapital ? `★ ${city.name}` : city.name;
   cityRows.push(`<tr>
@@ -465,8 +313,12 @@ html += `<p class="label">supplies/electronics cohorts get the occupied-country 
 const provRows: string[] = [];
 provRows.push(`<tr><th>Cohort</th><th>Resource</th><th>Provinces</th><th>Build Sequence</th></tr>`);
 for (const cohort of provinceCohorts) {
+  const creditKey = provinceCreditKeyFromCohortId(cohort.cohortId);
+  const credits = countryPlan?.province_credits?.[creditKey as keyof NonNullable<typeof countryPlan.province_credits>];
   const steps = (cohort.resource && OCCUPIED_PROVINCE_BUILD_ORDER[cohort.resource]) ?? [];
-  const seqLabel = steps.length === 0
+  const seqLabel = credits
+    ? `→ credited: ${Object.entries(credits).map(([c, n]) => `${n} to ${c}`).join(", ")}`
+    : steps.length === 0
     ? "(no builds)"
     : steps.map(s => `L${s.targetLevel} ${s.buildingId.replaceAll("_", " ")}`).join(" → ");
   const cohortLabel = cohort.cohortId.split(":")[1] ?? cohort.cohortId;

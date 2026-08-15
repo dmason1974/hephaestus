@@ -1937,3 +1937,181 @@ game mechanic rather than something the simulation needs to compute.
 `iron-eco`/`iron-fp`/`iron-bp`/`iron-occupied`/`iron-resource-projection` regenerated
 with the new day-4 default and confirmed against a byte-identical `iron-fp-*.html`
 diff (proves zero timing regression) plus the balance-sheet deltas above.
+
+## Research Buffer + Japan Research ASAP Pins (branch `research_buffer`, session, 2026-08-15)
+
+Two related features, both plan-level (not scenario-level), motivated by a real
+observation in generated output: the JIT backward research scheduler packs level 2+
+research with **zero margin** (e.g. Italy's `tmp/iron-bp-italy.html` showed
+`tank_veteran L7` ending and `multiple_rocket_launcher L2` starting in the same slot
+at the exact same hour) — unrealistic, since a player can "sleep in" and miss the
+exact moment a slot frees up to requeue.
+
+### Feature A — global research buffer
+
+`research_buffer_hours` (new field on `coalitionForcePlanSchema`, set to `24` — 1 game
+day — in `pnth-v-iron-2026-aug.yml`) reserves that many hours of idle slot time
+immediately before every JIT-scheduled (level 2+) research task. Level 1 (always
+ASAP) is never buffered. Implemented as a single-line change in
+`unit-research-sim.ts`'s backward JIT loop: when a task is placed, the slot's
+backward "free before" boundary (`slotFreeBefore[slot]`) ratchets to
+`selectedStartHour - bufferHours` instead of `selectedStartHour` (unless the task is
+level 1 or explicitly exempted — see Feature B), reserving genuine dead slot time
+immediately preceding it. Threaded through `CountryForceProjectionInput.researchBufferHours`
+→ `simulateUnitResearchTargets`'s new `bufferHours` opt, wired at all 4 harness call
+sites that call `computeCountryForceProjection` (`iron-fp-plan.ts`, `iron-bp-plan.ts`,
+`resource-projection.ts`, `force-projection.ts`) — both the Iron Pipeline and the
+production pipeline pick it up uniformly since the field lives on the plan schema.
+
+### Feature B — Japan research ASAP pins
+
+Investigating Japan's research plan surfaced a second, related gap: `helicopter_gunship`
+(a pure research-prerequisite anchor for `elite_attack_helicopter` — never itself
+mobilised, so JIT-deferring it saves zero upkeep) was getting swept into the same
+"push everything as late as possible" scheduler as every real demand, landing
+`gunship L1` on day 17 of a 28-day truce despite having no reason to wait, and pushing
+`elite_attack_helicopter L3`'s research to complete at literally the deadline hour
+with zero margin. New `research_asap_pins` field (per-country, on `countryPlanSchema`)
+hand-specifies unit levels to force ASAP instead of JIT-deferring — Japan's plan pins
+`helicopter_gunship` L1-6, `elite_attack_helicopter` L1, `fixed_wing_veteran` L1,
+`awacs` L1, and `air_superiority_fighter` L1. `computeAsapResearchCompletions`
+(`unit-research-sim.ts`) computes each pinned level's earliest physically feasible
+completion via a genuine multi-slot greedy forward walk (mirrors
+`determineMaximumFeasibleLevel`'s pattern), then `country-force-projection.ts`
+overwrites `latestCompletionByUnitLevel` for each pinned level with that value —
+forcing the backward scheduler to place it ASAP — and builds a `noBufferTaskIds` set
+(every pinned level ≥ 2) so Feature A's buffer never inserts artificial slack into a
+chain that's supposed to pack tight (`helicopter_gunship` L2-6 have zero benefit from
+spacing out, since deferring never-mobilised research saves nothing).
+
+**A real bug found and fixed during verification, not just planning**: the first
+version of `computeAsapResearchCompletions` computed completion hours as if research
+slots were infinite (a simple topological walk ignoring slot capacity). With 5 pinned
+chains all wanting to start near hour 15 but only 2 real slots, this produced
+infeasible overrides for `awacs:1` and `air_superiority_fighter:1` — the scheduler
+silently dropped both (failed `canFit`), while their already-scheduled higher levels
+(`awacs` L2-L6, `air_superiority_fighter` L2-L4) survived as **dangling segments**
+with no L1 underneath them, because the backward algorithm's drop-cascade only
+un-schedules dependents still in the `unscheduled` set — anything already committed
+stays committed. This is the "known pre-existing risk" flagged when Feature A was
+designed (a lower level failing `canFit` after a dependent level 2+ task was already
+scheduled), triggered here by Feature B's own override rather than the buffer. Fixed
+by making `computeAsapResearchCompletions` genuinely slot-aware (tracks
+`slotAvailableAt` per slot, greedy earliest-start-wins selection across all
+currently-ready pinned tasks) — verified via direct `computeCountryForceProjection`
+calls that all 6 of Japan's research-pinned units now produce a real segment, and via
+a regression test in `country-force-projection.test.ts` asserting every pinned
+`unit:level` is present in the output.
+
+**Verified schedule shape (real Japan output, `pnth-v-iron-2026-aug`)**: with only 2
+slots, `air_superiority_fighter L1` (15-16h), `awacs L1` (15-37h, other slot),
+`fixed_wing_veteran L1` (16-22h), and `helicopter_gunship L1` (22-41h) queue up as
+tightly as physically possible rather than all landing at literally the same instant
+(impossible with 2 slots for 4 chains) — gunship's own L2-L6 chain then runs back to
+back with zero buffer (any gap present is a real unlock-day gate, not the buffer;
+confirmed by re-running with `researchBufferHours` omitted and asserting identical
+gunship timing). Every unpinned level ≥ 2 transition (`awacs` L2+, `fixed_wing_veteran`
+L2+, `air_superiority_fighter` L2/L4, `elite_attack_helicopter` L2/L3) shows exactly
+or more than the 24h buffer wherever it's the binding constraint in a densely packed
+slot near the deadline.
+
+### A second bug — no margin between the last research task and the truce deadline itself
+
+User caught this directly by reading `iron-bp-japan.html`/`iron-bp-italy.html`:
+`elite_attack_helicopter L3`, `awacs L6` (Japan), and both slots' terminal levels in
+Italy's MRL/MAAV/tank_veteran chain all completed at *exactly* the deadline hour
+(day 29 h15) — zero margin, "not one game day before true ends." Root cause: the
+buffer only ratchets `slotFreeBefore[slot]` *after* a task is placed, protecting the
+gap **before** the next (chronologically earlier) task — but the very first task
+considered in a slot's backward walk (the one that ends up **last** chronologically)
+has nothing bounding its own completion except the raw `deadlineAbsoluteHour`, which
+the buffer never touched. Fixed in `unit-research-sim.ts`: `successorStartBound` now
+also gets `Math.min(..., deadlineAbsoluteHour - bufferHours)` for any task that is
+neither level 1 nor in `noBufferTaskIds` — symmetric with every other buffered
+handoff. Verified: Italy's and Japan's terminal research segments (`mobile_anti_air_vehicle L7`
+in slot1, `multiple_rocket_launcher L5` in slot2 for Italy; `elite_attack_helicopter L3`,
+`awacs L6` for Japan) now complete at day 28 h15 — exactly 24h before the day 29 h15
+deadline — regenerated and confirmed in both `iron-bp-<country>.html` files, not just
+inferred. Regression tests unaffected (31/31 still pass).
+
+### Flagged, not fixed — `unit_limit` mobilisation tranches unmodeled
+
+Reviewing Japan's regenerated output, the user also caught that `elite_attack_helicopter`'s
+mobilisation queue shows a single `[mob] elite attack helicopter ×10` batch (Yono,
+day 18 h19) — all 10 units mobilised at once, when EAH has a real `unit_limit` cap of
+5/10/15 at research levels 1/2/3 (see "Elite Unit Catalog Status"). In-game, only 5
+units can exist while research sits at level 1; the remaining 5 shouldn't be
+mobiliseable until level 2 research actually completes (day 26 h08 in this run) —
+the current model ignores this entirely for a batch this size. Confirmed via grep:
+`unit_limit` is parsed by the schema and consumed by the older, separate
+`unit-mobilization-plan.ts` engine (`force-build-plan.ts`'s single-country plan
+family), but **never referenced** in `country-force-projection.ts` or
+`joint-city-optimizer.ts` — the actual engine this Iron Pipeline / PNTH plan runs on.
+This is a real, pre-existing gap, unrelated to and not caused by the research-buffer
+work in this session — confirmed out of scope per explicit user direction ("your
+scope is solely to change the research"). Flagged here for a future session: the
+mobilisation queue for any `unit_limit`-capped demand needs to split into
+level-gated tranches (batch N only starts once the research level that raises the
+cap past the previous batch's size has completed), not treated as one monolithic
+mobilisation step.
+
+### Future work (documented, not built this session)
+
+Research whose unit has **zero mobilisation demand** in the plan (a pure prerequisite
+anchor, like `helicopter_gunship` here) has no upkeep benefit from JIT deferral —
+deferral only pays off when it delays a *mobilised* unit's upkeep clock. A future
+programmatic retrofit could auto-detect `demandCount === 0` units pulled in only via
+`expandTargetsWithUnitRequirements` and schedule them ASAP automatically, replacing
+the need for hand-specified `research_asap_pins` entries like Japan's. Deliberately
+not built now, per explicit user direction — Feature B is the hand-cranked stand-in,
+kept simple and manually verifiable in the same spirit as the rest of the Iron
+Pipeline's hand-specified pinning (`preferred_cities`, `min_ro`).
+
+### Downstream impact — coalition regenerated, real cost increase confirmed
+
+Both features shift research (and therefore mobilisation-readiness) timing for every
+country whose plan is re-run with `research_buffer_hours` set — which is now every
+country in `pnth-v-iron-2026-aug.yml`, since the field is plan-wide. Full 12-country
+`iron-fp`/`iron-bp`/`iron-occupied`/`iron-resource-projection` regeneration confirms
+this changes upkeep costs coalition-wide (per `npm run smoke:iron-resource-projection`,
+`IRON_COUNTRIES=` all 12; `iron-eco-plan` deliberately **not** rerun — it has no
+dependency on research scheduling at all, since eco/build plans are driven purely by
+the fixed heuristic in `iron-heuristic.ts`, not `computeCountryForceProjection`).
+
+Coalition Balance Sheet (pooled), after both the buffer and the deadline-margin fix:
+
+```
+                  supplies    components    fuel        rares     electronics   cash
+Eco income       1,086,268     721,962    398,077     267,800     442,604    3,302,843
++ Starting bal     285,984     214,480    107,248      77,747      77,747    1,072,496
+= Gross avail    1,372,252     936,442    505,325     345,547     520,351    4,375,339
+− Infra cost       275,050     238,600    262,800      55,050     162,025    1,402,225
+− Mob cost         741,950     642,650     31,000      84,600     316,100    1,601,500
+− Upkeep cost      308,959      11,224    231,962           0      50,516      708,209
+= Net balance       46,293      43,968    -20,437     205,897      -8,290      663,405
+```
+
+True hour-aligned pooled minima: supplies +53,609, components +33,472, **fuel
+−19,203** (day 29 h14, first negative day 29 h00), rares +57,207, **electronics
+−10,691** (day 28 h19, first negative day 28 h15), cash +652,466.
+
+Both deficits are worse than the pre-deadline-margin-fix baseline (fuel especially —
+minima deepened from −3,670 to −19,203, roughly 5×; electronics from −9,881 to
+−10,691) — driven by upkeep costs rising across every resource (e.g. fuel upkeep
+216,653 → 231,962), since pulling research earlier to leave deadline margin also
+pulls unit auto-upgrades earlier, extending the window units pay upkeep at higher
+tiers. **Not a blocker per user direction**: both deficits are resolvable out-of-band
+via real in-game mechanics (investing in fuel/electronics provinces, buying the
+resource on the market) — same resolution already used for the pre-existing
+electronics shortfall (see "Airport Demolish" session above). No engine change or
+further eco-side investment made to close them.
+
+### Verification
+
+`npm test`: only the 5 pre-existing baseline failures, no new failures. New tests:
+4 in `unit-research-sim.test.ts` (buffer invariant, no-buffer regression, level-1
+independence, `noBufferTaskIds` exemption) + 2 in `country-force-projection.test.ts`
+(Italy buffer invariant end-to-end, Japan pin correctness + dangling-segment
+regression guard). Italy and Japan's `tmp/iron-bp-<country>.html` regenerated and
+spot-checked directly (not just the unit tests) for the gap/pin shapes described
+above.

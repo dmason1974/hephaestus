@@ -192,8 +192,8 @@ html += `<tr><td><strong>= Net Balance</strong></td>${RESOURCE_KEYS.map(r => {
 }).join("")}</tr>`;
 html += `</tbody></table>\n`;
 
-// ── Resource Minima (hourly cash-flow walk) — city costs only, same scope-limit as
-// the homeland iron scripts (province build costs aren't included there either) ──
+// ── Resource Minima (hourly cash-flow walk) — includes both city and province
+// build costs/income (provinceCostEvents below, provinceIncome in incomeAtHour) ──
 
 type CostEvent = { hour: number; cost: Partial<Record<Resource, number>> };
 const costEvents: CostEvent[] = [...provinceCostEvents];
@@ -266,7 +266,7 @@ if (process.env.IRON_DEBUG_RECONCILE) {
 }
 
 html += `\n<h2>Resource Minima (hourly cash-flow walk)</h2>\n`;
-html += `<p class="label">Country-level (manpower included). Province build costs are not included in this walk (same scope as the homeland iron scripts) — a shortfall detector, not a bit-exact reconciliation of the totals above.</p>\n`;
+html += `<p class="label">Country-level (manpower included). Includes both city and province build costs/income — a shortfall detector, not a bit-exact reconciliation of the totals above.</p>\n`;
 html += renderTable(
   RESOURCE_KEYS.map(r => ({
     resource: r,

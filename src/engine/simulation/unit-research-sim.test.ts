@@ -380,6 +380,101 @@ test("simulateUnitResearchTargets with JIT disabled uses standard scheduling", a
   assert.ok(result.totals.cash > 0, "Should have research costs");
 });
 
+test("simulateUnitResearchTargets bufferHours reserves idle slot time before every level 2+ task", () => {
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const scenario = { start: { day: 1, hour: 0 }, truce_length_days: 60 };
+
+  const result = simulateUnitResearchTargets(
+    catalog,
+    { air_superiority_fighter: 4, stealth_air_superiority_fighter: 1 },
+    scenario,
+    { slots: 2, enableJitScheduling: true, bufferHours: 24 }
+  );
+
+  const bySlot = new Map<number, typeof result.segments>();
+  for (const segment of result.segments) {
+    if (!bySlot.has(segment.slot)) bySlot.set(segment.slot, []);
+    bySlot.get(segment.slot)!.push(segment);
+  }
+
+  for (const segments of bySlot.values()) {
+    segments.sort((a, b) => a.startAbsoluteHour - b.startAbsoluteHour);
+    for (let i = 1; i < segments.length; i++) {
+      if (segments[i].level < 2) continue;
+      const gap = segments[i].startAbsoluteHour - segments[i - 1].endAbsoluteHourExclusive;
+      assert.ok(
+        gap >= 24,
+        `expected >=24h gap before ${segments[i].unitId} L${segments[i].level}, got ${gap}h`
+      );
+    }
+  }
+});
+
+test("simulateUnitResearchTargets with bufferHours omitted preserves zero-margin packing", () => {
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const scenario = { start: { day: 1, hour: 0 }, truce_length_days: 60 };
+
+  const result = simulateUnitResearchTargets(
+    catalog,
+    { air_superiority_fighter: 4, stealth_air_superiority_fighter: 1 },
+    scenario,
+    { slots: 2, enableJitScheduling: true }
+  );
+
+  const bySlot = new Map<number, typeof result.segments>();
+  for (const segment of result.segments) {
+    if (!bySlot.has(segment.slot)) bySlot.set(segment.slot, []);
+    bySlot.get(segment.slot)!.push(segment);
+  }
+
+  let sawZeroGapLevel2Plus = false;
+  for (const segments of bySlot.values()) {
+    segments.sort((a, b) => a.startAbsoluteHour - b.startAbsoluteHour);
+    for (let i = 1; i < segments.length; i++) {
+      if (segments[i].level < 2) continue;
+      const gap = segments[i].startAbsoluteHour - segments[i - 1].endAbsoluteHourExclusive;
+      if (gap === 0) sawZeroGapLevel2Plus = true;
+    }
+  }
+  assert.ok(sawZeroGapLevel2Plus, "expected at least one zero-gap level 2+ transition when bufferHours is omitted (every existing caller's behavior)");
+});
+
+test("simulateUnitResearchTargets bufferHours never affects level 1 placement", () => {
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const scenario = { start: { day: 1, hour: 0 }, truce_length_days: 60 };
+  const opts = { slots: 2, enableJitScheduling: true, mobilizationStartHour: 1400 };
+
+  const withoutBuffer = simulateUnitResearchTargets(catalog, { air_superiority_fighter: 1 }, scenario, opts);
+  const withBuffer = simulateUnitResearchTargets(catalog, { air_superiority_fighter: 1 }, scenario, { ...opts, bufferHours: 24 });
+
+  assert.deepEqual(withBuffer.segments, withoutBuffer.segments, "level 1 placement must be identical regardless of bufferHours");
+});
+
+test("simulateUnitResearchTargets noBufferTaskIds exempts specific level 2+ tasks from the buffer", () => {
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const scenario = { start: { day: 1, hour: 0 }, truce_length_days: 60 };
+  const targets = { air_superiority_fighter: 4, stealth_air_superiority_fighter: 1 };
+
+  const buffered = simulateUnitResearchTargets(catalog, targets, scenario, { slots: 2, enableJitScheduling: true, bufferHours: 24 });
+  const exempted = simulateUnitResearchTargets(catalog, targets, scenario, {
+    slots: 2,
+    enableJitScheduling: true,
+    bufferHours: 24,
+    noBufferTaskIds: new Set(["air_superiority_fighter:3"]),
+  });
+
+  const level1Buffered = buffered.segments.find(s => s.unitId === "air_superiority_fighter" && s.level === 1);
+  const level1Exempted = exempted.segments.find(s => s.unitId === "air_superiority_fighter" && s.level === 1);
+  assert.ok(level1Buffered && level1Exempted, "level 1 segment should exist in both runs");
+
+  // Exempting L3 removes the 24h reservation immediately before it, letting L1
+  // (which shares L3's slot) push later — a smaller gap than the buffered run.
+  assert.ok(
+    level1Exempted!.endAbsoluteHourExclusive > level1Buffered!.endAbsoluteHourExclusive,
+    "exempting L3 should let L1 (same slot) schedule later than the fully-buffered run"
+  );
+});
+
 test("determineMaximumFeasibleLevel handles units with no levels", async () => {
   const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
   

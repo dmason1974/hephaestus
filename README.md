@@ -119,6 +119,14 @@ FP_MAX_RO=3 FP_COUNTRY=indonesia npm run smoke:force-projection
 # it alone would need, when a later demand will share the same pinned cities
 # and needs more mobilisation throughput (see CLAUDE.md's "India/Japan
 # Dead-Window Fixes" section).
+# The plan can also carry `research_buffer_hours` (top-level) — idle slot time
+# reserved before every JIT-scheduled (level 2+) research task AND before the
+# truce deadline itself, modeling a player needing real time to notice a slot
+# freed up and requeue research. A country entry can carry `research_asap_pins`
+# — hand-specified unit levels to schedule ASAP instead of JIT-deferring them
+# (e.g. a research-only prerequisite anchor with no mobilisation demand of its
+# own), exempt from the buffer. See CLAUDE.md's "Research Buffer + Japan
+# Research ASAP Pins" section.
 RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=all npm run smoke:resource-projection   # RP_PLAN is required — no default
 RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=russia npm run smoke:resource-projection   # single country
 # Config: RP_SCENARIO, RP_PLAN (required), RP_COUNTRY, RP_MAX_RO, RP_BEAM_WIDTH, RP_TOP_N, RP_GARRISON_DISBAND_DAY, RP_OUTPUT_FILE

@@ -145,6 +145,7 @@ type CountryContext = {
   status: "homeland" | "occupied";
   captureAbsHour: number | undefined;
   demands: import("../../schemas/coalition-force-plan-schema.js").Demand[];
+  researchAsapPins: import("../../schemas/coalition-force-plan-schema.js").CountryPlan["research_asap_pins"];
 };
 
 function loadCountryContext(countryId: string): CountryContext {
@@ -154,7 +155,11 @@ function loadCountryContext(countryId: string): CountryContext {
   const status = countryPlan?.status ?? "homeland";
   const captureDay = countryPlan?.capture_day ?? 4;
   const captureAbsHour = status === "occupied" ? toAbsoluteHour(captureDay, 0) : undefined;
-  return { countryId, country, doctrine, status, captureAbsHour, demands: countryPlan?.demands ?? [] };
+  return {
+    countryId, country, doctrine, status, captureAbsHour,
+    demands: countryPlan?.demands ?? [],
+    researchAsapPins: countryPlan?.research_asap_pins,
+  };
 }
 
 // Every country's demands are loaded regardless of RP_COUNTRY — computing the
@@ -201,7 +206,7 @@ console.log(`  ${(Object.entries(baseCoalitionEcoWeights) as [Resource, number][
  */
 function analyseCountry(countryId: string, ecoWeights: PlanWeights = baseCoalitionEcoWeights, ecoOverride?: CountryEcoBeamResult): CountryAnalysis {
   const ctx = countryContexts.get(countryId) ?? loadCountryContext(countryId);
-  const { country, doctrine, status, captureAbsHour, demands } = ctx;
+  const { country, doctrine, status, captureAbsHour, demands, researchAsapPins } = ctx;
 
   console.log(`[${countryId}] running actual eco build (Unit 1.5) + force projection (status=${status})...`);
 
@@ -237,6 +242,8 @@ function analyseCountry(countryId: string, ecoWeights: PlanWeights = baseCoaliti
     maxRoLevel,
     planWeights,
     actualEcoResultsByCity,
+    researchBufferHours: plan.research_buffer_hours,
+    researchAsapPins,
   });
 
   // Phase 2 (Bug 1): re-simulate hourly production for any city with backfilled

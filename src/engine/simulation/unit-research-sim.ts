@@ -262,6 +262,114 @@ function requiredUnitLevelsForResearchLevel(
   return requirements;
 }
 
+export type ResearchAsapPin = { unit: string; levels: number[] };
+
+/**
+ * Computes the earliest physically feasible completion hour for every level from 1
+ * up to the highest pinned level of each unit in `pins`, chained sequentially
+ * (level N can't start before level N-1 completes) and honouring cross-unit
+ * research requirements (e.g. an anchor unit pinned alongside its dependent) —
+ * but ONLY when the required unit is also present in `pins`. A requirement on a
+ * unit not in the pin set is treated as already-satisfied at scenario start; the
+ * caller is responsible for pinning every real prerequisite that also needs ASAP
+ * treatment (building requirements are not unit-research dependencies and are
+ * never included here, matching requiredUnitLevelsForResearchLevel elsewhere).
+ *
+ * Genuinely respects `slots` capacity (greedy forward multi-slot walk, same
+ * earliest-slot-wins pattern as determineMaximumFeasibleLevel) — computing this
+ * as if slots were infinite would produce overrides the real backward scheduler
+ * can't actually honour once multiple pinned chains compete for the same early
+ * slot window, silently dropping the task (and leaving its already-scheduled
+ * higher levels dangling — confirmed empirically before this was slot-aware).
+ *
+ * Returns a taskId ("unitId:level") -> absolute completion hour map. Used to seed
+ * latestCompletionByUnitLevel overrides that force the JIT backward scheduler to
+ * place specific levels ASAP instead of deferring them to the deadline.
+ */
+export function computeAsapResearchCompletions(
+  catalog: UnitCatalog,
+  pins: ResearchAsapPin[],
+  scenario: ResearchPlanningScenarioLike,
+  doctrine: string,
+  slots?: number
+): Map<string, number> {
+  const maxLevelByUnit = new Map<string, number>();
+  for (const pin of pins) {
+    const existing = maxLevelByUnit.get(pin.unit) ?? 0;
+    maxLevelByUnit.set(pin.unit, Math.max(existing, ...pin.levels));
+  }
+  const pinnedUnits = new Set(maxLevelByUnit.keys());
+
+  type Task = { releaseHour: number; duration: number; deps: string[] };
+  const tasks = new Map<string, Task>();
+  for (const [unitId, maxLevel] of maxLevelByUnit.entries()) {
+    for (let level = 1; level <= maxLevel; level++) {
+      const unit = catalog.units[unitId];
+      const levelData = unit?.levels[String(level)];
+      if (!unit || !levelData) {
+        throw new Error(`missing research data for ${unitId} level ${level} (research_asap_pins)`);
+      }
+      const researchData = levelData.research[doctrine];
+      if (!researchData) {
+        throw new Error(`missing research data for doctrine "${doctrine}" on ${unitId} level ${level} (research_asap_pins)`);
+      }
+
+      const deps: string[] = [];
+      if (level > 1) deps.push(`${unitId}:${level - 1}`);
+      for (const [requiredUnitId, requiredLevel] of requiredUnitLevelsForResearchLevel(catalog, unitId, level).entries()) {
+        if (pinnedUnits.has(requiredUnitId)) deps.push(`${requiredUnitId}:${requiredLevel}`);
+      }
+
+      tasks.set(`${unitId}:${level}`, {
+        releaseHour: researchUnlockAbsoluteHour(scenario, researchData.unlock_day),
+        duration: normalizeDurationHours(durationHours(researchData.time)),
+        deps,
+      });
+    }
+  }
+
+  const scenarioStartHour = toAbsoluteHour(scenario.start.day, scenario.start.hour);
+  const slotAvailableAt = Array.from({ length: normalizeSlotCount(slots) }, () => scenarioStartHour);
+  const completions = new Map<string, number>();
+  const pending = new Set(tasks.keys());
+
+  while (pending.size > 0) {
+    let bestTaskId: string | null = null;
+    let bestSlot = -1;
+    let bestStartHour = Number.POSITIVE_INFINITY;
+
+    for (const taskId of pending) {
+      const task = tasks.get(taskId)!;
+      if (!task.deps.every(dep => completions.has(dep))) continue;
+      const readyHour = Math.max(scenarioStartHour, task.releaseHour, ...task.deps.map(dep => completions.get(dep)!));
+
+      for (let slot = 0; slot < slotAvailableAt.length; slot++) {
+        const candidateStartHour = Math.max(slotAvailableAt[slot], readyHour);
+        const isBetter =
+          candidateStartHour < bestStartHour ||
+          (candidateStartHour === bestStartHour && (bestTaskId === null || taskId.localeCompare(bestTaskId) < 0));
+        if (isBetter) {
+          bestTaskId = taskId;
+          bestSlot = slot;
+          bestStartHour = candidateStartHour;
+        }
+      }
+    }
+
+    if (bestTaskId === null) {
+      throw new Error(`research_asap_pins has an unresolvable dependency among: ${Array.from(pending).join(", ")}`);
+    }
+
+    const task = tasks.get(bestTaskId)!;
+    const endHour = bestStartHour + task.duration;
+    completions.set(bestTaskId, endHour);
+    slotAvailableAt[bestSlot] = endHour;
+    pending.delete(bestTaskId);
+  }
+
+  return completions;
+}
+
 function unitLevelImpactScore(
   catalog: UnitCatalog,
   unitId: string,
@@ -471,6 +579,12 @@ export function simulateUnitResearchTargets(
     mobilizationStartHour?: number;
     enableJitScheduling?: boolean;
     doctrine?: string;
+    /** Idle slot time (game-hours) reserved before every JIT-scheduled (level 2+)
+     *  research task. Level 1 and any task in noBufferTaskIds are exempt. */
+    bufferHours?: number;
+    /** Task ids ("unitId:level") to exempt from bufferHours even though level >= 2 —
+     *  e.g. hand-pinned ASAP research that should pack back-to-back. */
+    noBufferTaskIds?: Set<string>;
   }
 ): UnitResearchSimulationResult {
   const scenarioStartHour = toAbsoluteHour(scenario.start.day, scenario.start.hour);
@@ -757,6 +871,15 @@ export function simulateUnitResearchTargets(
       // Apply JIT scheduling constraint: level 1 must complete before mobilization starts
       if (enableJitScheduling && task.isLevel1) {
         successorStartBound = Math.min(successorStartBound, mobilizationStartHour);
+      } else if (!task.isLevel1 && !(opts?.noBufferTaskIds?.has(taskId) ?? false)) {
+        // The buffer protects every task-to-task handoff (see slotFreeBefore ratchet
+        // below), but without this, whichever task lands last in a slot (no scheduled
+        // successor bounding it) is free to complete literally at the deadline itself —
+        // zero margin between "research finishes" and "truce ends". Reserving
+        // bufferHours off the deadline too keeps that final handoff consistent with
+        // every other one. Exempt: level 1 (bounded by mobilizationStartHour, never
+        // buffered) and noBufferTaskIds (hand-pinned ASAP chains).
+        successorStartBound = Math.min(successorStartBound, deadlineAbsoluteHour - (opts?.bufferHours ?? 0));
       }
 
       // Check if this task can possibly fit
@@ -836,7 +959,10 @@ export function simulateUnitResearchTargets(
     scheduledStarts.set(selectedTaskId, selectedStartHour);
     scheduledEnds.set(selectedTaskId, selectedEndHour);
     scheduledSlots.set(selectedTaskId, selectedSlot + 1);
-    slotFreeBefore[selectedSlot] = selectedStartHour;
+    const skipBuffer = selectedTask.isLevel1 || (opts?.noBufferTaskIds?.has(selectedTaskId) ?? false);
+    slotFreeBefore[selectedSlot] = skipBuffer
+      ? selectedStartHour
+      : selectedStartHour - (opts?.bufferHours ?? 0);
     unscheduled.delete(selectedTaskId);
   }
 

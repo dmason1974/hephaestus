@@ -379,7 +379,21 @@ const fullCityStates: CityState[] = country.cities.map(city => ({
     underground_bunkers: city.starting.underground_bunkers,
   },
 }));
-const citySimulation = simulateBuildOrder({ cities: fullCityStates, buildOrder: ecoBuildOrder, buildings, scenario, hoursToSimulate });
+// Plan mechanic: disbanding the starting-garrison gunships (day 4, see CLAUDE.md's
+// "Starting Units — Garrison Mechanic") forces destruction of each capital's original
+// airport (air_base level 1) the same day — zeroes the capital's air_base production
+// bonus from the end of that day onward. Defaults to day 4; override with
+// IRON_AIRPORT_DESTROY_DAY=<day> for what-if variants.
+const airportDestroyDay = process.env.IRON_AIRPORT_DESTROY_DAY
+  ? Number(process.env.IRON_AIRPORT_DESTROY_DAY)
+  : 4;
+const forcedAirBaseDestructionAbsHour: Record<string, number> = Object.fromEntries(
+  country.cities
+    .filter(city => city.capital)
+    .map(city => [`${country.country.id}:${city.id}`, toAbsoluteHour(airportDestroyDay + 1, 0)])
+);
+
+const citySimulation = simulateBuildOrder({ cities: fullCityStates, buildOrder: ecoBuildOrder, buildings, scenario, hoursToSimulate, forcedAirBaseDestructionAbsHour });
 const hourlyProductionByCity = new Map<string, Array<Record<Resource, number>>>();
 for (const city of country.cities) hourlyProductionByCity.set(`${country.country.id}:${city.id}`, []);
 for (const row of citySimulation.perHourPerCity) {

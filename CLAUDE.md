@@ -932,6 +932,13 @@ below) via `computeGarrisonUpkeep` — though Australia's radar-retention except
 not modeled there yet (uniform disband for all homeland countries, a deliberate small
 simplification — see Unit 3's Known Limitations).
 
+**Airport-demolish consequence (session, 2026-08-15)**: disbanding the gunships also
+forces destruction of each homeland capital's original airport (`air_base` level 1,
+the building every capital city starts with) on the same day-4 disband. Modeled in the
+**Iron Pipeline only** (not yet in the production Unit 3 pipeline) — see "Airport
+Demolish — Day-4 Consequence of Garrison Disband" below for the full investigation,
+engine change, and coalition-wide result.
+
 ---
 
 ## Unit 3 — Resource Projection ✅ COMPLETE
@@ -1793,3 +1800,87 @@ adjustment elsewhere in the coalition, or accepting the shortfall).
 Verified via the real pipeline (`iron-eco-plan` → `iron-fp-plan` →
 `iron-bp-plan` for Japan, then `iron-resource-projection` rebuilt across all
 12 countries) — not just the hand-derived estimates made during planning.
+
+## Airport Demolish — Day-4 Consequence of Garrison Disband (session, 2026-08-15)
+
+Disbanding the starting-garrison gunships (see "Starting Units — Garrison Mechanic"
+above) also forces destruction of each homeland capital's original airport
+(`air_base` level 1 — the building every capital starts with) on the same day, day 4.
+Investigated and modeled in the **Iron Pipeline only** this session; the production
+Unit 3 pipeline (`resource-projection.ts`) does not yet have this mechanic.
+
+### Key finding — no build-chain timing impact anywhere
+
+Traced `buildCityInfraSteps` (`src/engine/optimization/country-force-projection.ts`,
+the formula-based "from scratch" chain builder behind `iron-fp-plan.ts`/
+`iron-bp-plan.ts`'s `[infra]` steps): its level loop is hardcoded
+`for (let lvl = 1; lvl <= targetLvl; lvl++)` — it **never consulted any city's real
+starting building level, for any building, even before this session**. Confirmed
+empirically pre-existing: New Delhi and Tokyo's `iron-bp-*.html` output already showed
+`[infra] air base L1` as an explicit 24h build step starting day 10, despite both
+cities' YAML having `starting.air_base: 1` all along. Consequence: **destroying the
+airport changes zero military build-chain timing, flip points, or mob-queue starts** —
+confirmed by diffing `iron-fp-<country>.html` byte-for-byte before/after for all 9
+affected countries (identical in every case). New Delhi's SASF chain is not specially
+exposed by this mechanic — India was already re-building air_base from scratch.
+
+### Engine change — `forcedAirBaseDestructionAbsHour`
+
+`simulateBuildOrder` (`src/engine/simulation/build-order-sim.ts`) gained an optional
+`forcedAirBaseDestructionAbsHour?: Record<string, number>` (cityId → absolute hour).
+Past that hour, air_base's `EconomicBuildingEffects` (production bonus) are zeroed for
+that city while its level-tracking (`airBase.state`) is left untouched — models "the
+building is destroyed" for income purposes only, without touching build-chain
+eligibility (which never depended on the starting level anyway, per the finding
+above). Absent/default ⇒ no behavior change; this is the shared primitive both the
+Iron Pipeline and the production `city-eco-beam.ts` call, so the addition is inert for
+every other caller.
+
+Wired into all three Iron Pipeline scripts that call `simulateBuildOrder`
+(`iron-eco-plan.ts`, `iron-bp-plan.ts`, `iron-occupied-plan.ts` — `iron-fp-plan.ts`
+doesn't call it at all, consistent with the finding above) via a capital-only override,
+**defaulting to day 4** (matching the gunship disband day), overridable per-run via
+`IRON_AIRPORT_DESTROY_DAY=<day>` for what-if variants. Applies uniformly to all 12 PNTH
+countries' capitals — a no-op for the 3 small captured AI nations (Madagascar, Solomon
+Islands, Iran), whose capitals already start with `air_base: 0`. Norway (occupied,
+capture day 4) is included too: capture-day zeroing already zeroes all of Oslo's
+production before capture, so the destroy-day-vs-capture-day ordering is moot — verified
+empirically, not just reasoned about.
+
+### Coalition-wide result (all 12 countries, `IRON_COUNTRIES=<all 12>`)
+
+Every capital's air_base sat flat at its starting level (1) for the entire eco-phase
+window pre-fix (the iron heuristic's `AI_TARGET_BY_RESOURCE` never touches air_base at
+all), continuously contributing a free +5% production bonus to that capital's own
+resource (and cash) for as long as nothing else touched it — up to the full 28-day
+window for capitals with no military air_base role. The day-4 demolish truncates this
+free credit to just the first ~4 days. Per-capital loss (native resource / cash):
+Canberra −1,955/−1,220, Rome −1,846/−1,215, Wellington −1,846/−1,215, Tokyo
+−1,822/−1,206, Moscow −1,899/−1,303, Islamabad −2,194/−1,634, Cape Town −1,143/−1,536,
+New Delhi −1,681/−1,206, Oslo −348/−261 (Oslo's is much smaller — see capture-day note
+above).
+
+Coalition pooled Net Balance deltas: supplies −7,469, components −1,899, fuel −2,542,
+rares −1,143, electronics −1,681, cash −10,796. Every pooled resource except
+electronics stays comfortably positive at its true hour-aligned minima (the number
+that actually constrains the plan — see the Iron Pipeline's "Design Decision" above).
+**Electronics is the one resource where this isn't free**: it was already the
+coalition's sole negative pooled resource (from the Japan EAH addition, previous
+session); the true minima deepens from −5,639 to −7,263, both at day 28 h19 — the
+deadline crunch. New Delhi is the only affected capital producing electronics, so its
+entire −1,681 loss lands on the one resource already in deficit.
+
+**Resolution — no market-purchase mechanic built.** Per user direction, this deficit
+is covered by the real in-game "starting offers" market (day-1 cash→electronics
+conversion from starting balances, ~13k available — comfortably larger than the
+~1.7–7.3k deficit). Confirmed no such mechanic exists anywhere in this codebase or
+data (`buildings.yml`, `scenario.yml`, schemas all have no cross-resource conversion
+concept) — deliberately not modeled, since it's resolved out-of-band by an existing
+game mechanic rather than something the simulation needs to compute.
+
+### Verification
+
+`npm test`: only the 5 pre-existing baseline failures, no new failures. Full 12-country
+`iron-eco`/`iron-fp`/`iron-bp`/`iron-occupied`/`iron-resource-projection` regenerated
+with the new day-4 default and confirmed against a byte-identical `iron-fp-*.html`
+diff (proves zero timing regression) plus the balance-sheet deltas above.

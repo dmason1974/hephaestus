@@ -184,7 +184,23 @@ const fullCityStates: CityState[] = country.cities.map(city => ({
   },
 }));
 
-const citySimulation = simulateBuildOrder({ cities: fullCityStates, buildOrder, buildings, scenario, hoursToSimulate });
+// Plan mechanic: disbanding the starting-garrison gunships (day 4, see CLAUDE.md's
+// "Starting Units — Garrison Mechanic") forces destruction of each capital's original
+// airport (air_base level 1) the same day — zeroes the capital's air_base production
+// bonus from the end of that day onward. Defaults to day 4; override with
+// IRON_AIRPORT_DESTROY_DAY=<day> for what-if variants. (Norway's capital Oslo also
+// starts with air_base:1, but capture-day zeroing already makes the destroy-day vs.
+// capture-day ordering moot — see CLAUDE.md.)
+const airportDestroyDay = process.env.IRON_AIRPORT_DESTROY_DAY
+  ? Number(process.env.IRON_AIRPORT_DESTROY_DAY)
+  : 4;
+const forcedAirBaseDestructionAbsHour: Record<string, number> = Object.fromEntries(
+  country.cities
+    .filter(city => city.capital)
+    .map(city => [`${country.country.id}:${city.id}`, toAbsoluteHour(airportDestroyDay + 1, 0)])
+);
+
+const citySimulation = simulateBuildOrder({ cities: fullCityStates, buildOrder, buildings, scenario, hoursToSimulate, forcedAirBaseDestructionAbsHour });
 
 // Capture-day zeroing: simulateBuildOrder has no concept of "not ours yet" — it
 // computes production from cityStatus for every hour of the window. Zero every

@@ -313,6 +313,16 @@ export function simulateBuildOrder(args: {
   buildings: BuildingsFile;
   scenario: ScenarioStartLike & { speed: GameSpeed };
   hoursToSimulate: number;
+  /**
+   * Per-city absolute hour after which air_base's economic contribution (production
+   * bonus) is zeroed, regardless of its tracked level. Does not affect
+   * `airBase.state`/level-tracking, only the production-side economic effect — models
+   * "the building is destroyed" for income purposes without touching build-chain
+   * eligibility elsewhere (the Iron Pipeline's force-projection chain never credited
+   * a city's starting air_base anyway — see CLAUDE.md's garrison/airport-demolish
+   * section). Absent (default) ⇒ no behavior change.
+   */
+  forcedAirBaseDestructionAbsHour?: Record<string, number>;
 }): SimulationResult {
   if (!Number.isFinite(args.hoursToSimulate) || args.hoursToSimulate < 0) {
     throw new Error(`hoursToSimulate must be >= 0, got ${args.hoursToSimulate}`);
@@ -400,8 +410,13 @@ export function simulateBuildOrder(args: {
       const recruitingOfficeEffects = getEconomicBuildingEffectsForLevels(args.buildings, {
         recruiting_office: recruitingOfficeLevel,
       });
+      const airBaseDestructionHour = args.forcedAirBaseDestructionAbsHour?.[city.cityId];
+      const airBaseEffects =
+        airBaseDestructionHour !== undefined && absoluteHour >= airBaseDestructionHour
+          ? zeroEconomicEffects()
+          : airBase.effects;
       const dynamicBuildingEffects = zeroEconomicEffects();
-      addEconomicEffects(dynamicBuildingEffects, airBase.effects);
+      addEconomicEffects(dynamicBuildingEffects, airBaseEffects);
       addEconomicEffects(dynamicBuildingEffects, armsIndustry.effects);
       addEconomicEffects(dynamicBuildingEffects, militaryHospital.effects);
       addEconomicEffects(dynamicBuildingEffects, navalBase.effects);

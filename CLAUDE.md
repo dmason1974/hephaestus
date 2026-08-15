@@ -286,10 +286,10 @@ economics (highest supplies+electronics of the remaining candidates).
 | India | eastern | homeland | Mainland-forced — 34 SASF (pinned to Mumbai/Kolkata/New Delhi, dead-window warhead/UAV sharing — see UAT Round 3 below) + 1 Fixed Wing Veteran + 15 UAV + 120 Cruise Missiles + 240 Warheads (60 mob slots) |
 | Australia | western | homeland | Chosen (economics) — 30 Mechanized Infantry + 70 MAAV + 7 Mobile Radar (keeps its 1 starting-garrison radar instead of suiciding it) |
 | New Zealand | european | homeland | Chosen (economics) — 44 MRL + 1 Tank Veteran + 75 MAAV |
-| Norway | western | occupied, capture day 4 | Eco only (captured multi-city — ranked 3rd of remaining candidates but taken as a capture, not an active slot) |
-| Madagascar | european | occupied, capture day 2 | Eco only (captured AI nation, single city) |
-| Solomon Islands | european | occupied, capture day 2 | Eco only (captured AI nation, single city) |
-| Iran | eastern | occupied, capture day 2 | Eco only (captured AI nation, single city) |
+| Norway | western | occupied, capture day 4 | Eco only — all 7 cities + 31 provinces individually credited to the 5 manpower-deficit homeland countries (Australia/Italy/New Zealand/Pakistan/South Africa), not kept by Norway itself; see "Captured-Territory Credits" below |
+| Madagascar | european | occupied, capture day 4 | Eco only (captured AI nation, single city — credited to South Africa) |
+| Solomon Islands | european | occupied, capture day 4 | Eco only (captured AI nation, single city — credited to New Zealand) |
+| Iran | eastern | occupied, capture day 4 | Eco only (captured AI nation, single city — credited to Italy) |
 
 **Doctrine data gaps affecting this roster (now placeholder-filled)**: Russia's Mobile
 SAM Launcher (was `theatre_defense_system` — a hallucinated unit ID, corrected this
@@ -310,6 +310,59 @@ Plan decision: disband on day 4 (Australia keeps its radar instead). See "Provin
 Mobilisation Engine" and "Starting Units" sections below.
 
 Resources are **shared across all coalition countries**.
+
+### Captured-Territory Credits (`city_credits` / `province_credits`)
+
+Real game mechanic: manpower is `PER_COUNTRY_RESOURCES` (never pooled — see Chunk 7's
+"Resource Pooling Rules"), so a captured city or province's manpower output would be
+stranded on the occupying-in-name-only country's own dead ledger unless explicitly
+transferred. The plan YAML now credits every one of an occupied country's cities and
+provinces individually to whichever homeland coalition member actually receives its
+output — `countryPlanSchema.city_credits` (bare city id → homeland country id) and
+`province_credits` (cohort resource key, or `non_resource` → homeland country id →
+province count credited), both optional, only meaningful when `status: occupied`.
+
+In the active plan, all 4 captured nations are fully carved up (nothing left for the
+source country's own report): Norway's 7 cities/31 provinces split across the 5
+manpower-deficit homeland countries (Australia, Italy, New Zealand, Pakistan, South
+Africa); Madagascar → South Africa; Solomon Islands → New Zealand; Iran → Italy. All
+4 now capture on day 4 uniformly (previously the 3 single-city AI nations captured on
+day 2 — changed alongside this credits rollout).
+
+**Engine**: `src/harness/smoke/occupied-yield.ts`'s `computeOccupiedYield` is the
+shared build-sequence + yield computation, used by both `iron-occupied-plan.ts` (a
+source country's own report — `cityIdFilter` excludes any city with a credit, so a
+fully-carved-up country like Norway legitimately renders zero cities) and
+`iron-bp-plan.ts` (a homeland country's report — scopes `computeOccupiedYield` to just
+the cities/provinces credited to it, folding their build sequence, cost, and income
+into that homeland's own Resource Balance). Nothing is double-counted: a credited
+asset appears in exactly one report.
+
+**Per-city exceptions to the shared heuristic**: `OCCUPIED_CITY_EXTRA_FIRST_BUILD`
+(`iron-heuristic.ts`) is a per-city override table, separate from the resource-keyed
+`OCCUPIED_AI_TARGET_BY_RESOURCE` rules — currently one entry: Kristiansand (Norway's
+electronics city, credited to Australia) builds `underground_bunkers` L1 before
+`annex_city`. Beam-search validated this session (the real production beam at 400
+search width, ~30k sequences explored) as a small net-positive specifically at
+Kristiansand's population (pop 5: +44 electronics/-25 cash vs. no bunkers) — proven
+net-negative at Honiara's (pop 4, same electronics tier), so this is deliberately a
+per-city exception, not a change to the shared resource-keyed heuristic. Root cause
+underlying the finding: `underground_bunkers`' `morale_bonus_pct` only accelerates
+the *build time* of whatever's queued next (via the morale→build-duration formula in
+`build-order-timeline.ts`); it has no standing production effect of its own, so it's
+only ever worth building while something else is still queued behind it, and even
+then only barely, and only once morale hasn't already converged to its ceiling (built
+*after* a city's build chain finishes, it does nothing at all — confirmed by both a
+direct simulation and the real beam engine giving byte-identical production with or
+without it in that position). A related rendering gap was found and fixed in the same
+pass: `iron-bp-plan.ts`'s captured-city segment collection only looked at
+`recruiting_office`/`annex_city`/`arms_industry`, silently dropping any
+`underground_bunkers` segment from both the displayed build sequence and the hourly
+cost-event walk — fixed to also include it. (The identical gap exists in
+`iron-occupied-plan.ts`'s own three segment-collection sites, pre-existing and
+currently harmless since Kristiansand — the only city with an override — is always
+excluded from Norway's own report; not fixed there this session, flagged if a future
+override ever targets a non-credited city.)
 
 <details>
 <summary>Previous plan — PNTH V Road Jun 2026 (superseded, kept for reference)</summary>

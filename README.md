@@ -143,8 +143,16 @@ IRON_COUNTRY=italy npm run smoke:iron-bp-plan    # tmp/iron-bp-italy.html — me
 # Config: IRON_SCENARIO, IRON_PLAN, IRON_COUNTRY (required)
 
 # Occupied countries — eco-only, no force projection, annex+AI5 restricted to
-# supplies/electronics cities, zero yield before capture_day:
+# supplies/electronics cities, zero yield before capture_day. A city/province
+# credited to a homeland country (plan YAML's city_credits/province_credits — see
+# CLAUDE.md) is excluded here and appears in that homeland's own iron-bp-<id>.html
+# instead, so a captured country's own file may legitimately show zero cities:
 IRON_COUNTRY=norway npm run smoke:iron-occupied-plan   # tmp/iron-eco-norway.html + tmp/iron-bp-norway.html
+
+# Per-city exceptions to the shared heuristic (OCCUPIED_CITY_EXTRA_FIRST_BUILD in
+# iron-heuristic.ts) live outside the resource-keyed rules above — e.g. Kristiansand
+# (credited to Australia) builds underground_bunkers L1 before annex_city, beam-search
+# validated as a small net-positive at its population specifically, not a blanket rule.
 
 # Coalition aggregate — parses the already-generated tmp/iron-bp-<country>.html
 # files (does not recompute) and pools them, including a true hour-aligned pooled

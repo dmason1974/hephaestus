@@ -14,6 +14,7 @@ units:
     category: Air
     doctrine:
       - eastern
+      - western
     levels:
       "1":
         requirements:
@@ -30,8 +31,29 @@ units:
               supplies: 1200
               rares: 1325
               cash: 2625
+          # Placeholder: no western screenshot data exists for this unit yet;
+          # copied verbatim from eastern to unblock Japan's PNTH V Iron demand.
+          western:
+            unlock_day: 2
+            time:
+              hours: 21
+            cost:
+              supplies: 1200
+              rares: 1325
+              cash: 2625
         mobilisation:
           eastern:
+            unit_limit: 5
+            time:
+              days: 1
+              hours: 4
+            cost:
+              components: 1075
+              manpower: 550
+              electronics: 1125
+              cash: 4200
+          western:
+            unit_limit: 5
             time:
               days: 1
               hours: 4
@@ -42,6 +64,12 @@ units:
               cash: 4200
         daily_upkeep:
           eastern:
+            cost:
+              manpower: 60
+              fuel: 60
+              electronics: 50
+              cash: 180
+          western:
             cost:
               manpower: 60
               fuel: 60
@@ -65,8 +93,30 @@ units:
               supplies: 1925
               rares: 2125
               cash: 4200
+          # Placeholder: copied verbatim from eastern, see note on level 1.
+          western:
+            unlock_day: 10
+            time:
+              days: 1
+              hours: 1
+              minutes: 30
+            cost:
+              supplies: 1925
+              rares: 2125
+              cash: 4200
         mobilisation:
           eastern:
+            unit_limit: 10
+            time:
+              days: 1
+              hours: 7
+            cost:
+              components: 1475
+              manpower: 1000
+              electronics: 1900
+              cash: 6125
+          western:
+            unit_limit: 10
             time:
               days: 1
               hours: 7
@@ -77,6 +127,12 @@ units:
               cash: 6125
         daily_upkeep:
           eastern:
+            cost:
+              manpower: 90
+              fuel: 90
+              electronics: 70
+              cash: 200
+          western:
             cost:
               manpower: 90
               fuel: 90
@@ -100,8 +156,31 @@ units:
               supplies: 3000
               rares: 3325
               cash: 5850
+          # Placeholder: copied verbatim from eastern, see note on level 1.
+          western:
+            unlock_day: 20
+            time:
+              days: 1
+              hours: 6
+              minutes: 45
+            cost:
+              supplies: 3000
+              rares: 3325
+              cash: 5850
         mobilisation:
           eastern:
+            unit_limit: 15
+            time:
+              days: 1
+              hours: 12
+            cost:
+              components: 2000
+              manpower: 1450
+              rares: 750
+              electronics: 2625
+              cash: 7100
+          western:
+            unit_limit: 15
             time:
               days: 1
               hours: 12
@@ -113,6 +192,12 @@ units:
               cash: 7100
         daily_upkeep:
           eastern:
+            cost:
+              manpower: 110
+              fuel: 110
+              electronics: 90
+              cash: 230
+          western:
             cost:
               manpower: 110
               fuel: 110

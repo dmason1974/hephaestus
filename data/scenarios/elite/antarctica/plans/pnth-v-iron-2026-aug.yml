@@ -53,6 +53,19 @@ countries:
         # Pinned to Tokyo (capital), mobilising alongside SASF/AWACS in the same
         # dead-window queue.
         preferred_cities: [tokyo]
+      - unitId: elite_attack_helicopter
+        count: 10
+        # Placeholder: elite_attack_helicopter + its prerequisite
+        # helicopter_gunship only had eastern doctrine data; western
+        # placeholder blocks (copied from eastern) added to units/ this
+        # session to unblock this demand pending real screenshots.
+        # 10 units cap out within the unit_limit 5+5 tranche (levels 1-2) —
+        # air_base L4 only, not L5; units reach level 3 for free via research
+        # auto-upgrade. Doesn't fit Tokyo/Fujisawa/Sendai's SASF dead-window
+        # capacity without reordering the build chain (checked against
+        # tmp/iron-bp-japan.html — real idle capacity there is ~145h vs
+        # ~230-270h needed) — pinned to a dedicated new city instead.
+        preferred_cities: [yono]
 
   russia:
     # Eastern — Moscow: components pop6, air_base 1

@@ -84,6 +84,7 @@ units:
     category: Air
     doctrine:
       - eastern
+      - western
     levels:
       "1":
         requirements:
@@ -91,6 +92,18 @@ units:
           - arms_industry level 1
         research:
           eastern:
+            unlock_day: 1
+            time:
+              hours: 18
+              minutes: 45
+            cost:
+              supplies: 1250
+              rares: 1450
+              cash: 2750
+          # Placeholder: no western screenshot data exists for this unit yet;
+          # copied verbatim from eastern to unblock Japan's PNTH V Iron demand
+          # (elite_attack_helicopter's prerequisite chain).
+          western:
             unlock_day: 1
             time:
               hours: 18
@@ -108,8 +121,22 @@ units:
               manpower: 350
               electronics: 700
               cash: 2750
+          western:
+            time:
+              hours: 22
+            cost:
+              supplies: 850
+              manpower: 350
+              electronics: 700
+              cash: 2750
         daily_upkeep:
           eastern:
+            cost:
+              manpower: 25
+              fuel: 25
+              electronics: 25
+              cash: 80
+          western:
             cost:
               manpower: 25
               fuel: 25
@@ -130,6 +157,16 @@ units:
               supplies: 1375
               rares: 1595
               cash: 3025
+          # Placeholder: copied verbatim from eastern, see note on level 1.
+          western:
+            unlock_day: 3
+            time:
+              hours: 19
+              minutes: 30
+            cost:
+              supplies: 1375
+              rares: 1595
+              cash: 3025
         mobilisation:
           eastern:
             time:
@@ -139,8 +176,22 @@ units:
               manpower: 350
               electronics: 700
               cash: 2750
+          western:
+            time:
+              hours: 23
+            cost:
+              supplies: 850
+              manpower: 350
+              electronics: 700
+              cash: 2750
         daily_upkeep:
           eastern:
+            cost:
+              manpower: 30
+              fuel: 30
+              electronics: 30
+              cash: 85
+          western:
             cost:
               manpower: 30
               fuel: 30
@@ -161,6 +212,16 @@ units:
               supplies: 1500
               rares: 1740
               cash: 3300
+          # Placeholder: copied verbatim from eastern, see note on level 1.
+          western:
+            unlock_day: 8
+            time:
+              hours: 20
+              minutes: 15
+            cost:
+              supplies: 1500
+              rares: 1740
+              cash: 3300
         mobilisation:
           eastern:
             time:
@@ -170,8 +231,22 @@ units:
               manpower: 350
               electronics: 700
               cash: 2750
+          western:
+            time:
+              days: 1
+            cost:
+              supplies: 850
+              manpower: 350
+              electronics: 700
+              cash: 2750
         daily_upkeep:
           eastern:
+            cost:
+              manpower: 35
+              fuel: 35
+              electronics: 35
+              cash: 90
+          western:
             cost:
               manpower: 35
               fuel: 35
@@ -191,6 +266,15 @@ units:
               supplies: 1625
               rares: 1885
               cash: 3575
+          # Placeholder: copied verbatim from eastern, see note on level 1.
+          western:
+            unlock_day: 10
+            time:
+              days: 1
+            cost:
+              supplies: 1625
+              rares: 1885
+              cash: 3575
         mobilisation:
           eastern:
             time:
@@ -201,8 +285,23 @@ units:
               manpower: 500
               electronics: 900
               cash: 3000
+          western:
+            time:
+              days: 1
+              hours: 2
+            cost:
+              supplies: 1000
+              manpower: 500
+              electronics: 900
+              cash: 3000
         daily_upkeep:
           eastern:
+            cost:
+              manpower: 45
+              fuel: 45
+              electronics: 40
+              cash: 125
+          western:
             cost:
               manpower: 45
               fuel: 45
@@ -224,6 +323,17 @@ units:
               supplies: 1750
               rares: 2030
               cash: 3850
+          # Placeholder: copied verbatim from eastern, see note on level 1.
+          western:
+            unlock_day: 16
+            time:
+              days: 1
+              hours: 2
+              minutes: 15
+            cost:
+              supplies: 1750
+              rares: 2030
+              cash: 3850
         mobilisation:
           eastern:
             time:
@@ -234,8 +344,23 @@ units:
               manpower: 500
               electronics: 900
               cash: 3000
+          western:
+            time:
+              days: 1
+              hours: 3
+            cost:
+              supplies: 1000
+              manpower: 500
+              electronics: 900
+              cash: 3000
         daily_upkeep:
           eastern:
+            cost:
+              manpower: 50
+              fuel: 50
+              electronics: 45
+              cash: 135
+          western:
             cost:
               manpower: 50
               fuel: 50
@@ -256,6 +381,16 @@ units:
               supplies: 1875
               rares: 2175
               cash: 4125
+          # Placeholder: copied verbatim from eastern, see note on level 1.
+          western:
+            unlock_day: 20
+            time:
+              days: 1
+              hours: 6
+            cost:
+              supplies: 1875
+              rares: 2175
+              cash: 4125
         mobilisation:
           eastern:
             time:
@@ -266,8 +401,23 @@ units:
               manpower: 700
               electronics: 1000
               cash: 3350
+          western:
+            time:
+              days: 1
+              hours: 5
+            cost:
+              supplies: 1250
+              manpower: 700
+              electronics: 1000
+              cash: 3350
         daily_upkeep:
           eastern:
+            cost:
+              manpower: 60
+              fuel: 60
+              electronics: 50
+              cash: 150
+          western:
             cost:
               manpower: 60
               fuel: 60

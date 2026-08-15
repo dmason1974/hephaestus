@@ -279,7 +279,7 @@ economics (highest supplies+electronics of the remaining candidates).
 | Country | Doctrine | Status | Role |
 |---|---|---|---|
 | Italy | european | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
-| Japan | western | homeland | Mainland-forced — 34 SASF (pinned to Tokyo/Fujisawa/Sendai, dead-window AWACS sharing — see UAT Round 3 below) + 8 AWACS + 1 Fixed Wing Veteran |
+| Japan | western | homeland | Mainland-forced — 34 SASF (pinned to Tokyo/Fujisawa/Sendai, dead-window AWACS sharing — see UAT Round 3 below) + 8 AWACS + 1 Fixed Wing Veteran + 10 Elite Attack Helicopter (level 3, pinned to Yono — dedicated city, air_base L4 only) |
 | Russia | eastern | homeland | Mainland-forced — 30 Mobile SAM Launcher + 24 Special Forces (pinned to Samara — electronics, see below) + 12 Commando (province) |
 | South Africa | european | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
 | Pakistan | western | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
@@ -633,8 +633,8 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 | `motorized_infantry` | ⚠ Western only | `infantry_units.yml`; old flat format with bare `doctrine: Western` string — european/eastern have no data at all. Used as a Western-values placeholder for all doctrines in starting-garrison upkeep calcs (`scenario.yml`'s `starting_units`) pending real screenshots |
 | `tank_veteran` | ✓ Complete | all doctrines; multi-level; armoured_units |
 | `gunship` | ⚠ Inline upkeep only, not a catalog unit | Starting-garrison unit (`scenario.yml`'s `starting_units`), never researched/mobilised by the player — deliberately **not** added to `data/scenarios/elite/units/`. L1 daily upkeep confirmed from screenshots: `manpower: 25, fuel: 25, electronics: 25, cash: 80`, identical for eastern/european; western unconfirmed (borrowed from eastern/european, same value) |
-| `helicopter_gunship` | ✓ Complete | eastern only; `helicopter_units.yml`; 6 levels (real screenshot data); requires `air_base level 1` + `arms_industry level 1` at every level (own-level chain implicit via `helicopter_gunship level N-1`) |
-| `elite_attack_helicopter` | ✓ Complete | eastern only; `seasonal_units.yml`; 3 levels (real screenshot data); requires `air_base L3/4/5` + `secret_weapons_lab L1` + `arms_industry L1` + its own prior level. In-game the research prerequisite is "Any Helicopter (Tier N)" — an OR across `helicopter_gunship`/`attack_helicopter`/`asw_helicopter` that the engine's `requirements` array cannot express (every string is parsed as a mandatory AND, confirmed by tracing all five parsing sites — `unit-research-sim.ts`, `unit-mobilization-plan.ts`, `flip-point-solver.ts`, `joint-city-optimizer.ts`, `country-force-projection.ts` — no OR/alternative syntax exists anywhere). Per user direction, anchored to `helicopter_gunship` specifically (the eastern-doctrine unit actually in play) at levels 1/4/6 for EAH levels 1/2/3 respectively, rather than dropping the gate entirely |
+| `helicopter_gunship` | ⚠ western is placeholder | eastern real screenshot data; `helicopter_units.yml`; 6 levels; requires `air_base level 1` + `arms_industry level 1` at every level (own-level chain implicit via `helicopter_gunship level N-1`). Western added this session as a verbatim eastern copy (unconfirmed placeholder) to unblock Japan's PNTH V Iron `elite_attack_helicopter` demand — Japan's doctrine is western and this is EAH's prerequisite chain. Needs real western screenshots |
+| `elite_attack_helicopter` | ⚠ western is placeholder | eastern real screenshot data; `seasonal_units.yml`; 3 levels; requires `air_base L3/4/5` + `secret_weapons_lab L1` + `arms_industry L1` + its own prior level. Has a real `unit_limit` mobilisation cap of 5/10/15 at levels 1/2/3 (matches `elite_frigate`'s pattern in the same file). In-game the research prerequisite is "Any Helicopter (Tier N)" — an OR across `helicopter_gunship`/`attack_helicopter`/`asw_helicopter` that the engine's `requirements` array cannot express (every string is parsed as a mandatory AND, confirmed by tracing all five parsing sites — `unit-research-sim.ts`, `unit-mobilization-plan.ts`, `flip-point-solver.ts`, `joint-city-optimizer.ts`, `country-force-projection.ts` — no OR/alternative syntax exists anywhere). Per user direction, anchored to `helicopter_gunship` specifically (the eastern-doctrine unit actually in play) at levels 1/4/6 for EAH levels 1/2/3 respectively, rather than dropping the gate entirely. Western doctrine added this session (verbatim eastern copy, unconfirmed placeholder) to unblock Japan's demand (10 units, needs level 3 via research auto-upgrade — resolves within the 5+10 unit_limit tranche, so only air_base L4 is actually required, not L5). Needs real western screenshots |
 
 ---
 
@@ -1708,3 +1708,88 @@ instead), that requires a schema/engine change — not present today.
 `npm test`: only the 5 pre-existing baseline failures (naval/seasonal empty
 standard-tier catalogs — see "Test Suite — Pre-existing Failures" above), no
 new failures.
+
+## Japan — 10 Elite Attack Helicopter Added (session, 2026-08-15)
+
+Added a demand of **10 `elite_attack_helicopter` (EAH), needing to reach
+research level 3**, to Japan's PNTH V Iron plan (originally scoped as 15
+across all three `unit_limit` tranches, reduced to 10 during planning once the
+real mob-queue/infra cost was worked out — see below).
+
+**Western doctrine placeholders added** (same convention as
+`mobile_sam_launcher`/`fixed_wing_veteran`): both `elite_attack_helicopter`
+and its prerequisite `helicopter_gunship` (`data/scenarios/elite/units/`) were
+eastern-only; Japan is western. Both gained a `western` block at every level,
+copied verbatim from `eastern`, unconfirmed pending real screenshots. EAH also
+gained its real `unit_limit` mobilisation cap (5/10/15 at levels 1/2/3,
+matching `elite_frigate`'s existing pattern) on both doctrines' mobilisation
+blocks.
+
+**Why 10 units only needs air_base L4 on paper, and only L3 in the real
+pipeline**: building-type requirements (`air_base level N`) are checked
+strictly per-city, never pooled across a country (verified by tracing
+`country-force-projection.ts`/`joint-city-optimizer.ts` — every `CityMobSlot`
+builds its own independent chain); unit-type prerequisites
+(`helicopter_gunship level N`) are resolved country-wide via the 2 shared
+research slots, no building dependency. A 10-unit demand fully resolves within
+the `unit_limit` 5+5 tranche (levels 1-2) — the level-3 tranche (the only one
+gated on `air_base level 5`) is never generated, so the units still reach
+level 3 for free via the standard auto-upgrade mechanic without ever needing
+L5 built anywhere. In practice, the real running pipeline
+(`country-force-projection.ts`'s `getUnitBuildingRequirements`) hardcodes
+`unit.levels["1"]`'s requirements for city-infra sizing regardless of target
+level — so the dedicated city only actually built air_base to **L3** (EAH's
+own level-1 floor), even leaner than the L4 hand-estimate made during
+planning.
+
+**Doesn't fit the existing SASF cities' dead-window capacity.** Checked
+against the real `tmp/iron-bp-japan.html` (not a summary): Tokyo/Fujisawa/
+Sendai's queues run essentially back-to-back with SASF from day ~17 to the
+day-29h15 deadline; the only genuine idle gaps are ~1-81h depending on city, a
+few times short of the ~230-270h a 10-unit EAH demand needs even at RO1. A
+free optimisation was identified and **explicitly not taken, per user
+direction, to avoid touching shared build-order logic**: building
+`secret_weapons_lab` before (rather than after) `air_base L5` doesn't delay
+SASF at all (both builds are needed regardless of order, and total sequential
+time is fixed at 57h either way — confirmed by hour arithmetic, SASF's own
+gate is identical, hour 388, in both orderings) but would let EAH become
+eligible ~32h earlier per city; this would have recovered roughly 145h
+combined across the three cities (~6 units' worth) — real but still short of
+10, and left unbuilt as unnecessary complexity given a dedicated city works.
+
+**Pinned to a new dedicated city: Yono** (rares) — the highest-priority
+resource among Japan's four unpinned cities (Oita/fuel, Saitama/components,
+Hiroshima/components, Yono/rares — electronics is already covered by Sendai),
+matching the same resource-priority rationale already used for Tokyo/
+Fujisawa/Sendai and Russia's Samara pin. Real verified output: RO L1 (as
+hand-estimated — ample mobilisation-window slack made higher RO levels not
+worth the extra build time), air_base L1→L3, secret_weapons_lab L1, all 10
+units mobilised in one order at day 18h19 (gated by EAH's own level-1
+*research* completing then, not by infra, which was ready a day earlier).
+
+**A genuine, zero-margin risk found in the real output, not caught by hand
+estimation**: EAH's level-3 research (needed for the "must reach level 3"
+requirement, via auto-upgrade) completes at **exactly day 29h15 — the
+deadline itself**, with no margin at all. Root cause: Slot 1 is fully packed
+with SASF/AWACS/FWV research ahead of it, so EAH's own JIT-deferred research
+chain (per the project's standard "level 2+ JIT to the deadline" strategy)
+gets pushed as late as it can possibly go. Reported feasible, no infeasibility
+flag — but worth watching if anything else in Japan's research queue shifts
+later in a future change.
+
+**Coalition-wide impact (iron pipeline, all 12 countries rebuilt)**: pooled
+electronics net balance moved from +9,825 to essentially breakeven (−792).
+More importantly, the **true hour-aligned pooled minima walk** (the number
+that actually constrains the plan, not the naive per-country sum) now shows a
+**genuine coalition-wide electronics shortfall of −5,639, first appearing at
+day 28h19** — small and very late (right at the deadline), but real. Before
+this addition, the iron pipeline had zero genuine insolvency points anywhere
+in the 28-day window; this is the first one. Every other pooled resource
+(supplies/components/fuel/rares/cash) stays comfortably positive throughout.
+Not yet resolved — flagged for a future session (a modest electronics-side
+adjustment elsewhere in the coalition, or accepting the shortfall).
+
+`npm test`: only the 5 pre-existing baseline failures, no new failures.
+Verified via the real pipeline (`iron-eco-plan` → `iron-fp-plan` →
+`iron-bp-plan` for Japan, then `iron-resource-projection` rebuilt across all
+12 countries) — not just the hand-derived estimates made during planning.

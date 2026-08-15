@@ -8,6 +8,13 @@ truce_days: 28
 # Resources listed highest-to-lowest coalition priority.
 resource_priority: [electronics, rares, components, fuel, supplies]
 
+# Idle slot time reserved before each JIT-scheduled (level 2+) research task —
+# models a player needing real time to notice a research slot has freed up and
+# manually requeue it. Level 1 (ASAP, unlocks mobilisation) is never buffered.
+# 24 = 1 in-game day. Engine hours are already game-hours; speed: 4x only affects
+# the real-world wall-clock mapping (24 game-hours ≈ 6 real-world hours at 4x).
+research_buffer_hours: 24
+
 search:
   top: 10
 
@@ -66,6 +73,28 @@ countries:
         # tmp/iron-bp-japan.html — real idle capacity there is ~145h vs
         # ~230-270h needed) — pinned to a dedicated new city instead.
         preferred_cities: [yono]
+    # Hand-specified research ordering (see research_asap_pins schema comment).
+    # Slot 2 becomes a clean gunship1 -> EAH1 -> gunship2-6 chain: gunship is
+    # never mobilised (only a research anchor unlocking EAH's higher levels via
+    # its level 1/4/6 -> EAH level 1/2/3 mapping — see CLAUDE.md's Elite Unit
+    # Catalog Status), so there's zero upkeep benefit to JIT-deferring it —
+    # packing it tight ahead of EAH costs nothing. Slot 1 clears
+    # fixed_wing_veteran L1, awacs L1, air_superiority_fighter L1 out of the way
+    # early. Everything NOT listed here (awacs L2+, fixed_wing_veteran L2+, EAH
+    # L2/L3, air_superiority_fighter L2-4, stealth_air_superiority_fighter L1)
+    # keeps normal JIT-backward scheduling and picks up research_buffer_hours
+    # automatically.
+    research_asap_pins:
+      - unit: helicopter_gunship
+        levels: [1, 2, 3, 4, 5, 6]
+      - unit: elite_attack_helicopter
+        levels: [1]
+      - unit: fixed_wing_veteran
+        levels: [1]
+      - unit: awacs
+        levels: [1]
+      - unit: air_superiority_fighter
+        levels: [1]
 
   russia:
     # Eastern — Moscow: components pop6, air_base 1

@@ -11,8 +11,8 @@ import {
   sumResourceCosts,
 } from "./cost-calculator.js";
 import type { ResourceCost } from "./types.js";
-import { simulateUnitResearchTargets, determineMaximumFeasibleLevel } from "../simulation/unit-research-sim.js";
-import type { UnitResearchSegment } from "../simulation/unit-research-sim.js";
+import { simulateUnitResearchTargets, determineMaximumFeasibleLevel, computeAsapResearchCompletions } from "../simulation/unit-research-sim.js";
+import type { UnitResearchSegment, ResearchAsapPin } from "../simulation/unit-research-sim.js";
 import { planProvinceMobilization } from "../simulation/province-mobilization-plan.js";
 import type { ProvinceMobilizationPlan } from "../simulation/province-mobilization-plan.js";
 import { baselineHomelandMoraleOnDay } from "../economy/morale.js";
@@ -623,6 +623,13 @@ export type CountryForceProjectionInput = {
    *  built from scratch — fixes the double-build bug. Cities without an entry (or
    *  when the whole map is absent) fall back to the formula-based chain. */
   actualEcoResultsByCity?: Map<string, CityEcoResult>;
+  /** Idle slot time (game-hours) reserved before every JIT-scheduled (level 2+)
+   *  research task — see coalition-force-plan-schema.ts's research_buffer_hours.
+   *  Omitted/0 preserves zero-margin JIT scheduling. */
+  researchBufferHours?: number;
+  /** Hand-specified unit levels to force ASAP (exempt from JIT deferral and from
+   *  researchBufferHours) — see coalition-force-plan-schema.ts's research_asap_pins. */
+  researchAsapPins?: ResearchAsapPin[];
 };
 
 export type CountryForceProjectionResult = {
@@ -661,6 +668,7 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
     country, doctrine, status, demands, scenario, buildings, catalog,
     scenarioAbsHour, deadlineAbsHour, truceDays, maxRoLevel,
     planWeights: inputPlanWeights, actualEcoResultsByCity,
+    researchBufferHours, researchAsapPins,
   } = input;
 
   const countryName = country.country.name;
@@ -815,11 +823,37 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
     }
   }
 
+  // Hand-specified ASAP pins (see research_asap_pins schema comment): overwrite the
+  // JIT deadline for specific unit levels with their earliest physically feasible
+  // completion hour, forcing the backward scheduler to place them ASAP instead of
+  // deferring them to the deadline. Also exempt them (level >= 2 only — level 1 is
+  // already buffer-exempt) from researchBufferHours, since packing a hand-pinned
+  // chain (e.g. a research-only prerequisite anchor never itself mobilised) tightly
+  // is the entire point — spacing it out with buffer gaps would defeat the pin.
+  const noBufferTaskIds = new Set<string>();
+  if (researchAsapPins && researchAsapPins.length > 0) {
+    const asapCompletions = computeAsapResearchCompletions(
+      catalog, researchAsapPins, { ...scenario, truce_length_days: truceDays }, doctrine,
+    );
+    for (const pin of researchAsapPins) {
+      for (const level of pin.levels) {
+        const taskId = `${pin.unit}:${level}`;
+        const completion = asapCompletions.get(taskId);
+        if (completion === undefined) continue;
+        latestCompletionByUnitLevel[taskId] = completion;
+        if (level !== 1) noBufferTaskIds.add(taskId);
+      }
+    }
+  }
+
   const combinedResearch = simulateUnitResearchTargets(
     catalog,
     researchTargets,
     { ...scenario, truce_length_days: truceDays },
-    { enableJitScheduling: true, doctrine, latestCompletionByUnitLevel, unitDemandCounts },
+    {
+      enableJitScheduling: true, doctrine, latestCompletionByUnitLevel, unitDemandCounts,
+      bufferHours: researchBufferHours, noBufferTaskIds,
+    },
   );
 
   // ── Per-city flip point, infra steps, mob steps ───────────────────────────

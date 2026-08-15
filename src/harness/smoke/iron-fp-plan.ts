@@ -122,6 +122,8 @@ const result = computeCountryForceProjection({
   deadlineAbsHour,
   truceDays: plan.truce_days,
   maxRoLevel,
+  researchBufferHours: plan.research_buffer_hours,
+  researchAsapPins: countryPlan?.research_asap_pins,
 });
 
 let html = `<h1>${escapeHtml(result.countryName)} — Iron Force Projection</h1>\n`;

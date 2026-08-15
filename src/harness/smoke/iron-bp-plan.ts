@@ -220,6 +220,8 @@ const result = computeCountryForceProjection({
   deadlineAbsHour,
   truceDays: plan.truce_days,
   maxRoLevel,
+  researchBufferHours: plan.research_buffer_hours,
+  researchAsapPins: countryPlan?.research_asap_pins,
 });
 
 // ── Shifted infra/mob timing (RO2 backfill must genuinely precede the rest of
@@ -985,6 +987,26 @@ if (!feasible) {
     html += renderTable(
       capturedProvinceRows.map(r => ({ cohort: r.label, source: r.source, resource: r.resource, provinces: r.provinceCount, "build sequence": r.seqLabel })),
       ["cohort", "source", "resource", "provinces", "build sequence"],
+    );
+  }
+
+  if (provinceCohorts.length > 0) {
+    html += `<h2>Province Eco Build Plans</h2>\n`;
+    html += `<p class="label">supplies/electronics cohorts get the iron heuristic's build sequence; every other cohort gets no build (base production only). Income and build cost from these builds are already included in the Resource Balance above.</p>\n`;
+    html += renderTable(
+      provinceCohorts.map(cohort => {
+        const steps = (cohort.resource && PROVINCE_BUILD_ORDER[cohort.resource]) ?? [];
+        const seqLabel = steps.length === 0
+          ? "(no builds)"
+          : steps.map(s => `L${s.targetLevel} ${s.buildingId.replaceAll("_", " ")}`).join(" → ");
+        return {
+          cohort: cohort.cohortId.split(":")[1] ?? cohort.cohortId,
+          resource: cohort.resource ?? "—",
+          provinces: cohort.totalProvinceCount,
+          "build sequence": seqLabel,
+        };
+      }),
+      ["cohort", "resource", "provinces", "build sequence"],
     );
   }
 

@@ -131,6 +131,8 @@ function analyseCountry(countryId: string): string {
     deadlineAbsHour,
     truceDays: plan.truce_days,
     maxRoLevel,
+    researchBufferHours: plan.research_buffer_hours,
+    researchAsapPins: countryPlan?.research_asap_pins,
   });
 
   if (result.reason === "no_demands") {

@@ -59,6 +59,22 @@ const countryPlanSchema = z
     // Only meaningful when status: occupied. See provinceCreditsSchema above.
     province_credits: provinceCreditsSchema.optional(),
     demands: z.array(demandSchema),
+    // Hand-specified unit levels to schedule ASAP (earliest physically feasible
+    // time) instead of JIT-deferring them to the deadline. Reuses the existing
+    // L1-ASAP forcing mechanism, generalised to any level. Intended for research
+    // that is a pure prerequisite anchor for another unit (zero mobilisation
+    // demand of its own, so deferring it saves no upkeep) or otherwise needs to
+    // be cleared out of a slot early to make room for what actually needs
+    // deadline-JIT timing. Levels not listed here keep normal JIT-backward
+    // scheduling and pick up research_buffer_hours automatically.
+    research_asap_pins: z
+      .array(
+        z.object({
+          unit: z.string().min(1),
+          levels: z.array(z.number().int().min(1)).min(1),
+        }),
+      )
+      .optional(),
   })
   .strict();
 
@@ -70,6 +86,11 @@ export const coalitionForcePlanSchema = z
     scenario: z.string().min(1),
     truce_days: z.number().int().min(1),
     resource_priority: z.array(resourceSchema).optional(),
+    // Idle slot time (game-hours) reserved immediately before every JIT-scheduled
+    // (level 2+) research task, modeling real-time reaction lag to requeue
+    // research the instant a slot frees up. Level 1 (ASAP-scheduled) is never
+    // buffered. Omitted/0 preserves the zero-margin (pre-buffer) behavior.
+    research_buffer_hours: z.number().min(0).optional(),
     search: z
       .object({
         top: z.number().int().min(1).optional(),

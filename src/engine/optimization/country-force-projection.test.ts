@@ -63,6 +63,146 @@ test("computeCountryForceProjection produces a feasible plan with a sane flip po
   }
 });
 
+test("computeCountryForceProjection with researchBufferHours stays feasible and reserves idle slot time before every level 2+ research task (Italy)", () => {
+  const scenarioId = "elite/antarctica";
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const catalog = loadMergedUnitCatalogForScenario(scenarioId);
+  const plan = loadScenarioCoalitionPlan(scenarioId, "pnth-v-iron-2026-aug");
+  const country = loadScenarioCountry(scenarioId, "italy");
+  const countryPlan = plan.countries.italy;
+  const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
+  const deadlineAbsHour = scenarioAbsHour + plan.truce_days * 24;
+
+  const baseArgs = {
+    country, doctrine: country.country.doctrine, status: countryPlan.status,
+    demands: countryPlan.demands,
+    scenario, buildings, catalog,
+    scenarioAbsHour, deadlineAbsHour,
+    truceDays: plan.truce_days,
+    maxRoLevel: 5,
+  };
+
+  const withoutBuffer = computeCountryForceProjection(baseArgs);
+  const withBuffer = computeCountryForceProjection({ ...baseArgs, researchBufferHours: 24 });
+
+  assert.equal(withoutBuffer.infeasible, false);
+  assert.equal(withBuffer.infeasible, false);
+
+  const bySlot = new Map<number, typeof withBuffer.researchSegments>();
+  for (const segment of withBuffer.researchSegments) {
+    if (!bySlot.has(segment.slot)) bySlot.set(segment.slot, []);
+    bySlot.get(segment.slot)!.push(segment);
+  }
+  for (const segments of bySlot.values()) {
+    segments.sort((a, b) => a.startAbsoluteHour - b.startAbsoluteHour);
+    for (let i = 1; i < segments.length; i++) {
+      if (segments[i].level < 2) continue;
+      const gap = segments[i].startAbsoluteHour - segments[i - 1].endAbsoluteHourExclusive;
+      assert.ok(gap >= 24, `expected >=24h gap before ${segments[i].unitId} L${segments[i].level}, got ${gap}h`);
+    }
+  }
+});
+
+test("computeCountryForceProjection with research_asap_pins packs Japan's helicopter_gunship/EAH chain tight and buffers everything else (Japan)", () => {
+  const scenarioId = "elite/antarctica";
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const catalog = loadMergedUnitCatalogForScenario(scenarioId);
+  const plan = loadScenarioCoalitionPlan(scenarioId, "pnth-v-iron-2026-aug");
+  const country = loadScenarioCountry(scenarioId, "japan");
+  const countryPlan = plan.countries.japan;
+  const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
+  const deadlineAbsHour = scenarioAbsHour + plan.truce_days * 24;
+
+  assert.ok(countryPlan.research_asap_pins && countryPlan.research_asap_pins.length > 0, "fixture assumption: Japan has research_asap_pins configured");
+
+  const result = computeCountryForceProjection({
+    country, doctrine: country.country.doctrine, status: countryPlan.status,
+    demands: countryPlan.demands,
+    scenario, buildings, catalog,
+    scenarioAbsHour, deadlineAbsHour,
+    truceDays: plan.truce_days,
+    maxRoLevel: 5,
+    researchBufferHours: plan.research_buffer_hours,
+    researchAsapPins: countryPlan.research_asap_pins,
+  });
+
+  assert.equal(result.infeasible, false);
+
+  // Every pinned level must actually be present — the original (slot-unaware)
+  // ASAP-completion computation silently dropped awacs:1/air_superiority_fighter:1
+  // here (infeasible override due to real 2-slot contention among the pinned
+  // chains), leaving their already-scheduled higher levels dangling. This is the
+  // regression guard for that bug.
+  const byUnitLevel = new Map(result.researchSegments.map(s => [`${s.unitId}:${s.level}`, s]));
+  for (const pin of countryPlan.research_asap_pins!) {
+    for (const level of pin.levels) {
+      assert.ok(byUnitLevel.has(`${pin.unit}:${level}`), `pinned ${pin.unit}:${level} must be scheduled, not silently dropped`);
+    }
+  }
+
+  // helicopter_gunship is never mobilised (zero upkeep benefit to deferring it),
+  // so its pin should land level 1 near scenario start — not deferred to whenever
+  // the deadline-JIT backward scheduler happens to have leftover slot room, which
+  // is what the pre-pin baseline did (gunship L1 started on day 17 of a 28-day
+  // truce before this feature).
+  const gunshipL1 = byUnitLevel.get("helicopter_gunship:1");
+  assert.ok(gunshipL1);
+  assert.ok(
+    gunshipL1!.startAbsoluteHour <= scenarioAbsHour + 48,
+    `helicopter_gunship L1 should start within ~2 days of scenario start, got hour ${gunshipL1!.startAbsoluteHour} (scenario start ${scenarioAbsHour})`
+  );
+
+  // None of the 6 pinned levels' own inter-level gap should ever be inflated by
+  // the 24h research buffer (they're all in noBufferTaskIds) — real unlock-day
+  // gates can still legitimately produce a gap, but never one driven by the
+  // buffer specifically. Verified indirectly: a run with the SAME pins but
+  // researchBufferHours omitted must schedule every gunship level identically,
+  // proving the buffer plays no role in this chain's timing at all.
+  const withoutBufferButPinned = computeCountryForceProjection({
+    country, doctrine: country.country.doctrine, status: countryPlan.status,
+    demands: countryPlan.demands,
+    scenario, buildings, catalog,
+    scenarioAbsHour, deadlineAbsHour,
+    truceDays: plan.truce_days,
+    maxRoLevel: 5,
+    researchAsapPins: countryPlan.research_asap_pins,
+  });
+  const byUnitLevelNoBuffer = new Map(withoutBufferButPinned.researchSegments.map(s => [`${s.unitId}:${s.level}`, s]));
+  for (let level = 1; level <= 6; level++) {
+    const withBuffer = byUnitLevel.get(`helicopter_gunship:${level}`);
+    const noBuffer = byUnitLevelNoBuffer.get(`helicopter_gunship:${level}`);
+    assert.ok(withBuffer && noBuffer);
+    assert.equal(
+      withBuffer!.startAbsoluteHour, noBuffer!.startAbsoluteHour,
+      `helicopter_gunship L${level} timing should be identical with/without researchBufferHours (pinned, buffer-exempt)`
+    );
+  }
+
+  // awacs level 2+ and fixed_wing_veteran level 2+ are NOT pinned — they must show
+  // the buffer whenever they immediately follow another segment in the same slot.
+  const bySlot = new Map<number, typeof result.researchSegments>();
+  for (const segment of result.researchSegments) {
+    if (!bySlot.has(segment.slot)) bySlot.set(segment.slot, []);
+    bySlot.get(segment.slot)!.push(segment);
+  }
+  let sawBufferedTransition = false;
+  for (const segments of bySlot.values()) {
+    segments.sort((a, b) => a.startAbsoluteHour - b.startAbsoluteHour);
+    for (let i = 1; i < segments.length; i++) {
+      const seg = segments[i];
+      const isUnpinnedNonPrimary =
+        (seg.unitId === "awacs" || seg.unitId === "fixed_wing_veteran") && seg.level >= 2;
+      if (!isUnpinnedNonPrimary) continue;
+      const gap = seg.startAbsoluteHour - segments[i - 1].endAbsoluteHourExclusive;
+      assert.ok(gap >= 24, `expected >=24h buffer before ${seg.unitId} L${seg.level}, got ${gap}h`);
+      sawBufferedTransition = true;
+    }
+  }
+  assert.ok(sawBufferedTransition, "expected at least one buffered awacs/fixed_wing_veteran transition in the real Japan plan");
+});
+
 test("computeCountryForceProjection returns reason 'no_demands' when the country has no demands", () => {
   const scenarioId = "elite/antarctica";
   const scenario = loadScenarioFile(scenarioId);

@@ -553,7 +553,21 @@ function evaluateAbsorptionOptions(
           : 0;
         const fillerReadinessAbs = slot.flipPointHour + secretLabHours + nonRoBuildHours(unitId, catalog, buildings);
         const availableWindow = primaryJitStart - fillerReadinessAbs;
-        deadWindowCapN = availableWindow > 0 ? Math.floor(availableWindow / Math.max(1, calculateMobilizationDuration(unitId, 1, 1, 1, neededRo, catalog, buildings, doctrine, moraleAtAbsHour(fillerReadinessAbs)))) : 0;
+        // availableWindow <= 0 means there's no genuine early-idle window to squeeze
+        // into at all — not "zero capacity", but "this isn't actually a dead-window
+        // opportunity". That happens when the primary itself is small/light and JIT-
+        // deferred close to the deadline (e.g. a 7-unit primary sharing with a 30-unit
+        // candidate) rather than the SASF/AWACS-style "long early infra chain leaves a
+        // real gap" case this cap was built for. Falling back to Infinity here defers
+        // entirely to the ordinary shared-queue capacity math below (remaining/T),
+        // instead of wrongly hard-rejecting a candidate that should just queue normally.
+        // A small-but-positive availableWindow that still floors to 0 units is the
+        // same "not really a dead-window opportunity" case, not a genuine 1-unit-
+        // short shortfall — falls back to Infinity too.
+        const rawCapN = availableWindow > 0
+          ? Math.floor(availableWindow / Math.max(1, calculateMobilizationDuration(unitId, 1, 1, 1, neededRo, catalog, buildings, doctrine, moraleAtAbsHour(fillerReadinessAbs))))
+          : 0;
+        deadWindowCapN = rawCapN > 0 ? rawCapN : Infinity;
       }
     }
     const cappedMaxN = Math.min(maxN, deadWindowCapN);
@@ -773,13 +787,18 @@ export function foldInDemands(
       scenarioAbsHour, deadlineAbsHour, catalog, buildings, doctrine, moraleAtAbsHour, planWeights,
     );
     if (!est) continue; // infeasible even at max RO with this exact city count — skip, same as the unpinned overflow path's `if (!est) continue`
-    const { roLevel, unitsPerCity } = est;
+    const { roLevel } = est;
 
     for (let ci = 0; ci < numCities; ci++) {
       const cid = preferredCities![ci];
-      const allocated = ci === numCities - 1
-        ? effectiveCount - unitsPerCity * (numCities - 1)
-        : unitsPerCity;
+      // Fair round-robin split (max 1-unit spread across cities), matching the
+      // same per-city count formula the cost estimate above already assumes
+      // (line ~712) — previously this dumped the full remainder on the last
+      // city alone (e.g. 70 across 3 cities → 24/24/22 instead of 24/23/23),
+      // inconsistent with what the RO-level/cost sweep had already modelled.
+      const allocated = ci < effectiveCount % numCities
+        ? Math.ceil(effectiveCount / numCities)
+        : Math.floor(effectiveCount / numCities);
 
       // Two pinned demands can name the same city (e.g. SASF and uav both pinned
       // to mumbai) — merge into the existing slot's shared queue via the same
@@ -793,13 +812,31 @@ export function foldInDemands(
         const options = evaluateAbsorptionOptions(
           citySlots, unitId, allocated, minRo, catalog, buildings, doctrine, moraleAtAbsHour, planWeights, maxRoLevel, scenarioAbsHour,
         ).filter(o => o.slotIdx === existingSlotIdx);
-        if (options.length > 0) {
-          const opt = options[0];
-          applyAbsorption(
-            citySlots[opt.slotIdx], unitId, Math.min(opt.nAbsorbable, allocated), opt.insertIdx, opt.neededRo,
-            catalog, buildings, doctrine, moraleAtAbsHour, planWeights, scenarioAbsHour,
+        // A pinned demand that can't be placed must fail loudly, not vanish
+        // silently — this city is already committed to another pinned demand
+        // (removed from the overflow pool below), so there's no fallback city
+        // to retry with; previously a zero/partial absorption result here just
+        // dropped units with zero trace (confirmed: mechanized_infantry's full
+        // 30-unit demand disappeared with no error when this triggered).
+        if (options.length === 0) {
+          throw new Error(
+            `foldInDemands: pinned demand "${unitId}" (×${allocated}) could not be merged into ` +
+            `${cid}'s existing mob queue (primary: ${citySlots[existingSlotIdx].primaryUnitId}) — ` +
+            `zero absorption capacity found.`
           );
         }
+        const opt = options[0];
+        const nPlaced = Math.min(opt.nAbsorbable, allocated);
+        if (nPlaced < allocated) {
+          throw new Error(
+            `foldInDemands: pinned demand "${unitId}" at ${cid} only had capacity for ${nPlaced} of ` +
+            `${allocated} requested units (primary: ${citySlots[existingSlotIdx].primaryUnitId}).`
+          );
+        }
+        applyAbsorption(
+          citySlots[opt.slotIdx], unitId, nPlaced, opt.insertIdx, opt.neededRo,
+          catalog, buildings, doctrine, moraleAtAbsHour, planWeights, scenarioAbsHour,
+        );
         usedCityIds.add(cid);
         continue;
       }

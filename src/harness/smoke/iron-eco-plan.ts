@@ -44,6 +44,7 @@ function fmt(n: number): string {
 }
 
 const scenarioId = process.env.IRON_SCENARIO ?? "elite/antarctica";
+const outputDir = process.env.IRON_OUTPUT_DIR ?? "pnth-v-iron-aug26";
 const countryId = process.env.IRON_COUNTRY;
 if (!countryId) {
   throw new Error("IRON_COUNTRY is required, e.g. IRON_COUNTRY=south_africa npm run smoke:iron-eco-plan");
@@ -371,6 +372,7 @@ summaryRows.push(`<tr style="font-weight:bold;background:#f8f8f8">
 html += `<table>${summaryRows.join("")}</table>`;
 
 const outHtml = buildHtml(`Iron Eco Plan — ${country.country.name}`, html);
-const outPath = path.resolve(`tmp/iron-eco-${countryId}.html`);
+const outPath = path.resolve(`tmp/${outputDir}/eco-build/iron-eco-${countryId}.html`);
+fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, outHtml, "utf8");
 console.log(`→ wrote ${outPath}`);

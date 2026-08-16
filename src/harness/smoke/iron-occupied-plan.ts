@@ -34,6 +34,7 @@ import {
 
 const scenarioId = process.env.IRON_SCENARIO ?? "elite/antarctica";
 const planId = process.env.IRON_PLAN ?? "pnth-v-iron-2026-aug";
+const outputDir = process.env.IRON_OUTPUT_DIR ?? "pnth-v-iron-aug26";
 const countryId = process.env.IRON_COUNTRY;
 if (!countryId) {
   throw new Error("IRON_COUNTRY is required, e.g. IRON_COUNTRY=norway npm run smoke:iron-occupied-plan");
@@ -343,9 +344,9 @@ html += `<script type="application/json" id="iron-hourly-net-flow" data-scenario
   hourlyNetFlow.map(flow => RESOURCE_KEYS.map(r => Math.round(flow[r])))
 )}</script>\n`;
 
-fs.mkdirSync(path.resolve("tmp"), { recursive: true });
 const outHtml = buildHtml(`Iron Build Plan — ${country.country.name}`, html);
-const outPath = path.resolve(`tmp/iron-bp-${countryId}.html`);
+const outPath = path.resolve(`tmp/${outputDir}/build-plans/iron-bp-${countryId}.html`);
+fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, outHtml, "utf8");
 console.log(`→ wrote ${outPath}`);
 
@@ -434,6 +435,7 @@ summaryRows.push(`<tr style="font-weight:bold;background:#f8f8f8">
 ecoHtml += `<table>${summaryRows.join("")}</table>`;
 
 const ecoOutHtml = buildHtml(`Iron Eco Plan — ${country.country.name}`, ecoHtml);
-const ecoOutPath = path.resolve(`tmp/iron-eco-${countryId}.html`);
+const ecoOutPath = path.resolve(`tmp/${outputDir}/eco-build/iron-eco-${countryId}.html`);
+fs.mkdirSync(path.dirname(ecoOutPath), { recursive: true });
 fs.writeFileSync(ecoOutPath, ecoOutHtml, "utf8");
 console.log(`→ wrote ${ecoOutPath}`);

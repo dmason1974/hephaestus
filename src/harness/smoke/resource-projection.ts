@@ -391,7 +391,7 @@ function renderCombinedInfraSection(analysis: CountryAnalysis): string {
         rows.push({ absHour: s.startHour, step: `[infra] ${s.name}` });
       }
       for (const m of slot.mobSteps) {
-        rows.push({ absHour: m.startAbsHour, step: `[mob] ${m.unitId.replaceAll("_", " ")} ×${m.count}` });
+        rows.push({ absHour: m.startAbsHour, step: `[mob] ${m.unitId.replaceAll("_", " ")}${m.level ? ` L${m.level}` : ""} ×${m.count}` });
       }
     } else {
       for (const a of cityEco.bestActions) {
@@ -461,9 +461,12 @@ function renderBuildPlanHtml(analysis: CountryAnalysis): string {
   if (forceProjection.provinceMobResults.length > 0) {
     html += `<h3>Province Mobilisation Detail</h3>\n`;
     html += `<ul>${forceProjection.provinceMobResults.map(r =>
-      `<li>${escapeHtml(r.unitId)} × ${r.count} — mercenary_outpost L${r.mercenaryOutpostRequiredLevel} ` +
-      `(${r.mercenaryOutpostBuildHours}h) then mobilise (${r.mobilizationDurationHours}h), ` +
-      `completes hour ${r.completionHour}, capacity ${r.provinceCount} provinces</li>`
+      `<li>${escapeHtml(r.unitId)} × ${r.count} — mercenary_outpost → L${r.mercenaryOutpostRequiredLevel} ` +
+      `(${r.mercenaryOutpostBuildHours}h cumulative), capacity ${r.provinceCount} provinces` +
+      `<ul>${r.tranches.map(t =>
+        `<li>L${t.level}: ${t.count} units — research floor hour ${t.mobilisationEarliestHour}, ` +
+        `mobilise ${t.mobStartHour}→${t.completionHour} (${t.mobilizationDurationHours}h)</li>`
+      ).join("")}</ul></li>`
     ).join("")}</ul>\n`;
   }
   if (forceProjection.skippedDemands.length > 0) {

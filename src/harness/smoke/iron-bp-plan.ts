@@ -81,6 +81,7 @@ import { computeOccupiedYield, provinceCreditKeyFromCohortId } from "./occupied-
 
 const scenarioId = process.env.IRON_SCENARIO ?? "elite/antarctica";
 const planId = process.env.IRON_PLAN ?? "pnth-v-iron-2026-aug";
+const outputDir = process.env.IRON_OUTPUT_DIR ?? "pnth-v-iron-aug26";
 const countryId = process.env.IRON_COUNTRY;
 if (!countryId) {
   throw new Error("IRON_COUNTRY is required, e.g. IRON_COUNTRY=south_africa npm run smoke:iron-bp-plan");
@@ -759,20 +760,22 @@ if (feasible) {
 // provinceUpkeep) but never fed into this walk at all — same class of omission as
 // the missing province build costs above (confirmed as the dominant driver of
 // Russia's much larger walk-vs-totals gap vs. every other homeland country).
-// Mobilisation starts ASAP at hour 0 (confirmed in country-force-projection.ts's
-// own comment: "Mobilisation starts ASAP (hour 0) since there's no eco/infra
-// dependency gating it") — mercenary_outpost build cost at scenario start,
-// mobilisation cost once the outpost completes, upkeep as a flat rate from
-// completion to deadline (same flat-rate convention as garrisonHourlyRate below).
+// mercenary_outpost build cost lands at scenario start (cumulative, built once).
+// Each unit_limit-gated tranche (e.g. commando: 5 at L1, 5 more at L2, 2 more at
+// L3) lands its own mobilisation cost at its own mobStartHour and pays its own
+// upkeep from its own completion — tranches don't all land at the same hour or
+// level, so they're walked individually rather than using the aggregate fields.
 const provinceUpkeepHourlyRate = zeroResources();
 for (const r of result.provinceMobResults) {
   costEvents.push({ hour: scenarioAbsHour, cost: r.mercenaryOutpostBuildCost });
-  costEvents.push({ hour: scenarioAbsHour + r.mercenaryOutpostBuildHours, cost: r.mobilizationCost });
-  const completionAbsHour = scenarioAbsHour + r.completionHour;
-  const remainingHours = deadlineAbsHour - completionAbsHour;
-  if (remainingHours > 0) {
-    const upkeep = calculateUpkeepCost(r.unitId, r.level, r.count, remainingHours, catalog, country.country.doctrine);
-    for (const res of RESOURCE_KEYS) provinceUpkeepHourlyRate[res] += (upkeep[res] ?? 0) / remainingHours;
+  for (const tranche of r.tranches) {
+    costEvents.push({ hour: scenarioAbsHour + tranche.mobStartHour, cost: tranche.mobilizationCost });
+    const completionAbsHour = scenarioAbsHour + tranche.completionHour;
+    const remainingHours = deadlineAbsHour - completionAbsHour;
+    if (remainingHours > 0) {
+      const upkeep = calculateUpkeepCost(r.unitId, tranche.level, tranche.count, remainingHours, catalog, country.country.doctrine);
+      for (const res of RESOURCE_KEYS) provinceUpkeepHourlyRate[res] += (upkeep[res] ?? 0) / remainingHours;
+    }
   }
 }
 
@@ -946,7 +949,7 @@ if (!feasible) {
     const mobQueueRows = mobSteps.map((m, i) => ({
       "#": i + 1,
       at: fmtAbsHour(m.startAbsHour),
-      step: `[mob] ${m.unitId.replaceAll("_", " ")} ×${m.count}`,
+      step: `[mob] ${m.unitId.replaceAll("_", " ")}${m.level ? ` L${m.level}` : ""} ×${m.count}`,
     }));
 
     html += `<h3>${escapeHtml(cityLabel)} — ${escapeHtml(slot.primaryUnitId.replaceAll("_", " "))}, RO L${slot.roLevel}</h3>\n`;
@@ -1018,14 +1021,37 @@ if (!feasible) {
 
   if (result.provinceMobResults.length > 0) {
     html += `<h2>Province Mobilisation Detail</h2>\n`;
-    html += `<ul>${result.provinceMobResults
-      .map(
-        r =>
-          `<li>${escapeHtml(r.unitId)} × ${r.count} — mercenary_outpost L${r.mercenaryOutpostRequiredLevel} ` +
-          `(${r.mercenaryOutpostBuildHours}h) then mobilise (${r.mobilizationDurationHours}h), ` +
-          `completes hour ${r.completionHour}, capacity ${r.provinceCount} provinces</li>`
-      )
-      .join("")}</ul>\n`;
+    for (const r of result.provinceMobResults) {
+      const unitLabel = r.unitId.replaceAll("_", " ");
+
+      const buildQueueRows: Array<Record<string, unknown>> = [];
+      const seenOutpostLevels = new Set<number>();
+      for (const t of r.tranches) {
+        if (seenOutpostLevels.has(t.mercenaryOutpostRequiredLevel)) continue;
+        seenOutpostLevels.add(t.mercenaryOutpostRequiredLevel);
+        buildQueueRows.push({
+          "#": buildQueueRows.length + 1,
+          at: fmtAbsHour(scenarioAbsHour + t.mercenaryOutpostStartHour),
+          step: `[infra] mercenary outpost L${t.mercenaryOutpostRequiredLevel}`,
+        });
+      }
+
+      const mobQueueRows = r.tranches.map((t, i) => ({
+        "#": i + 1,
+        at: fmtAbsHour(scenarioAbsHour + t.mobStartHour),
+        step: `[mob] ${unitLabel} L${t.level} ×${t.count}`,
+      }));
+
+      html += `<h3>${escapeHtml(unitLabel)} — mercenary_outpost → L${r.mercenaryOutpostRequiredLevel}, capacity ${r.provinceCount} provinces</h3>\n`;
+      html += `<div class="pair">\n`;
+      html += `<div><h4>Build Queue</h4>\n`;
+      html += renderTable(buildQueueRows, ["#", "at", "step"]);
+      html += `</div>\n`;
+      html += `<div><h4>Mobilisation Queue</h4>\n`;
+      html += renderTable(mobQueueRows, ["#", "at", "step"]);
+      html += `</div>\n`;
+      html += `</div>\n`;
+    }
   }
 
   const skipped = [...result.skippedDemands.map(d => `${d.unitId} × ${d.count} — launcher platform (zero mob cost)`)];
@@ -1050,8 +1076,8 @@ html += `<script type="application/json" id="iron-hourly-net-flow" data-scenario
   hourlyNetFlow.map(flow => RESOURCE_KEYS.map(r => Math.round(flow[r])))
 )}</script>\n`;
 
-fs.mkdirSync(path.resolve("tmp"), { recursive: true });
 const outHtml = buildHtml(`Iron Build Plan — ${country.country.name}`, html);
-const outPath = path.resolve(`tmp/iron-bp-${countryId}.html`);
+const outPath = path.resolve(`tmp/${outputDir}/build-plans/iron-bp-${countryId}.html`);
+fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, outHtml, "utf8");
 console.log(`→ wrote ${outPath}`);

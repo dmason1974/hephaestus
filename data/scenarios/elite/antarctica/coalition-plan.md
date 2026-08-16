@@ -94,3 +94,32 @@ supplies/fuel/electronics/manpower, for the ~4 days before disbanding.
 hardcode a day-4 capture delay for every occupied country. That's only correct for
 Norway here — Madagascar/Solomon Islands/Iran need day 2. Making capture day
 configurable per-country is real engine work, not yet done.
+
+## Electronics Market Liquidity Check
+
+The Iron Pipeline resource projections show a small coalition-wide electronics
+shortfall late in the truce window (roughly −5,600 to −10,700 depending on session —
+see CLAUDE.md's "Airport Demolish" / "Research Buffer" sessions), flagged as
+resolvable via the in-game cash→resource stock market rather than an engine change,
+but never previously checked against real market data.
+
+**Spot-check (2026-08-16), cash-priced BUY ELECTRONICS offers only** (excludes the
++4,000 @ 0.625-gold line present on every player's market — that's premium currency,
+not cash):
+
+| Player | Units offered (cash) | Cash cost |
+|---|---|---|
+| India (day 2) | 1,905 | 20,907 |
+| Russia (day 2) | 2,276 | 22,968 |
+| Pakistan (day 3) | 2,627 | 33,765 |
+| Japan (day 4) | 2,466 | 26,069 |
+| South Africa (day 5) | 2,120 | 23,675 |
+| 3 unattributed snapshots | 6,981 | 80,714 |
+| **Total (8 snapshots)** | **18,375** | **208,098** |
+
+Average ≈2,300 electronics per snapshot at 9–14 cash/unit, holding consistently across
+all 8 identified/unattributed players checked. 18,375 electronics for ~208k cash
+comfortably exceeds the ~5.6k–10.7k shortfall, using a small fraction of the
+coalition's cash surplus (hundreds of thousands to low millions across the window).
+Closes out the electronics-shortfall open item as resolvable via market purchase — no
+further eco-side investment needed to cover it.

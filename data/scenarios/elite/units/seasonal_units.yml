@@ -316,6 +316,10 @@ units:
             rares: 1500
             cash: 15000
         mobilisation:
+          # Placeholder: unit_limit inferred from the elite 5/10/15 pattern
+          # (confirmed on elite_attack_helicopter/elite_frigate); not yet
+          # confirmed via commando-specific screenshots.
+          unit_limit: 5
           time:
             hours: 20
           cost:
@@ -344,6 +348,7 @@ units:
             rares: 1750
             cash: 20000
         mobilisation:
+          unit_limit: 10
           time:
             days: 1
           cost:
@@ -372,6 +377,7 @@ units:
             rares: 2000
             cash: 25000
         mobilisation:
+          unit_limit: 15
           time:
             days: 1
             hours: 4

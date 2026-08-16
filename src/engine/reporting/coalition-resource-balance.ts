@@ -193,22 +193,33 @@ export function computeCountryResourceBalance(input: CountryResourceBalanceInput
     }
   }
 
-  // Province-mobilised demands: lump cost at completion, continuous upkeep after.
+  // Province-mobilised demands: mercenary_outpost build cost lands at scenario
+  // start; each unit_limit-gated tranche (e.g. commando: 5 at L1, 5 more at L2,
+  // 2 more at L3) lumps its own mobilisation cost at its own completion and
+  // pays its own continuous upkeep after — tranches complete at different
+  // hours and levels, so they're walked individually rather than using the
+  // aggregate result fields.
   for (const result of forceProjection.provinceMobResults) {
-    const idx = clampIndex(result.completionHour, hoursToSimulate);
-    for (const [r, amount] of Object.entries(result.totalCost)) {
-      if (amount) hourlyNetFlow[idx][r as Resource] -= amount;
+    const outpostIdx = clampIndex(0, hoursToSimulate);
+    for (const [r, amount] of Object.entries(result.mercenaryOutpostBuildCost)) {
+      if (amount) hourlyNetFlow[outpostIdx][r as Resource] -= amount;
     }
-    let dailyUpkeep: ResourceCost = {};
-    try {
-      dailyUpkeep = calculateDailyUpkeep(result.unitId, result.level, catalog, doctrine);
-    } catch {
-      // missing doctrine/level data — skip
-    }
-    const hourlyUpkeep = scaleResources(dailyUpkeep, result.count / 24);
-    const startH = clampIndex(result.completionHour, hoursToSimulate);
-    for (let h = startH; h < hoursToSimulate; h++) {
-      addResourcesInto(hourlyNetFlow[h], scaleResources(hourlyUpkeep, -1));
+    for (const tranche of result.tranches) {
+      const idx = clampIndex(tranche.completionHour, hoursToSimulate);
+      for (const [r, amount] of Object.entries(tranche.mobilizationCost)) {
+        if (amount) hourlyNetFlow[idx][r as Resource] -= amount;
+      }
+      let dailyUpkeep: ResourceCost = {};
+      try {
+        dailyUpkeep = calculateDailyUpkeep(result.unitId, tranche.level, catalog, doctrine);
+      } catch {
+        // missing doctrine/level data — skip
+      }
+      const hourlyUpkeep = scaleResources(dailyUpkeep, tranche.count / 24);
+      const startH = clampIndex(tranche.completionHour, hoursToSimulate);
+      for (let h = startH; h < hoursToSimulate; h++) {
+        addResourcesInto(hourlyNetFlow[h], scaleResources(hourlyUpkeep, -1));
+      }
     }
   }
 

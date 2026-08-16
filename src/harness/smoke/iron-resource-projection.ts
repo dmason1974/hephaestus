@@ -31,7 +31,8 @@ const countryIds = (process.env.IRON_COUNTRIES ?? "italy,south_africa,pakistan,n
   .split(",")
   .map(s => s.trim())
   .filter(Boolean);
-const outputFilePath = path.resolve(process.env.IRON_OUTPUT_FILE?.trim() ?? "tmp/iron-resource-projection.html");
+const outputDir = process.env.IRON_OUTPUT_DIR ?? "pnth-v-iron-aug26";
+const outputFilePath = path.resolve(process.env.IRON_OUTPUT_FILE?.trim() ?? `tmp/${outputDir}/iron-resource-projection.html`);
 
 // ── Parsing ─────────────────────────────────────────────────────────────────
 
@@ -112,7 +113,7 @@ function parseHourlyNetFlow(html: string): { scenarioAbsHour: number; resourceOr
 }
 
 function parseCountryFile(countryId: string): ParsedCountry {
-  const filePath = path.resolve(`tmp/iron-bp-${countryId}.html`);
+  const filePath = path.resolve(`tmp/${outputDir}/build-plans/iron-bp-${countryId}.html`);
   if (!fs.existsSync(filePath)) {
     throw new Error(`${filePath} not found — run IRON_COUNTRY=${countryId} npm run smoke:iron-bp-plan first`);
   }
@@ -356,6 +357,6 @@ body += htmlTable(
   ["resource", ...feasibleCountries.map(c => c.countryName)],
 );
 
-fs.mkdirSync(path.resolve("tmp"), { recursive: true });
+fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
 fs.writeFileSync(outputFilePath, buildHtml("Iron Coalition Resource Projection", body), "utf8");
 console.log(`→ wrote ${outputFilePath}`);

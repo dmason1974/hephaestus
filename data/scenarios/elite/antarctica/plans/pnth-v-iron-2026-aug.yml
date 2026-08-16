@@ -115,6 +115,20 @@ countries:
       - unitId: commando
         count: 12
         mobilisation_source: province
+        # unit_limit caps commando alive at 5/10/15 for research levels 1/2/3
+        # (see seasonal_units.yml) — 12 units mobilise as 3 tranches: 5 at L1,
+        # 5 more at L2, 2 more at L3. commando level N requires special_forces
+        # level N (a hard prerequisite, not a preference) — research_asap_pins
+        # was attempted here to get commando's research done early using idle
+        # slot time, but pinning cross-unit-dependent chains together triggers
+        # a real, previously-undiscovered scheduler bug (computeAsapResearchCompletions
+        # computes commando's ASAP deadline in isolation, ignoring real slot
+        # contention with mobile_sam_launcher; the resulting infeasible override
+        # silently drops BOTH units' research segments from the real schedule —
+        # confirmed via direct testing, not fixed here, flagged for a future
+        # session). Left unpinned for now: commando's research is scheduled via
+        # the normal priority-based mechanism, landing late (L1 ~day 19) but
+        # present and feasible, rather than pinned-but-broken.
 
   south_africa:
     # European — Cape Town: rares pop6, air_base 1 (no naval base)
@@ -184,12 +198,46 @@ countries:
     # radar (not suicided on day 4 like the rest of the garrison) — only 7 need mobilising.
     status: homeland
     demands:
-      - unitId: mechanized_infantry
-        count: 30
-      - unitId: mobile_anti_air_vehicle
-        count: 70
       - unitId: mobile_radar
         count: 7
+        preferred_cities: [maitland, brisbane, perth]
+        # Moved off Canberra: Canberra's own dedicated-city flip point (day
+        # 23h11) was the latest of any Australian city despite carrying the
+        # smallest workload — correct JIT arithmetic (smaller total mob-hours
+        # legitimately produces a later last-responsible-moment start), but
+        # strategically late. Sharing the mechanized_infantry cities' queue
+        # instead gets it fielded much earlier, at zero net infra cost
+        # (arms_industry, radar's one extra requirement beyond army_base,
+        # is already built during every city's eco phase regardless of
+        # military demand). Listed FIRST and pinned ahead of
+        # mechanized_infantry deliberately — infraCompatible is directional
+        # and only accepts this pairing with mobile_radar as the
+        # primary/first-opened unit; mechanized_infantry must merge in
+        # afterward as the candidate, never the reverse (confirmed:
+        # mechanized_infantry-as-primary rejects mobile_radar-as-candidate,
+        # since mechanized_infantry's own requirements don't include
+        # arms_industry). Real Smith's-rule burden confirms radar mobilises
+        # before mechanized_infantry in the shared queue automatically once
+        # merged, no extra ordering mechanism needed.
+      - unitId: mechanized_infantry
+        count: 30
+        preferred_cities: [maitland, brisbane, perth]
+        # Explicitly pinned to the SAME 3 cities as mobile_radar (not left to
+        # the normal cost-driven search) — confirmed necessary: leaving this
+        # unpinned let the fold-in decide a single new consolidated city
+        # (higher RO level, cheaper for a 30-unit batch) was better than
+        # absorbing into radar's already-open 3 cities, completely defeating
+        # the intended sharing. Two pinned demands naming the same cities
+        # merge via the existing absorption machinery (same mechanism
+        # already validated for India's SASF+UAV double-pin) rather than
+        # each opening its own disconnected slot.
+      - unitId: mobile_anti_air_vehicle
+        count: 70
+        preferred_cities: [canberra, adelaide, gold_coast]
+        # Canberra becomes a third dedicated MAAV city (24, vs 23/23 for
+        # Adelaide/Gold Coast) instead of hosting mobile_radar — see below.
+        # Sydney fully vacated (stays eco-only for the truce); which of the
+        # three MAAV cities is dropped doesn't materially matter.
 
   new_zealand:
     # European — Wellington: supplies pop6, air_base 1; #1 remaining candidate on supplies+electronics
@@ -218,9 +266,9 @@ countries:
       fredrikstad: australia    # components
       harstad: pakistan         # rares
       bergen: pakistan          # supplies
-      drammen: italy            # components
+      drammen: south_africa     # components
       stavanger: new_zealand    # supplies
-      oslo: south_africa        # fuel, capital
+      oslo: italy               # fuel, capital
     province_credits:
       electronics: { australia: 1 }
       fuel: { pakistan: 1 }

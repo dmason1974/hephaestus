@@ -6,6 +6,7 @@ import type { Demand } from "../../schemas/coalition-force-plan-schema.js";
 import { durationToHours } from "../timing/activity-duration.js";
 import {
   calculateMobilizationCost,
+  calculateMobilizationDuration,
   calculateUpkeepCost,
   calculateBuildingCost,
   sumResourceCosts,
@@ -13,7 +14,11 @@ import {
 import type { ResourceCost } from "./types.js";
 import { simulateUnitResearchTargets, determineMaximumFeasibleLevel, computeAsapResearchCompletions } from "../simulation/unit-research-sim.js";
 import type { UnitResearchSegment, ResearchAsapPin } from "../simulation/unit-research-sim.js";
-import { planProvinceMobilization } from "../simulation/province-mobilization-plan.js";
+import {
+  planProvinceMobilization,
+  getUnitLimitLevels,
+  computeMobilizationTranches,
+} from "../simulation/province-mobilization-plan.js";
 import type { ProvinceMobilizationPlan } from "../simulation/province-mobilization-plan.js";
 import { baselineHomelandMoraleOnDay } from "../economy/morale.js";
 import { computeFlipPoint, computeEcoBackfill, withBackfilledLevels } from "../eco/flip-point-solver.js";
@@ -59,13 +64,13 @@ export function getBatchSize(unitId: string, catalog: UnitCatalog): number {
  * Returns the building requirements for L1 mobilisation of a unit
  * (buildings only — units are excluded).
  */
-export function getUnitBuildingRequirements(unitId: string, catalog: UnitCatalog, buildings: BuildingsFile): Map<string, number> {
+export function getUnitBuildingRequirements(unitId: string, catalog: UnitCatalog, buildings: BuildingsFile, level = 1): Map<string, number> {
   const unit = catalog.units[unitId];
   const required = new Map<string, number>();
   if (!unit) return required;
-  const level1 = unit.levels["1"];
-  if (!level1) return required;
-  for (const req of level1.requirements) {
+  const levelData = unit.levels[String(level)];
+  if (!levelData) return required;
+  for (const req of levelData.requirements) {
     const match = req.trim().match(/^(.+?)\s+level\s+(\d+)$/i);
     if (!match) continue;
     const id = match[1].trim();
@@ -599,7 +604,17 @@ export type CityForceProjectionSlot = {
    *  Always empty for the formula-based fallback path (no eco result to backfill from). */
   ecoBackfillSteps: InfraStep[];
   infraSteps: InfraStep[];
-  mobSteps: Array<{ unitId: string; count: number; startAbsHour: number; endAbsHour: number; durationHours: number }>;
+  mobSteps: Array<{
+    unitId: string;
+    count: number;
+    startAbsHour: number;
+    endAbsHour: number;
+    durationHours: number;
+    /** Set only for unit_limit-gated tranches (e.g. elite_attack_helicopter's
+     * 5/10/15 alive-cap) — the research level this specific batch mobilises at.
+     * Undefined for ordinary (non-tranche) mob steps. */
+    level?: number;
+  }>;
 };
 
 export type CountryForceProjectionInput = {
@@ -660,6 +675,76 @@ export type CountryForceProjectionResult = {
   /** Resource weights actually used (either input.planWeights, or computed internally). */
   planWeights: PlanWeights;
 };
+
+export type UnitLimitTrancheTiming = {
+  level: number;
+  count: number;
+  mobStart: number;
+  mobEnd: number;
+  totalMobHours: number;
+  /** Per-unit mobilisation duration at this tranche's level (for computeSteppedUpkeep's tPerUnit). */
+  T: number;
+};
+
+/**
+ * Splits a unit_limit-gated MobQueueEntry (e.g. elite_attack_helicopter's
+ * 5/10/15 alive-cap) into research-gated tranches, each timed via the same
+ * JIT-deferral formula as an ordinary single-unit entry (start as late as
+ * feasible while still finishing by the deadline), generalised across
+ * tranches: each tranche's own research-level completion is a hard floor,
+ * and each tranche's own level's real mobilisation duration is used (not the
+ * fold-in's always-L1 estimate) — by the time a later tranche is allowed to
+ * start, that level's research has already completed, so it mobilises at the
+ * currently-unlocked tier. Shared by both the mobSteps-construction and
+ * stepped-upkeep loops in computeCountryForceProjection so the two don't
+ * silently diverge.
+ */
+function computeUnitLimitTrancheTiming(args: {
+  entry: MobQueueEntry;
+  limitLevels: { level: number; limit: number }[];
+  cumBefore: number;
+  remainingAfterThisEntry: number;
+  infraReadyHour: number;
+  roLevel: number;
+  catalog: UnitCatalog;
+  buildings: BuildingsFile;
+  doctrine: string;
+  moraleAtAbsHour: MoraleAtHour;
+  researchSegments: UnitResearchSegment[];
+  deadlineAbsHour: number;
+}): UnitLimitTrancheTiming[] {
+  const {
+    entry, limitLevels, cumBefore, remainingAfterThisEntry, infraReadyHour, roLevel,
+    catalog, buildings, doctrine, moraleAtAbsHour, researchSegments, deadlineAbsHour,
+  } = args;
+
+  const tranches = computeMobilizationTranches(entry.count, limitLevels);
+  const trancheT = tranches.map(t =>
+    calculateMobilizationDuration(entry.unitId, t.level, 1, 1, roLevel, catalog, buildings, doctrine, moraleAtAbsHour(deadlineAbsHour)),
+  );
+  const entryTotalMobHours = tranches.reduce((sum, t, i) => sum + t.count * trancheT[i], 0);
+
+  const results: UnitLimitTrancheTiming[] = [];
+  let cumWithinEntry = 0;
+  for (let i = 0; i < tranches.length; i++) {
+    const tranche = tranches[i];
+    const T = trancheT[i];
+    const trancheTotalMobHours = tranche.count * T;
+    const levelEnd = researchSegments.find(
+      s => s.unitId === entry.unitId && s.level === tranche.level,
+    )?.endAbsoluteHourExclusive ?? deadlineAbsHour;
+    const totalFromHere = (entryTotalMobHours - cumWithinEntry) + remainingAfterThisEntry;
+    const jitMobStart = deadlineAbsHour - totalFromHere;
+    const mobStart = entry.upkeepRateScalar === 0
+      ? Math.max(infraReadyHour + cumBefore + cumWithinEntry, levelEnd)
+      : Math.max(infraReadyHour + cumBefore + cumWithinEntry, jitMobStart, levelEnd);
+    const mobEnd = mobStart + trancheTotalMobHours;
+
+    results.push({ level: tranche.level, count: tranche.count, mobStart, mobEnd, totalMobHours: trancheTotalMobHours, T });
+    cumWithinEntry += trancheTotalMobHours;
+  }
+  return results;
+}
 
 // ── Main entry point ─────────────────────────────────────────────────────
 
@@ -761,27 +846,21 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
   const latestCompletionByUnitLevel: Record<string, number> = {};
   const unitDemandCounts: Record<string, number> = {};
 
-  for (const { demand, effectiveCount } of demandResults) {
+  // Research targets are driven by every real unit demanded in the plan —
+  // city-mobilised (activeDemands), launcher-platform (launcherDemands, e.g.
+  // missiles — genuinely never mobilised, but still need real research to be
+  // usable), and province-mobilised (provinceDemands, e.g. commando) alike.
+  // Only latestCompletionByUnitLevel (below) differs by classification: it's a
+  // JIT deadline ANCHOR derived from a city mob-queue, and only active demands
+  // have one. Launcher and province demands have no such anchor, so their
+  // impact score (mob + upkeep, low or zero) is what schedules them relative to
+  // real-upkeep units under the existing "higher weight → more deferred"
+  // priority rule.
+  const researchDemands = [...activeDemands, ...launcherDemands, ...provinceDemands];
+  for (const demand of researchDemands) {
     const uid = demand.unitId;
-    unitDemandCounts[uid] = effectiveCount;
-    researchTargets[uid] = determineMaximumFeasibleLevel(
-      catalog, uid,
-      { ...scenario, truce_length_days: truceDays },
-      { deadlineAbsoluteHour: deadlineAbsHour, doctrine, slots: 1 },
-    ).maxLevel;
-  }
-
-  // Launcher-platform units (e.g. missiles) are never mobilised — correctly
-  // excluded from activeDemands/foldInDemands above — but they still have real
-  // research data and are needed to make the warheads they fire usable. Feed them
-  // into the research schedule too, without a latestCompletionByUnitLevel L1
-  // anchor (they have no city mob-queue to derive one from): their impact score
-  // (mob + upkeep, both zero) is minimal, so the existing "higher weight → more
-  // deferred" priority rule should schedule them early relative to real-upkeep
-  // units on its own.
-  for (const demand of launcherDemands) {
-    const uid = demand.unitId;
-    unitDemandCounts[uid] = demand.count;
+    const batchSize = getBatchSize(uid, catalog);
+    unitDemandCounts[uid] = Math.ceil(demand.count / batchSize);
     researchTargets[uid] = determineMaximumFeasibleLevel(
       catalog, uid,
       { ...scenario, truce_length_days: truceDays },
@@ -923,7 +1002,26 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
       return { flipPointAbsHour, infraSteps: built.steps, ecoBackfillSteps: [], infraDoneHour: built.mobOpenHour };
     }
 
-    let chain = buildChain(undefined);
+    // Infra sizing must account for unit_limit-gated tranches beyond level 1
+    // (e.g. elite_attack_helicopter level 2 needs air_base L4, not just level
+    // 1's air_base L3) — buildChain's base requirements (via
+    // getUnitBuildingRequirements) only ever reflect level 1 by default. Merge
+    // in whatever higher level this slot's primary unit actually needs across
+    // its real tranches (same split already computed for JIT mob timing
+    // elsewhere), so the city's build queue doesn't stop short of what a later
+    // tranche's mobilisation actually requires.
+    const primaryLimitLevels = getUnitLimitLevels(primaryUnitId, catalog, doctrine);
+    let tranchExtraLevels: Partial<Record<string, number>> | undefined;
+    if (primaryLimitLevels.length > 0) {
+      const primaryCount = primaryEntries.reduce((sum, e) => sum + e.count, 0);
+      const primaryTranches = computeMobilizationTranches(primaryCount, primaryLimitLevels);
+      const maxTrancheLevel = Math.max(...primaryTranches.map(t => t.level));
+      if (maxTrancheLevel > 1) {
+        tranchExtraLevels = Object.fromEntries(getUnitBuildingRequirements(primaryUnitId, catalog, buildings, maxTrancheLevel));
+      }
+    }
+
+    let chain = buildChain(tranchExtraLevels);
 
     // Dead-window slots often have real idle build-queue capacity left after the
     // bare-required chain (the primary unit typically only needs arms_industry
@@ -959,7 +1057,7 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
           boostedLevel = lvl;
         }
         if (boostedLevel > baseLevel) {
-          const boosted = buildChain({ arms_industry: boostedLevel });
+          const boosted = buildChain({ ...tranchExtraLevels, arms_industry: boostedLevel });
           // Defensive: only adopt the boosted chain if it genuinely still fits —
           // provably true by construction (bounded to idleCapacity above), but
           // never trust a feasibility-sensitive change without checking it held.
@@ -990,29 +1088,55 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
       mobSteps = [];
       let cumBefore = 0;
       for (const entry of slot.mobQueue) {
-        const totalFromHere = slot.usedHours - cumBefore;
-        const jitMobStart = deadlineAbsHour - totalFromHere;
-        const l1End = combinedResearch.segments.find(
-          s => s.unitId === entry.unitId && s.level === 1,
-        )?.endAbsoluteHourExclusive ?? deadlineAbsHour;
-        // Zero-upkeep units (e.g. conventional_warhead) have nothing to gain from
-        // deadline-JIT-anchoring — delaying mob start saves no upkeep-days, so
-        // anchoring to jitMobStart here just strands the city idle once the eco
-        // phase has exhausted every profitable/required action, for no benefit.
-        // Start as soon as infra + research allow instead.
-        const mobStart = entry.upkeepRateScalar === 0
-          ? Math.max(infraDoneHour + cumBefore, l1End)
-          : Math.max(infraDoneHour + cumBefore, jitMobStart, l1End);
-        const mobEnd = mobStart + entry.totalMobHours;
+        const limitLevels = getUnitLimitLevels(entry.unitId, catalog, doctrine);
+        if (limitLevels.length === 0) {
+          const totalFromHere = slot.usedHours - cumBefore;
+          const jitMobStart = deadlineAbsHour - totalFromHere;
+          const l1End = combinedResearch.segments.find(
+            s => s.unitId === entry.unitId && s.level === 1,
+          )?.endAbsoluteHourExclusive ?? deadlineAbsHour;
+          // Zero-upkeep units (e.g. conventional_warhead) have nothing to gain from
+          // deadline-JIT-anchoring — delaying mob start saves no upkeep-days, so
+          // anchoring to jitMobStart here just strands the city idle once the eco
+          // phase has exhausted every profitable/required action, for no benefit.
+          // Start as soon as infra + research allow instead.
+          const mobStart = entry.upkeepRateScalar === 0
+            ? Math.max(infraDoneHour + cumBefore, l1End)
+            : Math.max(infraDoneHour + cumBefore, jitMobStart, l1End);
+          const mobEnd = mobStart + entry.totalMobHours;
 
-        mobSteps.push({
-          unitId: entry.unitId,
-          count: entry.count,
-          startAbsHour: mobStart,
-          endAbsHour: mobEnd,
-          durationHours: entry.totalMobHours,
-        });
-        cumBefore += entry.totalMobHours;
+          mobSteps.push({
+            unitId: entry.unitId,
+            count: entry.count,
+            startAbsHour: mobStart,
+            endAbsHour: mobEnd,
+            durationHours: entry.totalMobHours,
+          });
+          cumBefore += entry.totalMobHours;
+        } else {
+          // unit_limit-gated (e.g. elite_attack_helicopter's 5/10/15 alive-cap):
+          // split into tranches, each gated on its OWN research level's
+          // completion — see computeUnitLimitTrancheTiming's docstring.
+          const remainingAfterThisEntry = slot.usedHours - cumBefore - entry.totalMobHours;
+          const trancheTimings = computeUnitLimitTrancheTiming({
+            entry, limitLevels, cumBefore, remainingAfterThisEntry,
+            infraReadyHour: infraDoneHour, roLevel: slot.roLevel,
+            catalog, buildings, doctrine, moraleAtAbsHour,
+            researchSegments: combinedResearch.segments, deadlineAbsHour,
+          });
+
+          for (const t of trancheTimings) {
+            mobSteps.push({
+              unitId: entry.unitId,
+              count: t.count,
+              startAbsHour: t.mobStart,
+              endAbsHour: t.mobEnd,
+              durationHours: t.totalMobHours,
+              level: t.level,
+            });
+          }
+          cumBefore += trancheTimings.reduce((sum, t) => sum + t.totalMobHours, 0);
+        }
       }
     }
 
@@ -1052,26 +1176,45 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
       aggInfraBldg = sumResourceCosts(aggInfraBldg, buildingRequirementsCost(uid, 1, catalog, buildings));
     }
 
-    // Mob cost (at L1; entry.count = mob events)
-    const totalMobEvents = mySlots.reduce((s, slot) => {
-      const e = slot.mobQueue.find(e => e.unitId === uid);
-      return s + (e?.count ?? 0);
-    }, 0);
-    aggMob = sumResourceCosts(aggMob, calculateMobilizationCost(uid, 1, totalMobEvents, catalog, doctrine));
+    // Mob cost (unit_limit-gated units cost at each tranche's own research
+    // level — see computeUnitLimitTrancheTiming's docstring; ordinary units
+    // keep the existing at-L1 lump-sum convention)
+    const unitLimitLevels = getUnitLimitLevels(uid, catalog, doctrine);
+    if (unitLimitLevels.length === 0) {
+      const totalMobEvents = mySlots.reduce((s, slot) => {
+        const e = slot.mobQueue.find(e => e.unitId === uid);
+        return s + (e?.count ?? 0);
+      }, 0);
+      aggMob = sumResourceCosts(aggMob, calculateMobilizationCost(uid, 1, totalMobEvents, catalog, doctrine));
+    } else {
+      for (const slot of mySlots) {
+        const e = slot.mobQueue.find(e => e.unitId === uid);
+        if (!e) continue;
+        for (const tranche of computeMobilizationTranches(e.count, unitLimitLevels)) {
+          aggMob = sumResourceCosts(aggMob, calculateMobilizationCost(uid, tranche.level, tranche.count, catalog, doctrine));
+        }
+      }
+    }
 
     // Stepped upkeep
     const levelSteps = getLevelSteps(uid, combinedResearch.segments);
     for (const slot of mySlots) {
       let cumBefore = 0;
       for (const entry of slot.mobQueue) {
-        const totalFromHere = slot.usedHours - cumBefore;
-        const jitMobStart = deadlineAbsHour - totalFromHere;
-        const l1End = combinedResearch.segments.find(
-          s => s.unitId === entry.unitId && s.level === 1,
-        )?.endAbsoluteHourExclusive ?? deadlineAbsHour;
-        const mobStart = Math.max(slot.infraOpenHour + cumBefore, jitMobStart, l1End);
+        if (entry.unitId !== uid) {
+          cumBefore += entry.totalMobHours;
+          continue;
+        }
 
-        if (entry.unitId === uid) {
+        const entryLimitLevels = getUnitLimitLevels(entry.unitId, catalog, doctrine);
+        if (entryLimitLevels.length === 0) {
+          const totalFromHere = slot.usedHours - cumBefore;
+          const jitMobStart = deadlineAbsHour - totalFromHere;
+          const l1End = combinedResearch.segments.find(
+            s => s.unitId === entry.unitId && s.level === 1,
+          )?.endAbsoluteHourExclusive ?? deadlineAbsHour;
+          const mobStart = Math.max(slot.infraOpenHour + cumBefore, jitMobStart, l1End);
+
           aggUpkeep = sumResourceCosts(aggUpkeep, computeSteppedUpkeep(
             uid, doctrine, mobStart,
             entry.count * batchSize,  // total alive units
@@ -1081,8 +1224,29 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
             levelSteps,
             catalog,
           ));
+          cumBefore += entry.totalMobHours;
+        } else {
+          const remainingAfterThisEntry = slot.usedHours - cumBefore - entry.totalMobHours;
+          const trancheTimings = computeUnitLimitTrancheTiming({
+            entry, limitLevels: entryLimitLevels, cumBefore, remainingAfterThisEntry,
+            infraReadyHour: slot.infraOpenHour, roLevel: slot.roLevel,
+            catalog, buildings, doctrine, moraleAtAbsHour,
+            researchSegments: combinedResearch.segments, deadlineAbsHour,
+          });
+
+          for (const t of trancheTimings) {
+            aggUpkeep = sumResourceCosts(aggUpkeep, computeSteppedUpkeep(
+              uid, doctrine, t.mobStart,
+              t.count * batchSize,
+              batchSize,
+              t.T,
+              deadlineAbsHour,
+              levelSteps,
+              catalog,
+            ));
+          }
+          cumBefore += trancheTimings.reduce((sum, t) => sum + t.totalMobHours, 0);
         }
-        cumBefore += entry.totalMobHours;
       }
     }
   }
@@ -1090,27 +1254,44 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
   // ── Province-mobilised demands (commando etc.) ────────────────────────────
   // Capacity is one mobilisation slot per province; mercenary_outpost can only
   // be built in a province (never a city) and its speed bonus applies country-
-  // wide once built in any single one. Mobilisation starts ASAP (hour 0) since
-  // there's no eco/infra dependency gating it.
-  const provinceMobResults = provinceDemands.map(demand => planProvinceMobilization({
-    unitId: demand.unitId,
-    level: 1,
-    count: demand.count,
-    provinceCount: country.provinces.total,
-    unitCatalog: catalog,
-    buildings,
-    doctrine,
-  }));
+  // wide once built in any single one. mercenary_outpost itself starts
+  // building ASAP (hour 0, no research gate), but each unit_limit-gated
+  // tranche's mobilisation can't start before ITS OWN level's research
+  // completes (e.g. commando: 5 at L1, 5 more at L2, 2 more at L3) — derived
+  // here from combinedResearch the same way city-mobilised units' JIT floor is
+  // derived above.
+  const provinceMobResults = provinceDemands.map(demand => {
+    const limitLevels = getUnitLimitLevels(demand.unitId, catalog, doctrine);
+    const trancheLevels = computeMobilizationTranches(demand.count, limitLevels).map(t => t.level);
+    const mobilisationEarliestHourByLevel: Record<number, number> = {};
+    for (const level of trancheLevels) {
+      const levelEnd = combinedResearch.segments.find(
+        s => s.unitId === demand.unitId && s.level === level,
+      )?.endAbsoluteHourExclusive ?? deadlineAbsHour;
+      mobilisationEarliestHourByLevel[level] = Math.max(0, levelEnd - scenarioAbsHour);
+    }
+    return planProvinceMobilization({
+      unitId: demand.unitId,
+      count: demand.count,
+      provinceCount: country.provinces.total,
+      unitCatalog: catalog,
+      buildings,
+      doctrine,
+      mobilisationEarliestHourByLevel,
+    });
+  });
   let aggProvinceMob: ResourceCost = {};
   let aggProvinceUpkeep: ResourceCost = {};
   for (const result of provinceMobResults) {
     aggProvinceMob = sumResourceCosts(aggProvinceMob, result.totalCost);
-    const remainingHours = deadlineAbsHour - (scenarioAbsHour + result.completionHour);
-    if (remainingHours > 0) {
-      aggProvinceUpkeep = sumResourceCosts(
-        aggProvinceUpkeep,
-        calculateUpkeepCost(result.unitId, result.level, result.count, remainingHours, catalog, doctrine)
-      );
+    for (const tranche of result.tranches) {
+      const remainingHours = deadlineAbsHour - (scenarioAbsHour + tranche.completionHour);
+      if (remainingHours > 0) {
+        aggProvinceUpkeep = sumResourceCosts(
+          aggProvinceUpkeep,
+          calculateUpkeepCost(result.unitId, tranche.level, tranche.count, remainingHours, catalog, doctrine)
+        );
+      }
     }
   }
 

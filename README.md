@@ -143,31 +143,49 @@ section for the full history, including three real accounting bugs this exercise
 surfaced and fixed. Covers all 12 countries in the active PNTH V Iron plan (8
 homeland + 4 occupied).
 
+All Iron Pipeline scripts write/read under one shared directory instead of flat
+`tmp/`: `tmp/$IRON_OUTPUT_DIR/<category>/<file>` (`IRON_OUTPUT_DIR` defaults to
+`pnth-v-iron-aug26`, the current plan's snapshot folder — override it to keep
+multiple plan runs side by side). Category subfolders: `eco-build/`,
+`force-projection/`, `build-plans/`, `daily-balances/`; `iron-resource-projection.html`
+sits at the directory root.
+
 ```bash
 # Homeland countries (demands from the plan YAML) — 3 files per country:
-IRON_COUNTRY=italy npm run smoke:iron-eco-plan   # tmp/iron-eco-italy.html — eco build only
-IRON_COUNTRY=italy npm run smoke:iron-fp-plan    # tmp/iron-fp-italy.html — force projection only
-IRON_COUNTRY=italy npm run smoke:iron-bp-plan    # tmp/iron-bp-italy.html — merged, the real output
-# Config: IRON_SCENARIO, IRON_PLAN, IRON_COUNTRY (required)
+IRON_COUNTRY=italy npm run smoke:iron-eco-plan   # .../eco-build/iron-eco-italy.html — eco build only
+IRON_COUNTRY=italy npm run smoke:iron-fp-plan    # .../force-projection/iron-fp-italy.html — force projection only
+IRON_COUNTRY=italy npm run smoke:iron-bp-plan    # .../build-plans/iron-bp-italy.html — merged, the real output
+# Config: IRON_SCENARIO, IRON_PLAN, IRON_COUNTRY (required), IRON_OUTPUT_DIR
 
 # Occupied countries — eco-only, no force projection, annex+AI5 restricted to
 # supplies/electronics cities, zero yield before capture_day. A city/province
 # credited to a homeland country (plan YAML's city_credits/province_credits — see
 # CLAUDE.md) is excluded here and appears in that homeland's own iron-bp-<id>.html
 # instead, so a captured country's own file may legitimately show zero cities:
-IRON_COUNTRY=norway npm run smoke:iron-occupied-plan   # tmp/iron-eco-norway.html + tmp/iron-bp-norway.html
+IRON_COUNTRY=norway npm run smoke:iron-occupied-plan   # .../eco-build/iron-eco-norway.html + .../build-plans/iron-bp-norway.html
 
 # Per-city exceptions to the shared heuristic (OCCUPIED_CITY_EXTRA_FIRST_BUILD in
 # iron-heuristic.ts) live outside the resource-keyed rules above — e.g. Kristiansand
 # (credited to Australia) builds underground_bunkers L1 before annex_city, beam-search
 # validated as a small net-positive at its population specifically, not a blanket rule.
 
-# Coalition aggregate — parses the already-generated tmp/iron-bp-<country>.html
+# Coalition aggregate — parses the already-generated build-plans/iron-bp-<country>.html
 # files (does not recompute) and pools them, including a true hour-aligned pooled
 # minima walk (not a naive sum of each country's own minimum — see CLAUDE.md):
 IRON_COUNTRIES=italy,south_africa,pakistan,new_zealand,norway,madagascar,solomon_islands,iran,india,japan,russia,australia \
-  npm run smoke:iron-resource-projection   # tmp/iron-resource-projection.html
-# Config: IRON_COUNTRIES (comma-separated, defaults to the first 4), IRON_OUTPUT_FILE
+  npm run smoke:iron-resource-projection   # .../iron-resource-projection.html
+# Config: IRON_COUNTRIES (comma-separated, defaults to the first 4), IRON_OUTPUT_DIR,
+# IRON_OUTPUT_FILE (overrides the whole output path, ignoring IRON_OUTPUT_DIR)
+
+# Plan-vs-actual: parses an already-generated build-plans/iron-bp-<country>.html and
+# reconstructs a real running balance (prefix-summed hourly net-flow) for comparing
+# against real in-game screenshots — not a live sync, just a cross-check against the
+# projection. Daily rows by default; IRON_AT_DAY/IRON_AT_TIME add an exact-hour
+# snapshot for matching an arbitrary screenshot timestamp:
+IRON_COUNTRY=italy npm run smoke:iron-daily-balance   # .../daily-balances/iron-db-italy.html
+IRON_COUNTRIES=italy,south_africa,pakistan,new_zealand npm run smoke:iron-daily-balance   # pooled coalition + per-country manpower
+IRON_COUNTRY=italy IRON_AT_DAY=5 IRON_AT_TIME=06:51 npm run smoke:iron-daily-balance
+# Config: IRON_COUNTRY or IRON_COUNTRIES (exactly one), IRON_AT_DAY + IRON_AT_TIME (optional), IRON_OUTPUT_DIR
 ```
 
 ### Research and Force Planning

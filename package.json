@@ -48,6 +48,7 @@
     "smoke:iron-bp-plan": "node --import tsx src/harness/smoke/iron-bp-plan.ts",
     "smoke:iron-resource-projection": "node --import tsx src/harness/smoke/iron-resource-projection.ts",
     "smoke:iron-occupied-plan": "node --import tsx src/harness/smoke/iron-occupied-plan.ts",
+    "smoke:iron-daily-balance": "node --import tsx src/harness/smoke/iron-daily-balance.ts",
     "smoke:build-order": "node --import tsx src/harness/smoke/build-order.ts",
     "smoke:greece:electro": "node --import tsx src/harness/smoke/greece-electronics-city-benefit.ts",
     "smoke:build-order:compare": "node --import tsx src/harness/smoke/build-order-compare.ts",

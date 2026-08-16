@@ -679,7 +679,7 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 | `mechanized_infantry` | ✓ All doctrines | western + european + eastern; 6 levels; values ported from standard — needs screenshot verification |
 | `combat_recon_vehicle` | ✓ All doctrines | western + european + eastern; multi-level; armoured_units |
 | `mobile_radar` | ✓ Present | all doctrines; support_units |
-| `commando` | ✓ Present | all doctrines; seasonal_units; requires `mercenary_outpost level 1` + `special_forces level 1`; **province-mobilised** (not city slot) |
+| `commando` | ✓ Present | all doctrines; seasonal_units; requires `mercenary_outpost level 1` + `special_forces level 1`; **province-mobilised** (not city slot); `unit_limit` 5/10/15 at L1/L2/L3 (placeholder, inferred from the elite pattern — not yet confirmed via commando-specific screenshots) |
 | `conventional_cruise_missile` | ✓ Present | all doctrines; missile_units; 0 mobilisation cost (launcher platform) |
 | `conventional_warhead`, `chemical_warhead`, `nuclear_warhead` | ✓ Present | all doctrines; missile_units; `batch_size: 4` for warhead; uses city mobilisation slot |
 | `airborne_infantry`, `special_forces` | ✓ Present | infantry_units |
@@ -2034,7 +2034,7 @@ in slot1, `multiple_rocket_launcher L5` in slot2 for Italy; `elite_attack_helico
 deadline — regenerated and confirmed in both `iron-bp-<country>.html` files, not just
 inferred. Regression tests unaffected (31/31 still pass).
 
-### Flagged, not fixed — `unit_limit` mobilisation tranches unmodeled
+### `unit_limit` mobilisation tranches — flagged here, since fixed ✅
 
 Reviewing Japan's regenerated output, the user also caught that `elite_attack_helicopter`'s
 mobilisation queue shows a single `[mob] elite attack helicopter ×10` batch (Yono,
@@ -2054,6 +2054,14 @@ mobilisation queue for any `unit_limit`-capped demand needs to split into
 level-gated tranches (batch N only starts once the research level that raises the
 cap past the previous batch's size has completed), not treated as one monolithic
 mobilisation step.
+
+**Fixed** in the "`unit_limit` Tranches for City-Mobilised Units + Australia
+Reassignment" session below — both the province-mobilised case (`commando`) and
+this exact city-mobilised case (`elite_attack_helicopter`) now split into real
+research-gated tranches. See that section for the full implementation and the
+two further real bugs (`getUnitBuildingRequirements` hardcoded to level 1;
+`evaluateAbsorptionOptions`'s dead-window capacity inverted for a large
+candidate/small primary) it surfaced along the way.
 
 ### Future work (documented, not built this session)
 
@@ -2115,3 +2123,404 @@ independence, `noBufferTaskIds` exemption) + 2 in `country-force-projection.test
 regression guard). Italy and Japan's `tmp/iron-bp-<country>.html` regenerated and
 spot-checked directly (not just the unit tests) for the gap/pin shapes described
 above.
+
+## Electronics Market Liquidity Check — Real Data, Not Just Assumption (session, 2026-08-16)
+
+Every prior session that surfaced a coalition-wide electronics shortfall (Airport
+Demolish, Research Buffer — both above) resolved it by asserting the in-game
+cash→resource stock market would cover it, without ever checking real market data.
+This session validated that assumption directly: the user screenshotted the Buy
+Electronics tab of the Stock Market from 5 identified PNTH players (India, Russia,
+Pakistan, Japan, South Africa) plus 3 additional snapshots the user judged immaterial
+to attribute to a specific player, and compared the cash-priced offers (excluding
+each market's `+4,000 @ 0.625` line, which is gold/premium-currency priced, not cash)
+against the documented shortfall and the coalition's cash position.
+
+**Result**: 18,375 electronics available for ~208,098 cash across the 8 snapshots
+checked (~2,300 units/snapshot average, holding consistently across every player
+checked, at 9–14 cash/unit) — comfortably covers every version of the documented
+shortfall (roughly −5,600 to −10,700 depending on session). Checked against the
+coalition's cash position too: the Research Buffer session's Coalition Balance Sheet
+shows a cash net balance of +663,405 and a true hour-aligned pooled minima of
++652,466 (the worst point anywhere in the 28-day window) — the ~208k cash cost is
+well under a third of that floor, so funding the purchase doesn't threaten cash
+solvency at any point in the timeline.
+
+**Where this lives**: full per-player breakdown table is in
+`data/scenarios/elite/antarctica/coalition-plan.md`'s new "Electronics Market
+Liquidity Check" section (not duplicated here — that doc is the canonical home for
+coalition roster/economics notes). This closes out the electronics-shortfall open
+item as resolvable via market purchase with real supporting data, not just an
+asserted mechanic — no engine change made or needed, consistent with every prior
+session's direction that this is deliberately out-of-band.
+
+## Plan-vs-Actual Tracking — `iron-daily-balance.ts` (session, 2026-08-16)
+
+New tool for checking the PNTH V Iron plan against real in-game screenshots as the
+build progresses, rather than only trusting the projection in isolation.
+
+### What Was Built
+
+`src/harness/smoke/iron-daily-balance.ts` (`npm run smoke:iron-daily-balance`) —
+parses the already-generated `tmp/iron-bp-<country>.html` (same "parse, don't
+recompute" precedent as `iron-resource-projection.ts`; no engine recomputation, no
+duplicated cost/income logic, zero risk of drifting from that file's own — frequently
+bugfixed — accounting). Reconstructs a real running balance by prefix-summing the
+embedded `iron-hourly-net-flow` JSON array from the "Starting Balance" row.
+
+- **`IRON_COUNTRY=<id>`** → `tmp/iron-db-<id>.html`, one row per day (all 7
+  resources), rate = day-over-day average (avoids spiky single-hour artifacts from
+  lumpy one-off build/mob costs).
+- **`IRON_COUNTRIES=<id1,id2,...>`** → `tmp/iron-db-coalition.html`, hour-aligned
+  pooled daily balance (6 `POOLED_RESOURCES`, same hour-aligned-sum approach
+  `iron-resource-projection.ts` uses for its pooled minima) + a separate per-country
+  manpower table (never pooled).
+- **`IRON_AT_DAY=<n> IRON_AT_TIME=HH:MM`** (either mode, added mid-session once daily
+  sampling proved too coarse for exact screenshot timestamps): exact-hour snapshot,
+  fractional-hour interpolated, printed to stdout as well as embedded in the HTML —
+  the single-command way to check a screenshot taken at an arbitrary time, not just a
+  day boundary.
+
+### Screenshot Comparison Methodology (established this session)
+
+Real screenshots were checked against the projection for Italy, Australia, Japan,
+South Africa, and India at various Day 4–5 timestamps. Key findings, now the standard
+way to read a plan-vs-actual gap:
+
+- **Manpower is the most reliable signal.** It tracked almost exactly on every
+  country checked — it's the resource least likely to be spent on anything the model
+  doesn't track, so a manpower mismatch would be the strongest sign of a genuine
+  eco/build bug. None found.
+- **Cash, rares, and supplies routinely run lower in the real game than projected —
+  expected, not a bug.** Research costs are not part of `iron-bp-plan.ts`'s cost
+  model anywhere (`InfrastructureCost + MobilisationCost + UpkeepCost` only, no
+  research term — see the Objective Function sections above), and those three
+  resources are the ones most commonly listed in unit research-cost blocks. Bringing
+  L1 research forward (already the project's own standard ASAP strategy) or any other
+  research spend will always show up as a lower real balance the model can't see —
+  not a planning error, as long as it doesn't starve a resource the eco/build queue
+  needs at the same time.
+- **Electronics is not typically a research-cost resource** — a large electronics gap
+  (as opposed to the modest ~20-30% gaps seen elsewhere, explainable by ordinary
+  timing/build-order slack) is a real signal worth investigating, not research spend.
+- **Icon identification, resolved after repeated mix-ups**: the in-game HUD's two
+  middle resource icons are easy to transpose. Confirmed, consistent mapping: the
+  **orange fuse/vial icon is rares**, the **green circuit-board icon is
+  electronics** (order in the HUD: supplies, components, fuel, rares, electronics,
+  manpower, cash).
+- Manual, non-plan build decisions (e.g. an early/unplanned `army_base`) also show up
+  as unexplained balance drift on whatever resources that building costs — same
+  "check against what you actually did, not just the model" principle as research
+  spend.
+
+### Real Bug Found via This Tracking — Norway's Oslo/Drammen Credits Swapped
+
+South Africa's screenshots showed a real, unexplained fuel/components gap even after
+accounting for research spend and an early army_base. Root cause: the plan's
+`city_credits` in `pnth-v-iron-2026-aug.yml` had Oslo (Norway's capital, fuel)
+credited to `south_africa` and Drammen (components) credited to `italy` — but in the
+actual game, Italy captured Oslo and South Africa got Drammen (the reverse). Fixed by
+swapping the two entries to match reality; `tmp/iron-bp-italy.html`,
+`tmp/iron-bp-south_africa.html`, and their corresponding `iron-db-*.html` daily
+balance files were regenerated. Coalition-level totals are unaffected (a captured
+city's income lands in the shared pool either way) — only the two countries' own
+per-country balance sheets change.
+
+### Output Archival Convention — `IRON_OUTPUT_DIR`
+
+All six Iron Pipeline scripts (`iron-eco-plan.ts`, `iron-fp-plan.ts`,
+`iron-bp-plan.ts`, `iron-occupied-plan.ts`, `iron-resource-projection.ts`,
+`iron-daily-balance.ts`) now write/read directly under a shared output directory
+instead of flat `tmp/`: `const outputDir = process.env.IRON_OUTPUT_DIR ??
+"pnth-v-iron-aug26"`, with each script's existing subdirectory convention preserved —
+`iron-bp-*`/`iron-occupied-plan.ts`'s bp output → `build-plans/`, `iron-fp-*` →
+`force-projection/`, `iron-eco-*`/`iron-occupied-plan.ts`'s eco output → `eco-build/`,
+`iron-db-*` → `daily-balances/`, `iron-resource-projection.html` at the directory
+root. `iron-daily-balance.ts` and `iron-resource-projection.ts` read from
+`tmp/<outputDir>/build-plans/iron-bp-<id>.html` accordingly, so the whole pipeline is
+self-consistent under one directory without any manual file-moving. The unconstrained
+Unit 1 beam's own output (`smoke:eco-plan`, `tmp/eco-<id>.html`) is a separate,
+non-Iron harness and still writes to flat `tmp/` — the user's `eco-beam/`
+subdirectory is for those files specifically, moved there manually since that script
+doesn't have (and doesn't need) the same `IRON_OUTPUT_DIR` convention.
+
+Per the user: `tmp/pnth-v-iron-aug26/` will be moved to Google Drive after the
+current game ends, to serve as a baseline snapshot for evaluating strategic engine
+changes in a future revision.
+
+## Commando Research Scheduling + Province Mobilisation Tranches (session, 2026-08-16)
+
+### Bug: commando's own research never appeared anywhere
+
+User report: "why is commando research missing from russia's build plan?"
+Root cause in `src/engine/optimization/country-force-projection.ts`:
+`classifyDemands` correctly buckets `commando` (`mobilisation_source: province`)
+into `provinceDemands`, separate from `activeDemands` (city-mobilised) and
+`launcherDemands` (zero-mob-time platforms) — but the research-target setup that
+feeds `simulateUnitResearchTargets` only looped over `activeDemands` and
+`launcherDemands` (the latter added specifically to fix an earlier, identical bug
+for launcher units — see the Iron/India/Japan sessions above). There was no
+equivalent loop for `provinceDemands`, so commando's real research data
+(`seasonal_units.yml`) was never scheduled at all — confirmed empty in the
+generated HTML, commando only ever appeared in the province-mob summary line.
+Separately, `planProvinceMobilization`
+(`src/engine/simulation/province-mobilization-plan.ts`) started mobilising
+immediately after `mercenary_outpost` finished building, with zero dependency on
+the unit's own research having actually completed.
+
+**Fix, per the user's explicit direction** ("research is not a city or province
+demand — it should be driven by the required units in the coalition plan"): the
+three separate per-classification research-scheduling loops were unified into one
+loop over `[...activeDemands, ...launcherDemands, ...provinceDemands]`
+(`missingDataDemands` still excluded) — research targets are now derived from
+every real demand in the plan regardless of mobilisation-source classification,
+closing this entire bug *class* rather than patching one more special case.
+`planProvinceMobilization` gained a `mobilisationEarliestHourByLevel` floor
+(derived from `combinedResearch.segments`, same pattern the city-mob-queue code
+already used for L1) so mobilisation genuinely can't start before the unit's own
+research completes.
+
+### `unit_limit` tranches — first real implementation (province side)
+
+Investigating further, the user pointed out this is "the same issue we have with
+EAH" — `unit_limit` mobilisation-tranche caps (alive-count gated by research
+level, e.g. 5/10/15 at levels 1/2/3) were a known, previously-flagged-but-
+unimplemented gap (see the India/Japan Dead-Window session above). Checked:
+commando had **no** `unit_limit` data at all (unlike `elite_attack_helicopter`/
+`elite_frigate`) — a real data gap, not an intentional exemption. Added
+`unit_limit: 5/10/15` to commando's L1/L2/L3 mobilisation blocks in
+`seasonal_units.yml` (flat-format placeholder, same convention as
+`mobile_sam_launcher`/`fixed_wing_veteran` elsewhere in the catalog) and, per the
+user's explicit direction ("we need to mobilise 12 commandos — 5 at level 1, 5 at
+level 2, 2 at level 3 — research needs to fall in time to do that"), built the
+first real tranche-mobilisation implementation:
+
+- `getUnitLimitLevels(unitId, catalog, doctrine)` and
+  `computeMobilizationTranches(count, limitLevels)`
+  (`province-mobilization-plan.ts`) — unit-agnostic, pure functions; split a
+  total count into research-level-gated tranches (12 with limits 5/10/15 →
+  `[{level:1,count:5},{level:2,count:5},{level:3,count:2}]`).
+- `planProvinceMobilization` reworked to compute one `ProvinceMobilizationTrancheResult`
+  per tranche — each with its own `mobStart`/`completionHour`, gated by that
+  tranche's own research-level completion, and its own mobilisation cost/duration
+  computed at **that tranche's own level's catalog data**, not always level 1.
+  User's explicit design decision on this (asked directly, confirmed consistent
+  with the later EAH work below): "by the time a later tranche is allowed to
+  mobilise, that level's research has already completed, so a freshly mobilised
+  unit comes out at the currently-unlocked tier" — not the "always mobilise at
+  L1, auto-upgrade for free" convention used for *ordinary* (non-tranche-capped)
+  units elsewhere in the engine, which only holds because ordinary mobilisation
+  always happens before any higher level completes by construction.
+- **`mercenary_outpost` (the province building tranches depend on) is now built
+  JIT per tranche, not all at once from scenario start.** User: "the merc outpost
+  needs to be finished in time to support the mobilisation — not start at the
+  same time." Original code built the whole L1→L3 chain immediately (finishing
+  by day 4-5) regardless of when each tranche actually needed it — wasteful in
+  principle (`mercenary_outpost` has real `daily_upkeep`, cash 165/330/495 at
+  L1/L2/L3) even though the engine doesn't currently charge building upkeep
+  anywhere (confirmed: no building's `daily_upkeep` — army_base's, mercenary_outpost's,
+  any — is tracked as an explicit cost line anywhere in this codebase; the
+  established fix pattern, matching the earlier `army_base` idle-upkeep session,
+  is timing-only, not adding new cost-tracking machinery). Fixed with the same
+  `Math.max(earliestFeasible, neededByHour)` JIT formula used elsewhere: each
+  outpost level now completes exactly at (or just before) its own tranche's
+  research floor, deferred as late as the sequential build queue allows.
+- **Rendering bug found in the same pass**: the JIT-timed outpost's Build Queue
+  row displayed the level's *completion* hour, while every other Build
+  Queue/Mobilisation Queue row in this codebase displays *start* hours — since
+  completion now legitimately coincides with the tranche's own mobilisation
+  start, this made the outpost look like it was starting (not finishing) at the
+  same instant as mobilisation. Added `mercenaryOutpostStartHour` to
+  `ProvinceMobilizationTrancheResult` and switched `iron-bp-plan.ts`'s render to
+  use it — now correctly shows e.g. L3's 36h build starting well before (not at)
+  its completion/mobilisation hour.
+- Province rendering in `iron-bp-plan.ts` also reformatted from a nested
+  `<ul>` bullet list to the same `<h3>` + Build Queue/Mobilisation Queue table
+  pair every city section already uses (user: "province mobilisation should be
+  in the same format as a city mobilisation section") — scoped to
+  `iron-bp-plan.ts` only, per the user's explicit request; the other three
+  renderers with the same bullet-list pattern were left untouched.
+
+**Deliberately not fixed**: pinning commando's research ASAP via
+`research_asap_pins` (to use idle slot time instead of the ~day-19 start the
+unpinned priority-based scheduler currently produces) — attempted, but
+surfaced a real, previously-undiscovered bug: `computeAsapResearchCompletions`
+computes a pinned unit's ASAP deadline in isolation from real slot contention
+with non-pinned demands, and when a cross-unit prerequisite (commando needs
+`special_forces` level N at every level) is also pinned to make the isolated
+walk self-consistent, the two walks still don't reconcile with the real backward
+scheduler — the resulting infeasible override silently dropped **both units'**
+research segments entirely (worse than the original bug). Reverted; commando's
+research is feasible but back-loaded. Flagged in the plan YAML's comments for a
+future session — needs a real fix to the backward scheduler's handling of
+cross-unit dependencies under a tight ASAP override, not a config workaround.
+
+## Research Scheduler Bugs — Cascading Drop + Duplicate Self-Reference (session, 2026-08-16)
+
+User report: "mobile radar research is missing from australia's build plan."
+Ruled out both bug classes already fixed this session (not a catalog data gap —
+`mobile_radar` has complete western-doctrine data; not a classification bug —
+`classifyDemands` correctly routes it to `activeDemands`). Root cause was two
+independent, genuine bugs in the shared backward JIT scheduler
+(`simulateUnitResearchTargets`, `src/engine/simulation/unit-research-sim.ts`) —
+the core loop used by *every* research plan in both the Iron and production
+pipelines, not something specific to this unit or country.
+
+**Bug 1 — premature loop termination after a same-pass cascade.** The
+`while (unscheduled.size > 0)` loop runs one full pass per iteration, committing
+at most one task per pass and dropping any eligible-but-infeasible task it
+encounters along the way (cascading: removed from its own dependency's
+`successorIds`, which can make that dependency newly eligible *within the same
+pass*). But the `for...of` over `unscheduled` has already visited (and skipped,
+via the `allSuccessorsScheduled` guard) anything earlier in Set-insertion order —
+so a same-pass unblocking was never re-checked, and the loop's termination
+condition (`selectedTaskId === null` → `break`) didn't distinguish "nothing
+selected this pass" from "nothing can ever be selected." Fixed: track
+`anyDroppedThisPass`; when nothing is selected but something was dropped,
+`continue` (a fresh full pass) instead of giving up — termination is still
+guaranteed since `unscheduled.size` strictly shrinks on any such pass.
+
+**Bug 2 — the actual root cause for `mobile_radar`: duplicate dependency
+entries.** `mobile_radar` (and `commando`, from the fix above) explicitly lists
+its own previous level as a requirement (e.g. `mobile_radar level 2` requires
+`mobile_radar level 1`) — redundant with the scheduler's automatic same-unit
+chaining (`if (level > 1) dependencyIds.push(unitId:level-1)`). This produced a
+**duplicate** entry in the dependency graph; when a drop-cascade tried to
+unblock a lower level, only one of the two duplicate references got removed,
+leaving it permanently blocked even with Bug 1 fixed. Fixed at the source in
+`requiredUnitLevelsForResearchLevel`: self-references (`parsed.id === unitId`)
+are now filtered out, since same-unit chaining is already handled separately by
+every one of this function's 4 call sites in the file.
+
+Both fixes verified independently: Bug 1 alone was necessary but insufficient
+(mobile_radar levels 1-6 still all silently dropped, confirmed via
+`PLAN_DEBUG=true` tracing that duplicate `successorIds` entries were the reason);
+both together restored `mobile_radar` levels 1-5 (level 6 genuinely doesn't fit
+given real slot contention — correct, not a bug). Russia's `iron-bp-russia.html`
+(which also has the self-reference pattern via `commando`) regenerated
+byte-identical, confirming the fix only changes behaviour where it was actually
+broken.
+
+## `unit_limit` Tranches for City-Mobilised Units + Australia Reassignment (session, 2026-08-16)
+
+### General engine support for city-mobilised `unit_limit` tranches
+
+The province-side tranche implementation above only covers province-mobilised
+units. The next request — "the last bug to fix was the EAH bug in Japan's build
+plan" — was the already-documented, previously-deferred gap: `elite_attack_helicopter`
+(EAH, `unit_limit` 5/10/15) mobilises in a single lump `×10` batch at Yono
+regardless of research level, when only 5 should be alive until level 2
+completes. **Verified this was a genuine bug, not a display nuance**: EAH level 2
+research completed day 26h08 but the single 10-unit batch started day 18h19 — 181
+hours before the research that's supposed to unlock units 6-10 existed.
+
+Fix mirrors the province implementation, reusing the same
+`getUnitLimitLevels`/`computeMobilizationTranches` helpers (already
+unit-agnostic) in the city-mob-queue code path
+(`country-force-projection.ts`'s per-city `mobSteps` construction, cost
+aggregation, and stepped-upkeep loops — the non-dead-window branch only; EAH's
+dedicated city has no filler sharing its queue, and extending tranche support to
+the dead-window branch too is explicitly out of scope until a real demand needs
+it). A new shared `computeUnitLimitTrancheTiming` helper avoids duplicating the
+JIT-timing formula across the mob-step and upkeep loops. `CityForceProjectionSlot["mobSteps"]`
+gained an optional `level` field (set only for tranche-split units) so all four
+renderers can show which tranche a batch belongs to — the existing renderers
+already iterated `mobSteps` generically, so multiple entries per unit needed
+zero structural renderer changes, just a `${level ? \` L${level}\` : ""}` label
+suffix. Every unit without real `unit_limit` data keeps the exact old single-
+event behaviour (empty-array guard), confirmed via byte-identical regeneration
+of every other country.
+
+### Real bug found via this work: `getUnitBuildingRequirements` hardcoded level 1
+
+Follow-up user report after the tranche fix shipped: "japan is missing an air
+base 4 for eah level 2 which is broken." Root cause: `getUnitBuildingRequirements`
+(`country-force-projection.ts`) always read `unit.levels["1"]`'s requirements for
+sizing a city's infra chain — so Yono only ever built `air_base L3` (EAH level
+1's requirement), never `air_base L4` (level 2's), even though the mobilisation
+queue was correctly gating tranche 2 on level-2 research completing. The building
+needed to *support* that tranche was simply never built. This is the same gap
+flagged (but deemed harmless at the time, for a different, smaller demand) in
+the Japan EAH session above. Fixed: `getUnitBuildingRequirements` gained an
+optional `level` parameter (default 1, so every other caller is unaffected), and
+the per-city infra-chain builder now computes the primary unit's actual highest
+required tranche level (same `computeMobilizationTranches` call already used for
+mob timing) and merges that level's requirements into the chain via the
+existing `extraRequiredLevels` hook (`Math.max`-merged, so it can only raise a
+requirement, never lower one). Yono's build queue now correctly includes
+`air_base L4` before any tranche mobilises; the small delay to tranche 1 (~1.5
+days, since the whole merged chain builds before *any* mobilisation opens, not
+per-tranche) was accepted as the correct tradeoff for closing the "missing
+requirement" bug, not treated as a separate optimisation target.
+
+### Real engine bug found via the Australia reassignment: inverted dead-window capacity
+
+The user separately questioned Canberra's role in Australia's plan: it hosted
+`mobile_radar` (7 units, smallest demand) plus one absorbed MAAV, and flipped to
+military at day 23h11 — the **latest** of any Australian city despite the
+**smallest** workload. Investigated and confirmed this was mathematically
+correct JIT scheduling (a smaller total workload legitimately produces a later
+last-responsible-moment start under `firstMobStart = deadline − primaryTotalHours`),
+not a bug — but the user judged it strategically unwise regardless, and (per the
+user, explicitly deferred to a future session) flagged this as a symptom of a
+deeper gap in the force-projection optimizer: it only minimises resource cost,
+never accounts for time-to-availability of the fielded force.
+
+**User's tactical redesign** (implemented this session, matching the Iron
+Pipeline's existing hand-specified philosophy): move `mobile_radar` off
+Canberra entirely, splitting it across the three `mechanized_infantry` cities
+(Maitland/Brisbane/Perth) instead, mobilising before mechanized_infantry in each
+shared queue; make Canberra a third dedicated `mobile_anti_air_vehicle` city (24
+units) alongside two of Adelaide/Gold Coast/Sydney (23 each), fully vacating the
+third. `infraCompatible` (`joint-city-optimizer.ts`) is directional and only
+accepts this city-sharing pairing with `mobile_radar` as the pinned/primary unit
+(its requirements are a superset of `mechanized_infantry`'s); confirmed real
+Smith's-rule upkeep numbers place radar before mechanized_infantry in the shared
+queue automatically, no extra ordering mechanism needed.
+
+**Getting the exact 24/23/23 split required a real engine fix.**
+`estimateRoLevelForFixedCityCount`'s pinned-city allocation loop
+(`joint-city-optimizer.ts`) dumped the *entire* remainder on the last listed
+city (`Math.ceil(n/numCities)` for all others) — for 70 across 3 cities, 24/24/22,
+inconsistent with the fair round-robin split (`ci < n % numCities ? ceil : floor`)
+the function's own upkeep-cost estimate a few lines above had *already* been
+assuming. Fixed the final allocation to match — 70/3 → 24/23/23, 7/3 → 3/2/2 (also
+retroactively improved Japan's and India's existing SASF splits from 12/12/10 to
+12/11/11 as an intentional side effect of the same fix; confirmed via full
+regeneration that nothing else in either country's plan moved).
+
+**Then a second real bug**: explicitly pinning *both* `mobile_radar` and
+`mechanized_infantry` to the same three cities (needed — leaving
+`mechanized_infantry` unpinned let the cost-driven fold-in decide a single new
+consolidated RO4 city was cheaper, completely defeating the sharing design) made
+all 30 `mechanized_infantry` units vanish **silently**, with zero error, in
+every generated output. Root cause, in `evaluateAbsorptionOptions`
+(`joint-city-optimizer.ts`)'s `deadWindowCapN`: the dead-window absorption
+formula assumes the *candidate* being merged in is a small/light filler relative
+to a large, long-infra-chain primary (the SASF+AWACS/UAV shape it was built
+for) — here the roles are inverted (30-unit candidate into a 7-unit primary
+whose own short infra chain and small workload push its own JIT start very
+late), so `availableWindow` computes to zero or a small-but-insufficient
+positive value, and `deadWindowCapN` floors to 0 → hard rejection. Separately,
+`foldInDemands`'s pinned pre-pass swallowed that zero-capacity result with no
+fallback and no warning — marking the city "used" regardless of whether
+anything was actually placed there. **Both fixed**: `deadWindowCapN` now falls
+back to unrestricted (deferring to the ordinary shared-queue capacity math)
+whenever there's no genuine early-idle window to model, rather than hard-
+rejecting a candidate that should just queue normally; `foldInDemands` now
+throws a clear, descriptive error instead of silently dropping a pinned demand
+it can't place — matching this codebase's established "surface data/planning
+gaps loudly" convention (e.g. the `⚠ MISSING DOCTRINE DATA` banner) rather than
+letting a plan silently ship with units missing. Verified the fix is correctly
+scoped: India's SASF+UAV double-pin (the only other double-pin case in the
+active plan, and per investigation the same *latent* bug, just never triggered
+since UAV happened to be small enough to fit) regenerated byte-identical, as did
+Russia; only Australia's actual bug scenario changed.
+
+Final Australia state, all verified end-to-end (`npm test` clean throughout —
+only the 5 pre-existing baseline failures — plus byte-identical regeneration of
+every other `preferred_cities`-using country after each fix): Maitland/Brisbane/
+Perth each mobilise `mobile_radar` (3/2/2) before `mechanized_infantry` (10
+each), flip points ~day 19-20 instead of the old day 23h11; Canberra hosts 24
+MAAV with only `army_base L1` (the L2 requirement was radar's alone); Adelaide/
+Gold Coast host 23 MAAV each; Sydney fully vacated (pure eco for the truce).

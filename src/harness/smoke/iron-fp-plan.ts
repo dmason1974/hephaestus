@@ -21,6 +21,7 @@ import { loadMergedUnitCatalogForScenario } from "../../scenarios/io/load-unit-c
 
 const scenarioId = process.env.IRON_SCENARIO ?? "elite/antarctica";
 const planId = process.env.IRON_PLAN ?? "pnth-v-iron-2026-aug";
+const outputDir = process.env.IRON_OUTPUT_DIR ?? "pnth-v-iron-aug26";
 const countryId = process.env.IRON_COUNTRY;
 if (!countryId) {
   throw new Error("IRON_COUNTRY is required, e.g. IRON_COUNTRY=south_africa npm run smoke:iron-fp-plan");
@@ -180,7 +181,7 @@ if (result.reason === "no_demands") {
     for (const entry of slot.mobSteps) {
       stepRows.push({
         "#": stepNum++,
-        step: `${entry.unitId.replaceAll("_", " ")} mob ×${entry.count}`,
+        step: `${entry.unitId.replaceAll("_", " ")}${entry.level ? ` L${entry.level}` : ""} mob ×${entry.count}`,
         start: fmtAbsHour(entry.startAbsHour),
         complete: fmtAbsHour(entry.endAbsHour),
         dur: `${Math.round(entry.durationHours)}h`,
@@ -212,9 +213,15 @@ if (result.reason === "no_demands") {
     html += `<ul>${result.provinceMobResults
       .map(
         r =>
-          `<li>${escapeHtml(r.unitId)} × ${r.count} — mercenary_outpost L${r.mercenaryOutpostRequiredLevel} ` +
-          `(${r.mercenaryOutpostBuildHours}h) then mobilise (${r.mobilizationDurationHours}h), ` +
-          `completes hour ${r.completionHour}, capacity ${r.provinceCount} provinces</li>`
+          `<li>${escapeHtml(r.unitId)} × ${r.count} — mercenary_outpost → L${r.mercenaryOutpostRequiredLevel} ` +
+          `(${r.mercenaryOutpostBuildHours}h cumulative), capacity ${r.provinceCount} provinces` +
+          `<ul>${r.tranches
+            .map(
+              t =>
+                `<li>L${t.level}: ${t.count} units — research floor hour ${t.mobilisationEarliestHour}, ` +
+                `mobilise ${t.mobStartHour}→${t.completionHour} (${t.mobilizationDurationHours}h)</li>`
+            )
+            .join("")}</ul></li>`
       )
       .join("")}</ul>\n`;
   }
@@ -232,8 +239,8 @@ if (result.reason === "no_demands") {
   }
 }
 
-fs.mkdirSync(path.resolve("tmp"), { recursive: true });
 const outHtml = buildHtml(`Iron Force Projection — ${country.country.name}`, html);
-const outPath = path.resolve(`tmp/iron-fp-${countryId}.html`);
+const outPath = path.resolve(`tmp/${outputDir}/force-projection/iron-fp-${countryId}.html`);
+fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, outHtml, "utf8");
 console.log(`→ wrote ${outPath}`);

@@ -254,6 +254,7 @@ function requiredUnitLevelsForResearchLevel(
   for (const requirement of levelData.requirements) {
     const parsed = parseLevelRequirement(requirement);
     if (!parsed) continue;
+    if (parsed.id === unitId) continue; // same-unit chaining is handled separately by every caller (level > 1 → level - 1); a self-reference here (e.g. commando level 2 explicitly listing "commando level 1") would otherwise duplicate that dependency
     if (!catalog.units[parsed.id]) continue;
 
     requirements.set(parsed.id, Math.max(requirements.get(parsed.id) ?? 0, parsed.level));
@@ -852,6 +853,7 @@ export function simulateUnitResearchTargets(
     let selectedSlot = -1;
     let selectedStartHour = Number.NEGATIVE_INFINITY;
     let selectedEndHour = Number.NEGATIVE_INFINITY;
+    let anyDroppedThisPass = false;
 
     for (const taskId of unscheduled) {
       const task = plannedTasks.get(taskId);
@@ -915,7 +917,8 @@ export function simulateUnitResearchTargets(
           console.error(`[research-sim] Skipping ${taskId}: cannot fit (releaseHour=${task.releaseHour}, deadline=${successorStartBound})`);
         }
         unscheduled.delete(taskId);
-        
+        anyDroppedThisPass = true;
+
         // Remove this task from successor lists of all other tasks
         for (const [otherTaskId, otherTask] of plannedTasks.entries()) {
           const index = otherTask.successorIds.indexOf(taskId);
@@ -939,6 +942,13 @@ export function simulateUnitResearchTargets(
     }
 
     if (selectedTaskId === null || selectedSlot < 0 || !Number.isFinite(selectedStartHour)) {
+      if (anyDroppedThisPass) {
+        // A same-pass drop can free an earlier-visited dependency (e.g. a lower
+        // research level whose only successor just got dropped) that this pass's
+        // for...of already skipped over — give it a fresh full pass instead of
+        // giving up on the whole remaining set.
+        continue;
+      }
       // No more tasks can be scheduled - this is OK, we just schedule what we can
       if (process.env.PLAN_DEBUG === "true") {
         console.error(`[research-sim] No more tasks can be scheduled. Remaining ${unscheduled.size} tasks skipped:`);

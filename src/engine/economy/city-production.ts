@@ -346,7 +346,7 @@ export function buildHourlyResourceTable(
 
   for (let index = 0; index < days * 24; index++) {
     const absoluteHour = startAbsoluteHour + index;
-    const point = hourlyResourcePointAtAbsoluteHour(gameSpeed, city, absoluteHour);
+    const point = hourlyResourcePointAtAbsoluteHour(gameSpeed, city, absoluteHour, startAbsoluteHour);
     const hour = index + 1;
 
     rows.push({
@@ -364,7 +364,8 @@ export function buildHourlyResourceTable(
 export function hourlyResourcePointAtAbsoluteHour(
   gameSpeed: GameSpeed,
   city: CityResourceInputs,
-  absoluteHour: number
+  absoluteHour: number,
+  scenarioStartAbsoluteHour: number
 ): HourlyResourcePoint {
   const ecoInfra = city.ecoInfraMultiplier ?? 1.0;
   const populationMode = city.populationMode ?? "step";
@@ -378,7 +379,8 @@ export function hourlyResourcePointAtAbsoluteHour(
   }
   const hidden = city.hiddenMultiplierOverride ?? speedMul;
   const calendarDay = Math.floor(absoluteHour / 24) + 1;
-  const populationDay = 1 + ((absoluteHour / 24) * populationBonusMultiplier(buildingEffects));
+  const populationDay =
+    1 + (((absoluteHour - scenarioStartAbsoluteHour) / 24) * populationBonusMultiplier(buildingEffects));
   const morale = city.moraleOverride ?? moraleOnDay(calendarDay, city.moraleParams);
   const moraleMul = moraleProductionMultiplier(morale);
   const population = populationAtDay(populationDay, city.startPop, populationMode, city.populationOpts);

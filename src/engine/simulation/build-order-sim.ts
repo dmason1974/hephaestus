@@ -337,10 +337,11 @@ export function simulateBuildOrder(args: {
   const perHourPerCity: HourlyCityResult[] = [];
   const debug: SimulationResult["debug"] = [];
   const timingDays: SimulationResult["timingDebug"]["days"] = [];
+  const scenarioStartAbsHour = scenarioStartAbsoluteHour(args.scenario);
 
   for (let hour = 0; hour < args.hoursToSimulate; hour++) {
     for (const city of args.cities) {
-      const absoluteHour = scenarioStartAbsoluteHour(args.scenario) + hour;
+      const absoluteHour = scenarioStartAbsHour + hour;
       const mapDay = Math.floor(absoluteHour / 24) + 1;
       const dayStartAbs = (mapDay - 1) * 24;
       const effectiveCityStatus = effectiveCityStatusAtHourEnd({
@@ -457,7 +458,8 @@ export function simulateBuildOrder(args: {
         production[resource] = hourlyResourcePointAtAbsoluteHour(
           args.scenario.speed,
           cityInputs,
-          absoluteHour
+          absoluteHour,
+          scenarioStartAbsHour
         ).amount;
       }
 

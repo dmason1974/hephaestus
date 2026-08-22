@@ -113,6 +113,7 @@ const initialRow = {
       },
       buildingEffects: initialBaseEffects,
     },
+    initialAbsoluteHour,
     initialAbsoluteHour
   ).amount,
   cash: hourlyResourcePointAtAbsoluteHour(
@@ -128,6 +129,7 @@ const initialRow = {
       },
       buildingEffects: initialBaseEffects,
     },
+    initialAbsoluteHour,
     initialAbsoluteHour
   ).amount,
   manpower: hourlyResourcePointAtAbsoluteHour(
@@ -143,6 +145,7 @@ const initialRow = {
       },
       buildingEffects: initialBaseEffects,
     },
+    initialAbsoluteHour,
     initialAbsoluteHour
   ).amount,
   fromLevel: 0,

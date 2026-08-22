@@ -78,11 +78,11 @@ cities:
 
 provinces:
   total: 30
-  supplies: 0
-  components: 0
-  fuel: 0
-  rares: 0
-  electronics: 0
+  supplies: 1
+  components: 1
+  fuel: 1
+  rares: 1
+  electronics: 1
 
 starting_balance:
   supplies: 35748

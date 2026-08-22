@@ -68,9 +68,18 @@ export type CityEcoBeamConfig = {
    * Bare city id of the single city allowed to build `relocate_headquarters` in this
    * run. `relocate_headquarters` is a per-country, at-most-once decision (moving the
    * one HQ) — every OTHER city's candidate pool excludes it entirely, regardless of
-   * resourceWeights. Absent ⇒ no city may build it.
+   * resourceWeights. Absent ⇒ no city may build it (unless academicHqEveryCity is set).
    */
   hqCityId?: string;
+  /**
+   * When true, every city's candidate pool includes relocate_headquarters,
+   * each evaluated in isolation ("what could this city achieve if it were the
+   * HQ") — matches the same per-city-independent, no-cross-city-awareness
+   * treatment every other candidate building already gets in Unit 1's
+   * unconstrained/academic beam. Mutually exclusive with hqCityId in practice
+   * (Unit 1.5's single real per-country decision) — only set one of the two.
+   */
+  academicHqEveryCity?: boolean;
 };
 
 export type CityEcoCandidate = {
@@ -86,6 +95,14 @@ export type CityEcoCandidate = {
   endManpower: number;
 };
 
+export type EcoBuildStepDelta = {
+  buildingId: string;
+  targetLevel: number;
+  startHour: number;
+  /** Marginal per-resource impact of this single step vs. the previous step's ending balances. */
+  delta: Record<Resource, number>;
+};
+
 export type CityEcoResult = {
   cityId: string;
   cityName: string;
@@ -95,6 +112,8 @@ export type CityEcoResult = {
   startingLevels: Partial<Record<EcoCandidateBuildingId, number>>;
   /** Best eco build actions (timed, relative hours from scenario start) */
   bestActions: BuildAction[];
+  /** Per-step marginal resource delta for the winning bestActions sequence, in order. */
+  stepDeltas: EcoBuildStepDelta[];
   /**
    * Building levels from eco builds completed at or before absHour.
    * Includes starting levels. absHour is absolute game hour (same scale as
@@ -179,7 +198,8 @@ function buildingPoolForCity(
   countryStatus: "homeland" | "occupied",
   extraBuildingsForCity?: Record<string, EcoCandidateBuildingId[]>,
   resourceWeights?: Partial<Record<Resource, number>>,
-  hqCityId?: string
+  hqCityId?: string,
+  academicHqEveryCity?: boolean
 ): EcoCandidateBuildingId[] {
   // Zero-build baseline for occupied countries in the real (weighted) build path.
   // `resourceWeights !== undefined` distinguishes this from Unit 1's own unconstrained
@@ -197,9 +217,12 @@ function buildingPoolForCity(
   if (countryStatus === "occupied") {
     // Occupied cities must annex before producing at scale; no HQ relocation possible.
     pool.push("annex_city");
-  } else if (city.id === hqCityId) {
-    // relocate_headquarters is a per-country, at-most-once decision — only the
-    // designated HQ candidate city may consider it, never every city independently.
+  } else if (city.id === hqCityId || academicHqEveryCity) {
+    // relocate_headquarters is a per-country, at-most-once decision in reality —
+    // only the designated HQ candidate city considers it (hqCityId), UNLESS this
+    // is the academic per-city-isolated ceiling (academicHqEveryCity), where every
+    // city independently evaluates "what if I were the HQ", same as every other
+    // candidate building.
     pool.push("relocate_headquarters");
   }
   // Production buildings: always included when no weights (unconstrained eco planner),
@@ -558,6 +581,32 @@ function beamSearchCity(
   const top = Array.from(allRanked.values()).sort(compareRanked).slice(0, topN);
   const bestActions = top[0]?.actions ?? [];
 
+  // Reconstruct per-step marginal deltas for the winning sequence. Every proper
+  // prefix of bestActions was necessarily evaluated and kept in `allRanked` at its
+  // own depth (it had to survive frontier pruning to be extended into the next
+  // prefix), so this is pure Map lookups — no re-simulation needed.
+  const stepDeltas: EcoBuildStepDelta[] = [];
+  {
+    let prevBalances = rootEvaluation.endingBalances;
+    const winningTokens: TokenAction[] = bestActions.map(a => ({
+      buildingId: a.buildingId as EcoCandidateBuildingId,
+      targetLevel: a.targetLevel,
+    }));
+    for (let i = 0; i < winningTokens.length; i++) {
+      const prefixKey = tokenSequenceKey(winningTokens.slice(0, i + 1));
+      const balances = allRanked.get(prefixKey)?.endingBalances ?? prevBalances;
+      const delta = zeroResources();
+      for (const r of RESOURCE_KEYS) delta[r] = balances[r] - prevBalances[r];
+      stepDeltas.push({
+        buildingId: bestActions[i].buildingId,
+        targetLevel: bestActions[i].targetLevel,
+        startHour: bestActions[i].startHour ?? 0,
+        delta,
+      });
+      prevBalances = balances;
+    }
+  }
+
   // Build segments for best actions so we can answer buildingLevelsAtAbsHour queries
   const bestSegmentsByCity = scheduleBuildSegments({
     cities: [{
@@ -626,6 +675,7 @@ function beamSearchCity(
     capital: city.capital ?? false,
     startingLevels,
     bestActions,
+    stepDeltas,
     buildingLevelsAtAbsHour,
     lastEcoBuildCompletionAbsHour,
     endingBalances: top[0]?.endingBalances ?? baseline.endingBalances,
@@ -681,7 +731,7 @@ export function runCityEcoBeam(
     : country.cities;
 
   const cityResults = selectedCities.map(city => {
-    const pool = buildingPoolForCity(country, city, buildings, countryStatus, config.extraBuildingsForCity, config.resourceWeights, config.hqCityId);
+    const pool = buildingPoolForCity(country, city, buildings, countryStatus, config.extraBuildingsForCity, config.resourceWeights, config.hqCityId, config.academicHqEveryCity);
     return beamSearchCity(country, city, scenario, buildings, baselineCountryHourly, config, pool, countryStatus, captureRelHour, config.resourceWeights);
   });
 
@@ -732,4 +782,145 @@ export function resimulateHourlyProductionWithExtraActions(
     const prod = simulation.perHourAggregate[h]?.production;
     return prod ? { ...prod } as Record<Resource, number> : zeroResources();
   });
+}
+
+/**
+ * Evaluates one arbitrary, hand-specified build sequence for a single city —
+ * "what if this city built exactly A, then B, then C" — independent of the beam
+ * search's own candidate selection. Uses unconstrained ASAP scheduling (each step
+ * starts the moment the city's build queue is free) and the same country-wide
+ * balance accounting as the beam's internal evaluateTimedOrder (this city's real
+ * production credited, every other city held at its baseline, build costs
+ * deducted at start, upkeep deducted from completion onward), so results are
+ * directly comparable to smoke:eco-plan's own output. Self-contained (does not
+ * share state with runCityEcoBeam/beamSearchCity) so it carries zero risk to the
+ * search path — used for point comparisons like "insert relocate_headquarters
+ * here vs not at all", which the beam's own top-N candidates may not happen to
+ * contain even if explored.
+ */
+export function evaluateEcoActionSequence(
+  country: Country,
+  city: Country["cities"][number],
+  scenario: ScenarioFile,
+  buildings: BuildingsFile,
+  hoursToSimulate: number,
+  countryStatus: "homeland" | "occupied",
+  tokens: Array<{ buildingId: EcoCandidateBuildingId; targetLevel: number }>,
+  captureAbsHour?: number
+): { endingBalances: Record<Resource, number>; stepDeltas: EcoBuildStepDelta[] } {
+  const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
+  const captureRelHour = captureAbsHour !== undefined ? Math.max(0, captureAbsHour - scenarioAbsHour) : 0;
+  const cityState = buildCityState(country, city, countryStatus);
+
+  const baselineCountryTable = buildCountryHourlyResourceBalanceTable(
+    country,
+    Math.ceil(hoursToSimulate / 24),
+    scenario.speed,
+    {
+      buildingsFile: buildings,
+      scenario,
+      startingBalances: country.starting_balance ?? scenario.starting_balance,
+      startAbsoluteHour: scenarioAbsHour,
+    }
+  );
+  const baselineCountryHourly = hourlyDeltasFromCountryTable(baselineCountryTable).slice(0, hoursToSimulate);
+
+  const baselineCitySimulation = simulateBuildOrder({
+    cities: [cityState],
+    buildOrder: [],
+    buildings,
+    scenario,
+    hoursToSimulate,
+  });
+
+  const otherCountryHourly = baselineCountryHourly.map((countryRow, index) => {
+    const row = zeroResources();
+    for (const resource of RESOURCE_KEYS) {
+      row[resource] = countryRow[resource] - (baselineCitySimulation.perHourAggregate[index]?.production[resource] ?? 0);
+    }
+    return row;
+  });
+
+  function evaluate(timedOrder: BuildAction[]): { endingBalances: Record<Resource, number>; nextFreeRelHour: number } {
+    const simulation = simulateBuildOrder({ cities: [cityState], buildOrder: timedOrder, buildings, scenario, hoursToSimulate });
+    const segmentsByCity = scheduleBuildSegments({
+      cities: [{
+        cityId: cityState.cityId,
+        countryId: cityState.countryId,
+        capital: cityState.capital,
+        cityStatus: cityState.cityStatus,
+        moraleParams: cityState.moraleParams,
+        buildings: cityState.buildings,
+      }],
+      buildOrder: timedOrder,
+      buildings,
+      scenario,
+    });
+    const adjustments = Array.from({ length: hoursToSimulate }, () => zeroResources());
+    const segments = segmentsByCity.get(cityState.cityId);
+    if (segments) {
+      for (const [buildingId, buildingSegments] of Object.entries(segments) as Array<[EcoCandidateBuildingId, (typeof segments)[EcoCandidateBuildingId]]>) {
+        for (const segment of buildingSegments) {
+          const cost = levelData(buildings, buildingId, segment.toLevel).cost;
+          const startHourIndex = Math.floor(segment.startMinute / 60) - scenarioAbsHour;
+          if (startHourIndex >= 0 && startHourIndex < hoursToSimulate) {
+            for (const resource of RESOURCE_KEYS) adjustments[startHourIndex][resource] -= cost[resource] ?? 0;
+          }
+          const upkeep = levelData(buildings, buildingId, segment.toLevel).daily_upkeep;
+          if (upkeep) {
+            const completionHourIndex = Math.ceil(segment.endMinute / 60) - scenarioAbsHour;
+            for (let h = completionHourIndex; h < hoursToSimulate; h++) {
+              for (const resource of RESOURCE_KEYS) {
+                const amount = upkeep[resource];
+                if (Number.isFinite(amount)) adjustments[h][resource] -= Math.floor((amount ?? 0) / 24);
+              }
+            }
+          }
+        }
+      }
+    }
+    const balancesByHour: Array<Record<Resource, number>> = [];
+    const endingBalances = zeroResources();
+    for (let h = 0; h < hoursToSimulate; h++) {
+      const previous = balancesByHour[h - 1] ?? zeroResources();
+      const balances = zeroResources();
+      const captured = h >= captureRelHour;
+      for (const resource of RESOURCE_KEYS) {
+        balances[resource] = previous[resource]
+          + (captured ? (simulation.perHourAggregate[h]?.production[resource] ?? 0) : 0)
+          + (captured ? (otherCountryHourly[h]?.[resource] ?? 0) : 0)
+          + adjustments[h][resource];
+        endingBalances[resource] = balances[resource];
+      }
+      balancesByHour.push(balances);
+    }
+    const lastCompletionAbsHour = segments
+      ? Object.values(segments).flatMap(segs => segs).reduce((latest, seg) => Math.max(latest, seg.endMinute / 60), scenarioAbsHour)
+      : scenarioAbsHour;
+    return { endingBalances, nextFreeRelHour: lastCompletionAbsHour - scenarioAbsHour };
+  }
+
+  const baseline = evaluate([]);
+  const stepDeltas: EcoBuildStepDelta[] = [];
+  let timedOrder: BuildAction[] = [];
+  let prevBalances = baseline.endingBalances;
+  let nextFreeRelHour = baseline.nextFreeRelHour;
+
+  for (const token of tokens) {
+    const startHour = Math.max(Math.ceil(nextFreeRelHour), captureRelHour);
+    timedOrder = [...timedOrder, {
+      cityId: cityState.cityId,
+      buildingId: token.buildingId as BuildingId,
+      targetLevel: token.targetLevel,
+      startHour,
+    }];
+    const evaluation = evaluate(timedOrder);
+    const delta = zeroResources();
+    for (const r of RESOURCE_KEYS) delta[r] = evaluation.endingBalances[r] - prevBalances[r];
+    stepDeltas.push({ buildingId: token.buildingId, targetLevel: token.targetLevel, startHour, delta });
+    prevBalances = evaluation.endingBalances;
+    nextFreeRelHour = evaluation.nextFreeRelHour;
+  }
+
+  return { endingBalances: prevBalances, stepDeltas };
 }

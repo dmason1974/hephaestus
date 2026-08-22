@@ -59,7 +59,7 @@ export const MORALE_MULTIPLIER_COEFFICIENT = 0.8;
 export const MORALE_MULTIPLIER_OFFSET = 0.25;
 
 export const STARTING_MORALE_DAY1 = 70;
-export const HOMELAND_TARGET_MORALE = 93;
+export const HOMELAND_TARGET_MORALE = 92;
 
 /**
  * Discrete morale decay parameter.

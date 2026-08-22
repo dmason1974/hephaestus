@@ -129,6 +129,7 @@ function analyseCountry(countryId: string): string {
       beamWidth,
       topN,
       unconstrained: true,
+      academicHqEveryCity: true,
     },
     status,
     undefined,
@@ -183,6 +184,33 @@ function analyseCountry(countryId: string): string {
   }
 
   html += `<table>${seqRows.join("")}</table>`;
+
+  // Per-city step-by-step resource delta breakdown (collapsible, one per city)
+  for (const cityResult of ecoResult.cityResults) {
+    if (cityResult.stepDeltas.length === 0) continue;
+    const stepRows: string[] = [];
+    stepRows.push(`<tr>
+      <th>#</th>
+      <th>Build</th>
+      <th>Start</th>
+      ${RESOURCE_KEYS.map(r => `<th>${escapeHtml(r)}</th>`).join("")}
+    </tr>`);
+    cityResult.stepDeltas.forEach((step, i) => {
+      const cells = RESOURCE_KEYS.map(r => {
+        const v = step.delta[r];
+        if (!v) return `<td>—</td>`;
+        const cls = v > 0 ? "surplus" : "deficit";
+        return `<td class="${cls}">${v > 0 ? "+" : ""}${fmt(v)}</td>`;
+      }).join("");
+      stepRows.push(`<tr>
+        <td>${i + 1}</td>
+        <td>L${step.targetLevel} ${escapeHtml(step.buildingId.replaceAll("_", " "))}</td>
+        <td>${escapeHtml(fmtRelHour(step.startHour))}</td>
+        ${cells}
+      </tr>`);
+    });
+    html += `<details><summary>Step deltas — ${escapeHtml(cityResult.cityName)}</summary><table>${stepRows.join("")}</table></details>\n`;
+  }
 
   // Province build plans
   if (provinceResults.length > 0) {

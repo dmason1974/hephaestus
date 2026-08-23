@@ -12,7 +12,8 @@ import {
   computePlanWeights,
   computeCoalitionPlanWeights,
   accumulateDemandResourceTotals,
-  boostWeightsFromDeficit,
+  computeParityGateWeights,
+  WEIGHT_FORMULA_EXCLUDED_RESOURCES,
   foldInDemands,
 } from "./joint-city-optimizer.js";
 import { baselineHomelandMoraleOnDay } from "../economy/morale.js";
@@ -62,8 +63,8 @@ test("computeCoalitionPlanWeights normalises the SUM of every country's raw dema
 
   const combined = computeCoalitionPlanWeights([countryA, countryB], catalog, truceDays);
 
-  const totalA = accumulateDemandResourceTotals(countryA.demands, catalog, countryA.doctrine, truceDays);
-  const totalB = accumulateDemandResourceTotals(countryB.demands, catalog, countryB.doctrine, truceDays);
+  const totalA = accumulateDemandResourceTotals(countryA.demands, catalog, countryA.doctrine, truceDays, {}, WEIGHT_FORMULA_EXCLUDED_RESOURCES);
+  const totalB = accumulateDemandResourceTotals(countryB.demands, catalog, countryB.doctrine, truceDays, {}, WEIGHT_FORMULA_EXCLUDED_RESOURCES);
   const expectedTotal: Record<string, number> = {};
   for (const t of [totalA, totalB]) {
     for (const [r, v] of Object.entries(t)) expectedTotal[r] = (expectedTotal[r] ?? 0) + (v ?? 0);
@@ -74,27 +75,35 @@ test("computeCoalitionPlanWeights normalises the SUM of every country's raw dema
   }
 });
 
-test("boostWeightsFromDeficit only raises weight for resources in genuine deficit, never touches resources that are fine, and never exceeds 1.0", () => {
-  const weights = { electronics: 0.15, fuel: 0.13, cash: 1.0 };
-  const netPooledBalance = { electronics: -100, fuel: 50, cash: -1000 };
-  const grossAvailable = { electronics: 200, fuel: 500, cash: 1000 };
+test("computeParityGateWeights ranks resources by cost/income utilization, highest getting weight 1.0", () => {
+  // electronics: 150% utilization (cost exceeds income) — highest, gets weight 1.0.
+  // supplies: 110% utilization — lower than electronics, gets a proportionally lower weight.
+  const cost = { electronics: 1500, supplies: 1100 };
+  const income = { electronics: 1000, supplies: 1000 };
 
-  const boosted = boostWeightsFromDeficit(weights, netPooledBalance, grossAvailable);
+  const weights = computeParityGateWeights(cost, income, ["electronics", "supplies"]);
 
-  // electronics: deficit ratio 100/200 = 0.5 -> moves halfway from 0.15 to 1.0
-  assert.ok(Math.abs(boosted.electronics! - (0.15 + 0.5 * 0.85)) < 1e-9);
-  // fuel: net >= 0, completely untouched
-  assert.equal(boosted.fuel, 0.13);
-  // cash: deficit ratio 1000/1000 = 1.0 -> fully boosted to 1.0 (already was 1.0)
-  assert.equal(boosted.cash, 1.0);
+  assert.equal(weights.electronics, 1.0);
+  assert.ok(Math.abs((weights.supplies ?? 0) - 1.1 / 1.5) < 1e-9);
+  assert.ok((weights.supplies ?? 0) < (weights.electronics ?? 0));
 });
 
-test("boostWeightsFromDeficit never produces a weight above 1.0 even with a severe deficit relative to gross available", () => {
-  const weights = { rares: 0.03 };
-  const netPooledBalance = { rares: -1000 };
-  const grossAvailable = { rares: 10 }; // deficit far exceeds gross available
-  const boosted = boostWeightsFromDeficit(weights, netPooledBalance, grossAvailable);
-  assert.equal(boosted.rares, 1.0);
+test("computeParityGateWeights is bidirectional: a resource's gate weight DECREASES relative to others once its income improves, unlike a boost-only correction that can only ever raise a weight", () => {
+  const cost = { electronics: 1500, supplies: 1100 };
+  const before = computeParityGateWeights(cost, { electronics: 1000, supplies: 1000 }, ["electronics", "supplies"]);
+
+  // electronics' income improves a lot (production came online) — its utilization
+  // drops from 150% to 75%, now BELOW supplies' still-110% utilization.
+  const after = computeParityGateWeights(cost, { electronics: 2000, supplies: 1000 }, ["electronics", "supplies"]);
+
+  assert.ok((after.electronics ?? 0) < (before.electronics ?? 0), "electronics' gate weight should fall as its income improves");
+  assert.equal(after.supplies, 1.0, "supplies is now the highest-utilization resource and should be re-based to 1.0");
+});
+
+test("computeParityGateWeights treats zero income with positive cost as maximal (1.0) utilization, and zero cost as zero utilization", () => {
+  const weights = computeParityGateWeights({ electronics: 500, fuel: 0 }, { electronics: 0, fuel: 1000 }, ["electronics", "fuel"]);
+  assert.equal(weights.electronics, 1.0);
+  assert.equal(weights.fuel, 0);
 });
 
 // ── foldInDemands: preferred_cities pinning ─────────────────────────────────

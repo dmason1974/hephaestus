@@ -44,6 +44,17 @@ const ECO_CANDIDATE_BUILDINGS: readonly EcoCandidateBuildingId[] = [
 
 export type CityEcoBeamConfig = {
   hoursToSimulate: number;
+  /**
+   * Per-city override of hoursToSimulate, keyed by bare cityId. A city not present
+   * here falls back to hoursToSimulate. Lets the beam be bounded by each city's own
+   * real (research-aware) flip point instead of one flat window for every city —
+   * running the search itself over a shorter budget, not truncating an
+   * already-found longer-budget answer (those are not equivalent: evaluateTimedOrder
+   * scores the FULL simulated window regardless of sequence length, so the
+   * short-budget-optimal sequence is not guaranteed to be a prefix of the
+   * long-budget-optimal one).
+   */
+  hoursToSimulateByCity?: Record<string, number>;
   beamWidth: number;
   topN: number;
   /** Extra buildings to allow in the search (e.g. relocate_headquarters for specific city) */
@@ -80,6 +91,26 @@ export type CityEcoBeamConfig = {
    * (Unit 1.5's single real per-country decision) — only set one of the two.
    */
   academicHqEveryCity?: boolean;
+  /**
+   * When true, ranking scores by the city's own native resource only (same as when
+   * resourceWeights is absent), REGARDLESS of whether resourceWeights is also
+   * supplied. resourceWeights still gates the candidate pool (WEIGHT_THRESHOLD) and
+   * still forces recruiting_office as the first build — this flag only controls the
+   * comparator used to pick the winning sequence.
+   *
+   * NOT used by the real Unit 1.5 pipeline (runActualEcoBuild via
+   * resource-projection.ts) — tried there and verified empirically WORSE on the
+   * real coalition plan (utilization spread across resources widened, not
+   * narrowed): once a building clears the binary WEIGHT_THRESHOLD gate, native-only
+   * scoring has zero visibility into what it costs in OTHER resources, so a city
+   * will happily overspend a scarce resource it doesn't produce as long as its own
+   * resource keeps improving. Weighted scoring (this flag left false/absent) keeps
+   * that cross-resource cost inside the score itself, which is what actually
+   * disciplines spending — the gate alone isn't enough. Kept as an available,
+   * tested option (not deleted) since it may be useful standalone or for future
+   * work, but it is not what production wiring should reach for by default.
+   */
+  scoreNativeResourceOnly?: boolean;
 };
 
 export type CityEcoCandidate = {
@@ -189,7 +220,7 @@ function startingLevelsForCity(city: Country["cities"][number]): Partial<Record<
   return levels;
 }
 
-const WEIGHT_THRESHOLD = 0.1;
+export const WEIGHT_THRESHOLD = 0.1;
 
 function buildingPoolForCity(
   country: Country,
@@ -308,10 +339,12 @@ function beamSearchCity(
   pool: EcoCandidateBuildingId[],
   countryStatus: "homeland" | "occupied",
   captureRelHour = 0,
-  resourceWeights?: Partial<Record<Resource, number>>
+  resourceWeights?: Partial<Record<Resource, number>>,
+  hoursToSimulate: number = config.hoursToSimulate
 ): CityEcoResult {
-  const { hoursToSimulate, beamWidth, topN } = config;
+  const { beamWidth, topN } = config;
   const unconstrained = config.unconstrained ?? false;
+  const scoreNativeResourceOnly = config.scoreNativeResourceOnly ?? false;
   const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
   const cityState = buildCityState(country, city, countryStatus);
   const startingLevels = startingLevelsForCity(city);
@@ -462,7 +495,7 @@ function beamSearchCity(
   }
 
   function weightedEndScore(balances: Record<Resource, number>): number {
-    return computeWeightedScore(balances, resourceWeights, city.resource as Resource);
+    return computeWeightedScore(balances, scoreNativeResourceOnly ? undefined : resourceWeights, city.resource as Resource);
   }
 
   function compareRanked(a: RankedSequence, b: RankedSequence): number {
@@ -712,10 +745,14 @@ export function runCityEcoBeam(
   const { hoursToSimulate } = config;
   const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
   const captureRelHour = captureAbsHour !== undefined ? Math.max(0, captureAbsHour - scenarioAbsHour) : 0;
+  // The shared country-baseline table must cover the LONGEST horizon any city in
+  // this run needs — individual cities may simulate a shorter, per-city-bounded
+  // window (hoursToSimulateByCity), but they all read from this one baseline table.
+  const maxHoursToSimulate = Math.max(hoursToSimulate, ...Object.values(config.hoursToSimulateByCity ?? {}));
 
   const baselineCountryTable = buildCountryHourlyResourceBalanceTable(
     country,
-    Math.ceil(hoursToSimulate / 24),
+    Math.ceil(maxHoursToSimulate / 24),
     scenario.speed,
     {
       buildingsFile: buildings,
@@ -724,7 +761,7 @@ export function runCityEcoBeam(
       startAbsoluteHour: scenarioAbsHour,
     }
   );
-  const baselineCountryHourly = hourlyDeltasFromCountryTable(baselineCountryTable).slice(0, hoursToSimulate);
+  const baselineCountryHourly = hourlyDeltasFromCountryTable(baselineCountryTable).slice(0, maxHoursToSimulate);
 
   const selectedCities = cityFilter
     ? country.cities.filter(city => city.id === cityFilter)
@@ -732,7 +769,8 @@ export function runCityEcoBeam(
 
   const cityResults = selectedCities.map(city => {
     const pool = buildingPoolForCity(country, city, buildings, countryStatus, config.extraBuildingsForCity, config.resourceWeights, config.hqCityId, config.academicHqEveryCity);
-    return beamSearchCity(country, city, scenario, buildings, baselineCountryHourly, config, pool, countryStatus, captureRelHour, config.resourceWeights);
+    const cityHoursToSimulate = config.hoursToSimulateByCity?.[city.id] ?? hoursToSimulate;
+    return beamSearchCity(country, city, scenario, buildings, baselineCountryHourly, config, pool, countryStatus, captureRelHour, config.resourceWeights, cityHoursToSimulate);
   });
 
   return { scenarioAbsHour, cityResults };

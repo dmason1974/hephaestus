@@ -53,14 +53,19 @@
     "smoke:greece:electro": "node --import tsx src/harness/smoke/greece-electronics-city-benefit.ts",
     "smoke:build-order:compare": "node --import tsx src/harness/smoke/build-order-compare.ts",
     "smoke:multipliers": "node --import tsx src/harness/smoke/multipliers.ts",
+    "smoke:db-check": "node --import tsx src/harness/smoke/db-connectivity.ts",
+    "db:tunnel": "bash scripts/db-tunnel.sh",
     "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
+    "pg": "^8.13.3",
     "yaml": "^2.8.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.5.3",
+    "@types/pg": "^8.11.10",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }

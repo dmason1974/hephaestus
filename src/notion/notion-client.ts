@@ -71,3 +71,50 @@ export async function createNotionPage(opts: {
 
   return { id: result.id, url: result.url };
 }
+
+export type ChildPage = {
+  id: string;
+  title: string;
+};
+
+/**
+ * Lists the direct child pages of a page (paginated). Only `child_page`
+ * blocks are returned — other block types under the parent are ignored.
+ * Used to find previous eco-plan report pages by title before overwriting.
+ */
+export async function listChildPages(parentPageId: string): Promise<ChildPage[]> {
+  const pages: ChildPage[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const query = cursor ? `?start_cursor=${encodeURIComponent(cursor)}` : "";
+    const result = (await notionFetch(`/blocks/${parentPageId}/children${query}`, {
+      method: "GET",
+    })) as {
+      results: Array<{ id: string; type: string; child_page?: { title: string } }>;
+      has_more: boolean;
+      next_cursor: string | null;
+    };
+
+    for (const block of result.results) {
+      if (block.type === "child_page" && block.child_page) {
+        pages.push({ id: block.id, title: block.child_page.title });
+      }
+    }
+
+    cursor = result.has_more ? (result.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  return pages;
+}
+
+/**
+ * Archives (soft-deletes) a page — it moves to Trash and is recoverable
+ * there, matching how the Notion UI's own delete works.
+ */
+export async function archivePage(pageId: string): Promise<void> {
+  await notionFetch(`/pages/${pageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ archived: true }),
+  });
+}

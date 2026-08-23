@@ -7,13 +7,20 @@ import {
   type EcoRunSummary,
 } from "../../db/eco-run-reader.js";
 import { buildEcoPlanCountryPage } from "../../notion/eco-plan-blocks.js";
-import { createNotionPage } from "../../notion/notion-client.js";
+import { archivePage, createNotionPage, listChildPages } from "../../notion/notion-client.js";
 
 /**
  * Unit 4 — renders a Unit 1 eco-plan run straight from Postgres into Notion
  * pages, one per country, under a parent page. Pure render + publish: no
  * scenario/country YAML, no engine, no re-simulation — everything comes from
  * the `run` this harness points at.
+ *
+ * Reruns overwrite: before creating a country's page, any existing page(s)
+ * under the parent with that exact title are archived first, so the parent
+ * page reflects the current render rather than accumulating one set of pages
+ * per invocation. Full history already lives in Postgres (`run` is
+ * append-only) — this view only needs to show the current state. Set
+ * ECO_RENDER_CLEAN_ONLY to archive matching pages without creating new ones.
  */
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -23,6 +30,7 @@ const planId = process.env.ECO_RENDER_PLAN;
 const runIdEnv = process.env.ECO_RENDER_RUN;
 const countryFilter = process.env.ECO_RENDER_COUNTRY ?? "all";
 const parentPageId = process.env.NOTION_PARENT_PAGE_ID;
+const cleanOnly = ["1", "true"].includes((process.env.ECO_RENDER_CLEAN_ONLY ?? "").toLowerCase());
 
 if (!parentPageId) {
   throw new Error("NOTION_PARENT_PAGE_ID is not set — the parent page to create country reports under.");
@@ -57,8 +65,16 @@ try {
 
   console.log(
     `Rendering run ${run.id} (scenario ${run.scenarioId}${run.planId ? `, plan ${run.planId}` : ""}) — ` +
-      `${countryIds.length} country(ies) -> Notion parent ${parentPageId}`
+      `${countryIds.length} country(ies) -> Notion parent ${parentPageId}${cleanOnly ? " (clean-only)" : ""}`
   );
+
+  const existingPages = await listChildPages(parentPageId);
+  const existingByTitle = new Map<string, string[]>();
+  for (const p of existingPages) {
+    const ids = existingByTitle.get(p.title) ?? [];
+    ids.push(p.id);
+    existingByTitle.set(p.title, ids);
+  }
 
   for (const countryId of countryIds) {
     const data = await readEcoPlanCountryData(run, countryId);
@@ -68,6 +84,15 @@ try {
     }
 
     const page = buildEcoPlanCountryPage(data);
+
+    const stale = existingByTitle.get(page.title) ?? [];
+    for (const pageId of stale) await archivePage(pageId);
+    if (stale.length > 0) {
+      console.log(`  [${countryId}] archived ${stale.length} existing page(s)`);
+    }
+
+    if (cleanOnly) continue;
+
     const created = await createNotionPage({
       parentPageId,
       title: page.title,

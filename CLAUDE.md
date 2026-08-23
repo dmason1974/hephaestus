@@ -717,6 +717,13 @@ Unit 3 — Resource Projection            ✅ COMPLETE
   Output: per-city flip-truncated eco income, coalition balance sheet (pooled resources),
           hourly cash-flow minima, per-country manpower check
   Question: "Given eco income and force costs, when must each city flip, and can the coalition afford it?"
+
+Unit 4 — Notion Render                  ✅ COMPLETE
+  Input:  a Unit 1 eco-plan Postgres run (src/db/eco-run-reader.ts)
+  Output: one Notion page per country (src/notion/eco-plan-blocks.ts + notion-client.ts),
+          reruns overwrite same-titled pages (archive-then-create); ECO_RENDER_CLEAN_ONLY=1
+          archives without rendering. npm run smoke:eco-plan-notion.
+  Question: "Render what's already in the database as a human-readable page, nothing more."
 ```
 
 ---

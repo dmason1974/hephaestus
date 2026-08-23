@@ -96,7 +96,7 @@ npm run smoke:build-plan:balance            # Build plan resource balance
 npm run smoke:greece:electro                # Greece electronics city benefit
 ```
 
-### Coalition Force Planning (Unit 1 + Unit 1.5 + Unit 2 + Unit 3)
+### Coalition Force Planning (Unit 1 + Unit 1.5 + Unit 2 + Unit 3 + Unit 4)
 
 Current active plan: `data/scenarios/elite/antarctica/plans/pnth-v-iron-2026-aug.yml`
 (pass `ECO_PLAN=pnth-v-iron-2026-aug` / `FP_PLAN=pnth-v-iron-2026-aug` explicitly —
@@ -151,6 +151,20 @@ FP_MAX_RO=3 FP_COUNTRY=indonesia npm run smoke:force-projection
 RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=all npm run smoke:resource-projection   # RP_PLAN is required — no default
 RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=russia npm run smoke:resource-projection   # single country
 # Config: RP_SCENARIO, RP_PLAN (required), RP_COUNTRY, RP_MAX_RO, RP_BEAM_WIDTH, RP_TOP_N, RP_GARRISON_DISBAND_DAY, RP_OUTPUT_FILE
+
+# Unit 4 — Notion Render: pure render function, reads a Unit 1 eco-plan run straight
+# from Postgres and publishes one Notion page per country under NOTION_PARENT_PAGE_ID.
+# No scenario/engine access — every value comes from the chosen `run`. Reruns overwrite:
+# any existing page with a matching title is archived before the new one is created, so
+# the parent page reflects the current render instead of accumulating one set of pages
+# per invocation (full history already lives in Postgres). Set ECO_RENDER_CLEAN_ONLY=1
+# to archive matching pages without rendering — a standalone delete.
+# Needs NOTION_API_KEY + NOTION_PARENT_PAGE_ID in .env (see .env.example).
+npm run smoke:eco-plan-notion                                           # latest finished run, all its countries
+ECO_RENDER_RUN=7 npm run smoke:eco-plan-notion                          # a specific run instead of "latest finished"
+ECO_RENDER_COUNTRY=norway npm run smoke:eco-plan-notion                 # single country, latest finished run
+ECO_RENDER_CLEAN_ONLY=1 ECO_RENDER_COUNTRY=norway npm run smoke:eco-plan-notion   # delete only, no render
+# Config: ECO_RENDER_SCENARIO, ECO_RENDER_PLAN, ECO_RENDER_RUN, ECO_RENDER_COUNTRY, ECO_RENDER_CLEAN_ONLY
 ```
 
 ### Iron Pipeline (hand-specified, deterministic bypass)

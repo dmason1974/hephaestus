@@ -4,7 +4,7 @@ import test from "node:test";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
-import { runCityEcoBeam, resimulateHourlyProductionWithExtraActions } from "./city-eco-beam.js";
+import { runCityEcoBeam, resimulateHourlyProductionWithExtraActions, evaluateEcoActionSequence, type EcoCandidateBuildingId } from "./city-eco-beam.js";
 
 const scenarioId = "elite/antarctica";
 
@@ -109,6 +109,96 @@ test("runCityEcoBeam still builds annex_city unconstrained for an occupied count
       `${city.cityId} should still build annex_city when resourceWeights is entirely absent`,
     );
   }
+});
+
+test("runCityEcoBeam bounded to a short horizon (hoursToSimulateByCity) finds a genuinely better sequence for that budget than replaying the unbounded-horizon winner's own prefix — proves the beam re-optimizes for the real budget rather than truncating an already-found longer answer", () => {
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const country = loadScenarioCountry(scenarioId, "italy");
+  const city = country.cities.find(c => c.id === "rome")!;
+  const shortHorizon = 80;
+
+  const long = runCityEcoBeam(
+    country, scenario, buildings,
+    { hoursToSimulate: 600, beamWidth: 20, topN: 5, unconstrained: true },
+    "homeland", "rome", undefined,
+  );
+  const longResult = long.cityResults[0];
+  assert.ok(longResult);
+
+  const short = runCityEcoBeam(
+    country, scenario, buildings,
+    { hoursToSimulate: shortHorizon, beamWidth: 20, topN: 5, unconstrained: true },
+    "homeland", "rome", undefined,
+  );
+  const shortResult = short.cityResults[0];
+  assert.ok(shortResult);
+  const shortScore = shortResult.endingBalances[city.resource as keyof typeof shortResult.endingBalances];
+  assert.equal(shortResult.hourlyCityProduction.length, shortHorizon, "the bounded run's production array should span exactly its own horizon, not the unbounded one");
+
+  // What score would the long run's own winning sequence produce if simply replayed
+  // and cut off at the short horizon — the "truncate an already-found longer
+  // answer" approach this feature deliberately avoids?
+  const truncatedTokens = longResult.bestActions
+    .filter(a => (a.startHour ?? 0) < shortHorizon)
+    .map(a => ({ buildingId: a.buildingId as EcoCandidateBuildingId, targetLevel: a.targetLevel }));
+  const truncatedEval = evaluateEcoActionSequence(country, city, scenario, buildings, shortHorizon, "homeland", truncatedTokens, undefined);
+  const truncatedScore = truncatedEval.endingBalances[city.resource as keyof typeof truncatedEval.endingBalances];
+
+  assert.ok(
+    shortScore > truncatedScore,
+    `a beam genuinely bounded to the short horizon (${shortScore}) should outperform truncating the unbounded-horizon winner's own prefix (${truncatedScore}) — real fixture: Rome builds just arms_industry L1 when bounded, vs. the unbounded winner's prefix which also queues naval_base L2, a build that doesn't complete in time to pay off within 80h`,
+  );
+});
+
+test("runActualEcoBuild-style config: hoursToSimulateByCity lets different cities in the same run simulate different horizons, with a city absent from the map falling back to the flat hoursToSimulate", () => {
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const country = loadScenarioCountry(scenarioId, "italy");
+
+  const result = runCityEcoBeam(
+    country, scenario, buildings,
+    { hoursToSimulate: 400, hoursToSimulateByCity: { rome: 80 }, beamWidth: 10, topN: 3, unconstrained: true },
+    "homeland", undefined, undefined,
+  );
+
+  const rome = result.cityResults.find(r => r.cityId === "italy:rome");
+  const milan = result.cityResults.find(r => r.cityId === "italy:milan");
+  assert.ok(rome && milan);
+  assert.equal(rome.hourlyCityProduction.length, 80, "rome is listed in hoursToSimulateByCity and should be bounded to it");
+  assert.equal(milan.hourlyCityProduction.length, 400, "milan is absent from hoursToSimulateByCity and should fall back to the flat hoursToSimulate");
+  assert.ok(rome.lastEcoBuildCompletionAbsHour - result.scenarioAbsHour <= 80, "rome's own build sequence should never schedule anything past its bounded horizon");
+});
+
+test("scoreNativeResourceOnly changes which sequence wins (ranking) without changing the candidate pool (gating) — resourceWeights still forces recruiting_office first either way", () => {
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const country = loadScenarioCountry(scenarioId, "italy");
+  const weights = { supplies: 1, cash: 1 };
+
+  const weighted = runCityEcoBeam(
+    country, scenario, buildings,
+    { hoursToSimulate: 200, beamWidth: 20, topN: 5, unconstrained: true, resourceWeights: weights, scoreNativeResourceOnly: false },
+    "homeland", "rome", undefined,
+  );
+  const native = runCityEcoBeam(
+    country, scenario, buildings,
+    { hoursToSimulate: 200, beamWidth: 20, topN: 5, unconstrained: true, resourceWeights: weights, scoreNativeResourceOnly: true },
+    "homeland", "rome", undefined,
+  );
+
+  const weightedActions = weighted.cityResults[0].bestActions.map(a => `${a.buildingId}L${a.targetLevel}`);
+  const nativeActions = native.cityResults[0].bestActions.map(a => `${a.buildingId}L${a.targetLevel}`);
+
+  // Both still respect the RO-forcing/gating driven by resourceWeights (unaffected
+  // by scoreNativeResourceOnly) — real fixture: weighted scoring stops after one
+  // arms_industry level (cash cost outweighs the weighted benefit sooner), while
+  // native-resource-only scoring keeps climbing arms_industry all the way, since it
+  // ignores the cash cost entirely.
+  assert.equal(weightedActions[0], "recruiting_officeL1");
+  assert.equal(nativeActions[0], "recruiting_officeL1");
+  assert.notDeepEqual(weightedActions, nativeActions, "the two scoring modes should pick different winning sequences for the same pool/config");
+  assert.ok(nativeActions.length > weightedActions.length, "native-resource-only scoring should climb further since it's blind to the cash cost the weighted score penalises");
 });
 
 test("resimulateHourlyProductionWithExtraActions credits an extra recruiting_office level-up's manpower bonus starting at its own completion hour", () => {

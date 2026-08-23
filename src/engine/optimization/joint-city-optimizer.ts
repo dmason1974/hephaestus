@@ -91,6 +91,7 @@ export function accumulateDemandResourceTotals(
   doctrine: string,
   truceDays: number,
   into: Partial<Record<Resource, number>> = {},
+  excludeResources: readonly Resource[] = [],
 ): Partial<Record<Resource, number>> {
   const avgUpkeepHours = (truceDays * 24) / 2;
 
@@ -100,7 +101,7 @@ export function accumulateDemandResourceTotals(
       calculateUpkeepCost(unitId, 1, effectiveCount, avgUpkeepHours, catalog, doctrine),
     ]) {
       for (const [r, v] of Object.entries(cost) as [Resource, number][]) {
-        if (v > 0) into[r] = (into[r] ?? 0) + v;
+        if (v > 0 && !excludeResources.includes(r)) into[r] = (into[r] ?? 0) + v;
       }
     }
   }
@@ -151,31 +152,13 @@ export function computePlanWeights(
  * unconditional.
  */
 /**
- * Boost-only correction: for every resource with a genuine coalition-wide net
- * deficit, moves that resource's weight toward 1.0 proportional to how severe the
- * deficit is (relative to gross available — income + starting balance); resources
- * that are fine (net >= 0) are left completely untouched. Never reduces any
- * weight, so it can never cause the collateral starvation a bidirectional damping
- * multiplier can (a single city's investment can only ever become MORE attractive
- * here, never less) — the deficit signal comes from a REAL, already-simulated
- * coalition balance (computed after a first eco-beam pass), not a pre-estimate.
+ * Resources excluded from the coalition weight formula: no city produces either
+ * natively (cash only ever appears as a flat per-level building bonus; manpower is
+ * a per-country, non-pooled resource — see PER_COUNTRY_RESOURCES), so including them
+ * lets their typically-much-larger cost magnitude crowd out the material-resource
+ * signal the formula exists to measure.
  */
-export function boostWeightsFromDeficit(
-  weights: PlanWeights,
-  netPooledBalance: Partial<Record<Resource, number>>,
-  grossAvailable: Partial<Record<Resource, number>>,
-): PlanWeights {
-  const boosted: PlanWeights = { ...weights };
-  for (const r of Object.keys(netPooledBalance) as Resource[]) {
-    const net = netPooledBalance[r] ?? 0;
-    if (net >= 0) continue;
-    const gross = grossAvailable[r] ?? 0;
-    const deficitRatio = gross > 0 ? Math.min(1, -net / gross) : 1;
-    const current = boosted[r] ?? 0;
-    boosted[r] = current + deficitRatio * (1 - current);
-  }
-  return boosted;
-}
+export const WEIGHT_FORMULA_EXCLUDED_RESOURCES: readonly Resource[] = ["cash", "manpower"];
 
 export function computeCoalitionPlanWeights(
   countryDemands: Array<{ demands: Array<{ unitId: string; effectiveCount: number }>; doctrine: string }>,
@@ -184,13 +167,53 @@ export function computeCoalitionPlanWeights(
 ): PlanWeights {
   const total: Partial<Record<Resource, number>> = {};
   for (const { demands, doctrine } of countryDemands) {
-    accumulateDemandResourceTotals(demands, catalog, doctrine, truceDays, total);
+    accumulateDemandResourceTotals(demands, catalog, doctrine, truceDays, total, WEIGHT_FORMULA_EXCLUDED_RESOURCES);
   }
 
   const maxVal = Math.max(...(Object.values(total).filter(Boolean) as number[]), 1);
   const weights: PlanWeights = {};
   for (const [r, v] of Object.entries(total) as [Resource, number][]) {
     if (v > 0) weights[r as Resource] = v / maxVal;
+  }
+  return weights;
+}
+
+/**
+ * Derives candidate-pool gate weights from real cost/income utilization parity:
+ * weight[r] = utilization[r] / max(utilization across all measured resources),
+ * where utilization[r] = pooledCost[r] / pooledEcoIncome[r] (a rate-vs-rate
+ * comparison — deliberately NOT pooledCost / grossAvailable, since mixing a
+ * one-time starting-balance stock into a rate comparison could mask a resource
+ * whose ongoing production is genuinely weak just because it started with a large
+ * stockpile).
+ *
+ * Unlike the boost-only correction this replaces, this is BIDIRECTIONAL: a
+ * resource whose income improves round-over-round loses gate weight relative to
+ * others, it isn't just nudged toward 1.0 and left there. cash/manpower are never
+ * included (WEIGHT_FORMULA_EXCLUDED_RESOURCES) — no city's native resource is ever
+ * cash or manpower, so gating on them could never affect buildingPoolForCity's
+ * WEIGHT_THRESHOLD check anyway, and their cost:income ratios aren't comparable to
+ * material-resource ratios in the first place (cash is a flat per-level building
+ * bonus, not tied to any city's own production; manpower is per-country, not pooled).
+ */
+export function computeParityGateWeights(
+  pooledCost: Partial<Record<Resource, number>>,
+  pooledEcoIncome: Partial<Record<Resource, number>>,
+  resources: readonly Resource[] = (Object.keys({ ...pooledCost, ...pooledEcoIncome }) as Resource[])
+    .filter(r => !WEIGHT_FORMULA_EXCLUDED_RESOURCES.includes(r)),
+): PlanWeights {
+  const utilization: Partial<Record<Resource, number>> = {};
+  for (const r of resources) {
+    const cost = pooledCost[r] ?? 0;
+    const income = pooledEcoIncome[r] ?? 0;
+    utilization[r] = income > 0 ? cost / income : cost > 0 ? Infinity : 0;
+  }
+  const finiteVals = Object.values(utilization).filter(v => Number.isFinite(v) && v! > 0) as number[];
+  const maxUtil = Math.max(...finiteVals, 1);
+  const weights: PlanWeights = {};
+  for (const r of resources) {
+    const u = utilization[r] ?? 0;
+    weights[r] = Number.isFinite(u) ? Math.min(1, u / maxUtil) : 1;
   }
   return weights;
 }

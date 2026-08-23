@@ -157,3 +157,70 @@ test("computeCoalitionResourceBalance: resourceMinima finds a mid-window dip bel
   assert.equal(suppliesMin.hour, 1);
   assert.equal(suppliesMin.value, 20);
 });
+
+// ── Province-mobilised upkeep in the hourly walk (regression: F1) ────────────
+
+const provinceCatalog = {
+  units: {
+    commando: { levels: { "1": { daily_upkeep: { western: { cost: { supplies: 24, cash: 48 } } } } } },
+  },
+} as unknown as UnitCatalog;
+
+function commandoForceProjection(): CountryForceProjectionResult {
+  return emptyForceProjection({
+    provinceMobResults: [
+      {
+        unitId: "commando",
+        mercenaryOutpostBuildCost: {},
+        tranches: [{ level: 1, count: 2, completionHour: 0, mobilizationCost: {} }],
+      },
+    ] as unknown as CountryForceProjectionResult["provinceMobResults"],
+  });
+}
+
+test("computeCountryResourceBalance: province tranche upkeep is charged to every hour of the walk", () => {
+  const result = computeCountryResourceBalance({
+    countryId: "testland",
+    countryName: "Testland",
+    doctrine: "western",
+    catalog: provinceCatalog,
+    scenarioAbsHour: 0,
+    hoursToSimulate: 4,
+    cityResults: [],
+    forceProjection: commandoForceProjection(),
+    ecoBuildCost: {},
+    garrisonUpkeep: { hours: 0, totalUpkeep: {}, units: [] },
+    startingBalance: {},
+  });
+
+  // 24 supplies/day * 2 units / 24h = 2 supplies/h; 48 cash/day * 2 / 24 = 4 cash/h.
+  assert.deepEqual(result.hourlyNetFlow.map(h => h.supplies), [-2, -2, -2, -2]);
+  assert.deepEqual(result.hourlyNetFlow.map(h => h.cash), [-4, -4, -4, -4]);
+});
+
+test("computeCountryResourceBalance: an own-doctrine catalog gap surfaces instead of booking zero upkeep", () => {
+  // commando has european upkeep data only; the country's own doctrine is western.
+  // That is material — silently contributing zero would understate the insolvency
+  // floor — so it must throw rather than be swallowed.
+  const wrongDoctrine = {
+    units: {
+      commando: { levels: { "1": { daily_upkeep: { european: { cost: { supplies: 24 } } } } } },
+    },
+  } as unknown as UnitCatalog;
+
+  assert.throws(() =>
+    computeCountryResourceBalance({
+      countryId: "testland",
+      countryName: "Testland",
+      doctrine: "western",
+      catalog: wrongDoctrine,
+      scenarioAbsHour: 0,
+      hoursToSimulate: 4,
+      cityResults: [],
+      forceProjection: commandoForceProjection(),
+      ecoBuildCost: {},
+      garrisonUpkeep: { hours: 0, totalUpkeep: {}, units: [] },
+      startingBalance: {},
+    }),
+  /no daily_upkeep data for doctrine "western"/);
+});

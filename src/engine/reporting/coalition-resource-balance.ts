@@ -8,7 +8,7 @@ import {
   getLevelSteps,
   type CountryForceProjectionResult,
 } from "../optimization/country-force-projection.js";
-import { calculateMobilizationCost } from "../optimization/cost-calculator.js";
+import { calculateDailyUpkeep, calculateMobilizationCost } from "../optimization/cost-calculator.js";
 import type { ResourceCost } from "../optimization/types.js";
 import type { GarrisonUpkeepResult } from "../optimization/garrison-upkeep.js";
 
@@ -133,6 +133,16 @@ export function computeCountryResourceBalance(input: CountryResourceBalanceInput
     }
   }
 
+  // Catalog lookups in this walk are deliberately unguarded. `doctrine` is the
+  // country's own doctrine, so a unit missing some OTHER doctrine's data (legal
+  // — partial doctrine coverage is expected in this catalog) is never looked up
+  // here and cannot fail. The only reachable failure is this country's own
+  // doctrine missing data for a unit it is actually fielding, which is material:
+  // swallowing it books that unit's cost as zero and reports an optimistic
+  // insolvency floor. It also cannot reach here — planProvinceMobilization and
+  // country-force-projection's totals both make the same lookup unguarded, and
+  // both run first — so anything thrown here is a real defect and must surface.
+
   // Mobilisation costs: a batch of N units is N separate per-unit payments,
   // each deducted as that unit starts mobilising — not one lump sum for the
   // whole batch at batch start. Upkeep reuses computeSteppedUpkeep (the same
@@ -149,12 +159,7 @@ export function computeCountryResourceBalance(input: CountryResourceBalanceInput
       if (entry.count <= 0) continue;
       const perUnitHours = (entry.endAbsHour - entry.startAbsHour) / entry.count;
 
-      let perUnitCost: ResourceCost = {};
-      try {
-        perUnitCost = calculateMobilizationCost(entry.unitId, 1, 1, catalog, doctrine);
-      } catch {
-        // missing doctrine/level data — skip
-      }
+      const perUnitCost: ResourceCost = calculateMobilizationCost(entry.unitId, 1, 1, catalog, doctrine);
 
       for (let i = 0; i < entry.count; i++) {
         const unitStartAbsHour = entry.startAbsHour + i * perUnitHours;
@@ -168,22 +173,17 @@ export function computeCountryResourceBalance(input: CountryResourceBalanceInput
       const startRelHour = clampIndex(entry.startAbsHour - scenarioAbsHour, hoursToSimulate);
       let prevCumulative: ResourceCost = {};
       for (let h = startRelHour; h < hoursToSimulate; h++) {
-        let cumulative: ResourceCost = {};
-        try {
-          cumulative = computeSteppedUpkeep(
-            entry.unitId,
-            doctrine,
-            entry.startAbsHour,
-            entry.count,
-            1,
-            perUnitHours,
-            scenarioAbsHour + h + 1,
-            levelSteps,
-            catalog
-          );
-        } catch {
-          // missing doctrine/level data — skip
-        }
+        const cumulative: ResourceCost = computeSteppedUpkeep(
+          entry.unitId,
+          doctrine,
+          entry.startAbsHour,
+          entry.count,
+          1,
+          perUnitHours,
+          scenarioAbsHour + h + 1,
+          levelSteps,
+          catalog
+        );
         for (const [r, amount] of Object.entries(cumulative)) {
           const delta = (amount ?? 0) - (prevCumulative[r as Resource] ?? 0);
           if (delta) hourlyNetFlow[h][r as Resource] -= delta;
@@ -209,12 +209,7 @@ export function computeCountryResourceBalance(input: CountryResourceBalanceInput
       for (const [r, amount] of Object.entries(tranche.mobilizationCost)) {
         if (amount) hourlyNetFlow[idx][r as Resource] -= amount;
       }
-      let dailyUpkeep: ResourceCost = {};
-      try {
-        dailyUpkeep = calculateDailyUpkeep(result.unitId, tranche.level, catalog, doctrine);
-      } catch {
-        // missing doctrine/level data — skip
-      }
+      const dailyUpkeep: ResourceCost = calculateDailyUpkeep(result.unitId, tranche.level, catalog, doctrine);
       const hourlyUpkeep = scaleResources(dailyUpkeep, tranche.count / 24);
       const startH = clampIndex(tranche.completionHour, hoursToSimulate);
       for (let h = startH; h < hoursToSimulate; h++) {

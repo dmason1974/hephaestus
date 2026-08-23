@@ -57,7 +57,8 @@
     "db:tunnel": "bash scripts/db-tunnel.sh",
     "db:create": "node --import tsx src/db/create-database.ts",
     "db:migrate": "node --import tsx src/db/migrate.ts",
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

@@ -17,6 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import type { Resource } from "../../core/constants.js";
 import { scenarioStartAbsoluteHour, toAbsoluteHour } from "../../core/time.js";
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioCoalitionPlan } from "../../scenarios/io/load-coalition-plan.js";

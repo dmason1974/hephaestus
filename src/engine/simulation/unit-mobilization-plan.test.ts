@@ -7,32 +7,14 @@ import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { loadUnitCatalog } from "../../scenarios/io/load-unit-catalog.js";
 import { planMobilizationBuild } from "./unit-mobilization-plan.js";
 
-function loadMergedUnitCatalog() {
-  const navalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/naval_units.yml"));
-  const fighterCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
-  const infantryCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/infantry_units.yml"));
-  const officerCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/officer_units.yml"));
-  const seasonalCatalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/seasonal_units.yml"));
-
-  return {
-    ...navalCatalog,
-    units: {
-      ...navalCatalog.units,
-      ...fighterCatalog.units,
-      ...infantryCatalog.units,
-      ...officerCatalog.units,
-      ...seasonalCatalog.units,
-    },
-  };
-}
-
 function loadEliteFighterCatalog() {
   return loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 }
 
 test("mobilization planner can force a higher recruiting office level than the unit minimum", () => {
   const result = planMobilizationBuild({
-    catalog: loadMergedUnitCatalog(),
+    // Only air_superiority_fighter is exercised here — the elite fighter catalog covers it.
+    catalog: loadEliteFighterCatalog(),
     buildings: loadBuildingsFile(),
     scenario: loadScenarioFile("elite/ww3"),
     demands: [

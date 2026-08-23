@@ -6,7 +6,7 @@ import { loadUnitCatalog } from "../../scenarios/io/load-unit-catalog.js";
 import { simulateUnitResearchQueue, simulateUnitResearchTargets } from "./unit-research-sim.js";
 
 test("unit research queue schedules chained levels on the earliest free slot", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -38,8 +38,8 @@ test("unit research queue schedules chained levels on the earliest free slot", (
         level: 2,
         slot: 2,
         startAbsoluteHour: 48,
-        endAbsoluteHourExclusive: 49,
-        durationHours: 1,
+        endAbsoluteHourExclusive: 67,
+        durationHours: 19,
       },
     ]
   );
@@ -49,7 +49,7 @@ test("unit research queue schedules chained levels on the earliest free slot", (
 
 test("unit research queue respects unlock day when it is later than scenario start", () => {
   // special_forces has unlock_day 4 — must not start before day 4 hour 0 (absoluteHour 72)
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/infantry_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/infantry_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -168,7 +168,7 @@ test("unit research targets waits for prerequisite unit completion before schedu
 });
 
 test("unit research queue treats unlock days through the scenario offset as available at start", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -184,7 +184,7 @@ test("unit research queue treats unlock days through the scenario offset as avai
 });
 
 test("unit research queue shifts later unlock days forward by the scenario offset", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/infantry_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/infantry_units.yml"));
 
   const result = simulateUnitResearchQueue(
     catalog,
@@ -196,12 +196,12 @@ test("unit research queue shifts later unlock days forward by the scenario offse
   );
 
   assert.equal(result.segments[4]?.level, 5);
-  assert.equal(result.segments[4]?.startAbsoluteHour, 312);
+  assert.equal(result.segments[4]?.startAbsoluteHour, 456);
 });
 
 test("determineMaximumFeasibleLevel finds max level achievable before deadline", async () => {
   const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 
   // Scenario: 28 day truce, starting day 1
   const scenario = {
@@ -226,7 +226,7 @@ test("determineMaximumFeasibleLevel finds max level achievable before deadline",
 
 test("determineMaximumFeasibleLevel respects unlock day constraints", async () => {
   const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/infantry_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/infantry_units.yml"));
 
   // Scenario: only 5 days available
   const scenario = {
@@ -250,7 +250,7 @@ test("determineMaximumFeasibleLevel respects unlock day constraints", async () =
 
 test("determineMaximumFeasibleLevel handles mobilization start constraint", async () => {
   const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 
   const scenario = {
     start: { day: 1, hour: 0 },
@@ -279,7 +279,7 @@ test("determineMaximumFeasibleLevel handles mobilization start constraint", asyn
 
 test("determineMaximumFeasibleLevel returns infeasible when no time available", async () => {
   const { determineMaximumFeasibleLevel } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 
   const scenario = {
     start: { day: 1, hour: 0 },
@@ -303,7 +303,7 @@ test("determineMaximumFeasibleLevel returns infeasible when no time available", 
 
 test("simulateUnitResearchTargets with JIT scheduling ensures level 1 before mobilization", async () => {
   const { simulateUnitResearchTargets } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 
   const scenario = {
     start: { day: 1, hour: 0 },
@@ -353,7 +353,7 @@ test("simulateUnitResearchTargets with JIT scheduling ensures level 1 before mob
 
 test("simulateUnitResearchTargets with JIT disabled uses standard scheduling", async () => {
   const { simulateUnitResearchTargets } = await import("./unit-research-sim.js");
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
 
   const scenario = {
     start: { day: 1, hour: 0 },
@@ -381,7 +381,7 @@ test("simulateUnitResearchTargets with JIT disabled uses standard scheduling", a
 });
 
 test("simulateUnitResearchTargets bufferHours reserves idle slot time before every level 2+ task", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
   const scenario = { start: { day: 1, hour: 0 }, truce_length_days: 60 };
 
   const result = simulateUnitResearchTargets(
@@ -411,7 +411,7 @@ test("simulateUnitResearchTargets bufferHours reserves idle slot time before eve
 });
 
 test("simulateUnitResearchTargets with bufferHours omitted preserves zero-margin packing", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
   const scenario = { start: { day: 1, hour: 0 }, truce_length_days: 60 };
 
   const result = simulateUnitResearchTargets(
@@ -440,7 +440,7 @@ test("simulateUnitResearchTargets with bufferHours omitted preserves zero-margin
 });
 
 test("simulateUnitResearchTargets bufferHours never affects level 1 placement", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
   const scenario = { start: { day: 1, hour: 0 }, truce_length_days: 60 };
   const opts = { slots: 2, enableJitScheduling: true, mobilizationStartHour: 1400 };
 
@@ -451,7 +451,7 @@ test("simulateUnitResearchTargets bufferHours never affects level 1 placement", 
 });
 
 test("simulateUnitResearchTargets noBufferTaskIds exempts specific level 2+ tasks from the buffer", () => {
-  const catalog = loadUnitCatalog(path.resolve("data/scenarios/standard/units/fighter_units.yml"));
+  const catalog = loadUnitCatalog(path.resolve("data/scenarios/elite/units/fighter_units.yml"));
   const scenario = { start: { day: 1, hour: 0 }, truce_length_days: 60 };
   const targets = { air_superiority_fighter: 4, stealth_air_superiority_fighter: 1 };
 

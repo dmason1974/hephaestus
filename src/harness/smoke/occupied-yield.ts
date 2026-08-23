@@ -20,7 +20,7 @@ import {
   type BuildSegmentsByCity,
   type TimelineCityState,
 } from "../../engine/orchestration/build-order-timeline.js";
-import { buildProvinceCohortsFromCountry, type ProvinceCohort } from "../../engine/provinces/province-cohorts.js";
+import { buildProvinceCohortsFromCountry, type ProvinceCohort, type ProvinceTiles } from "../../engine/provinces/province-cohorts.js";
 import { simulateBuildOrder, type CityState } from "../../engine/simulation/build-order-sim.js";
 import {
   simulateProvinceBuildOrder,
@@ -60,6 +60,10 @@ export type OccupiedYieldArgs = {
   captureRelHour: number;
   hoursToSimulate: number;
   truceDays: number;
+  // Which of this occupied country's provinces carry each resource tile, for
+  // THIS game — see countries.<id>.province_tiles in the plan schema. Absent ⇒
+  // every province treated as non-resource-producing.
+  provinceTiles?: ProvinceTiles;
   // Capital cities lose their starting air_base on the garrison-disband day (see
   // iron-bp-plan.ts's IRON_AIRPORT_DESTROY_DAY convention) — passed through
   // unchanged to simulateBuildOrder. Keyed by prefixed cityId ("countryId:cityId").
@@ -200,7 +204,7 @@ export function computeOccupiedYield(args: OccupiedYieldArgs): OccupiedYieldResu
   }
 
   // ── Province income + build cost — count-adjusted per cohortCountOverride ──
-  const fullProvinceCohorts = buildProvinceCohortsFromCountry(country);
+  const fullProvinceCohorts = buildProvinceCohortsFromCountry(country, args.provinceTiles);
   const provinceCohorts: ProvinceCohort[] = fullProvinceCohorts.map(cohort => {
     const count = cohortCountOverride(cohort.cohortId, cohort.totalProvinceCount);
     return { ...cohort, totalProvinceCount: count, resourceProvinceCount: cohort.resource ? count : 0 };

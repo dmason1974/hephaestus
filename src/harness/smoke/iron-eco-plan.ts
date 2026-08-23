@@ -28,6 +28,7 @@ import {
   type ProvinceBuildAction,
 } from "../../engine/simulation/province-build-order-sim.js";
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
+import { loadScenarioCoalitionPlan } from "../../scenarios/io/load-coalition-plan.js";
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
 import { scenarioTruceLengthDays } from "../../schemas/scenario-schema.js";
@@ -44,6 +45,7 @@ function fmt(n: number): string {
 }
 
 const scenarioId = process.env.IRON_SCENARIO ?? "elite/antarctica";
+const planId = process.env.IRON_PLAN ?? "pnth-v-iron-2026-aug";
 const outputDir = process.env.IRON_OUTPUT_DIR ?? "pnth-v-iron-aug26";
 const countryId = process.env.IRON_COUNTRY;
 if (!countryId) {
@@ -188,7 +190,8 @@ html += `<table>${seqRows.join("")}</table>`;
 // every other cohort (components, fuel, rares, non-resource) shown with no build
 // investment, base production only (see iron-heuristic.ts for the rationale).
 
-const provinceCohorts = buildProvinceCohortsFromCountry(country);
+const plan = loadScenarioCoalitionPlan(scenarioId, planId);
+const provinceCohorts = buildProvinceCohortsFromCountry(country, plan.countries[countryId]?.province_tiles);
 
 function provinceSequenceLabel(resource: string | undefined): string {
   const steps = (resource && PROVINCE_BUILD_ORDER[resource]) ?? [];

@@ -83,6 +83,7 @@ const {
   captureRelHour,
   hoursToSimulate,
   truceDays: plan.truce_days,
+  provinceTiles: countryPlan?.province_tiles,
   forcedAirBaseDestructionAbsHour,
   cityIdFilter: bareCityId => !countryPlan?.city_credits?.[bareCityId],
   cohortCountOverride: (cohortId, fullCount) => {

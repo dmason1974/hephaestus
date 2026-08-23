@@ -3,26 +3,21 @@ import assert from "node:assert/strict";
 
 import { buildProvinceCohortsFromCountry } from "./province-cohorts.js";
 
-test("buildProvinceCohortsFromCountry derives resource and non-resource cohorts", () => {
-  const country = {
-    version: 1,
-    country: {
-      id: "testland",
-      name: "Testland",
-      doctrine: "western",
-    },
-    cities: [],
-    provinces: {
-      total: 10,
-      supplies: 2,
-      components: 1,
-      fuel: 0,
-      rares: 0,
-      electronics: 0,
-    },
-  } as const;
+const country = {
+  version: 1,
+  country: {
+    id: "testland",
+    name: "Testland",
+    doctrine: "western",
+  },
+  cities: [],
+  provinces: {
+    total: 10,
+  },
+} as const;
 
-  const cohorts = buildProvinceCohortsFromCountry(country);
+test("buildProvinceCohortsFromCountry derives resource and non-resource cohorts from game-specific tiles", () => {
+  const cohorts = buildProvinceCohortsFromCountry(country, { supplies: 2, components: 1 });
 
   assert.deepEqual(
     cohorts.map(cohort => ({
@@ -51,5 +46,24 @@ test("buildProvinceCohortsFromCountry derives resource and non-resource cohorts"
         totalProvinceCount: 7,
       },
     ]
+  );
+});
+
+test("buildProvinceCohortsFromCountry treats every province as non-resource when tiles are omitted", () => {
+  // Tile distribution is a per-game observation (coalition plan), not a country
+  // property. Without it, nothing is known to produce a resource — this is the
+  // "default" ranking, before a playthrough's tiles have been observed.
+  const cohorts = buildProvinceCohortsFromCountry(country);
+
+  assert.deepEqual(
+    cohorts.map(cohort => ({ id: cohort.cohortId, resource: cohort.resource, totalProvinceCount: cohort.totalProvinceCount })),
+    [{ id: "testland:non_resource_provinces", resource: null, totalProvinceCount: 10 }]
+  );
+});
+
+test("buildProvinceCohortsFromCountry rejects tiles that sum past the province total", () => {
+  assert.throws(
+    () => buildProvinceCohortsFromCountry(country, { supplies: 8, components: 5 }),
+    /province_tiles sum to 13 but the country only has 10 provinces/
   );
 });

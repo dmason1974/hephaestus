@@ -20,7 +20,7 @@ import {
   type ProvinceResourceInputs,
 } from "../economy/province-production.js";
 import { buildingMoraleBonusN, getEconomicBuildingEffectsForLevels } from "../economy/building-modifiers.js";
-import { buildProvinceCohortsFromCountry } from "../provinces/province-cohorts.js";
+import { buildProvinceCohortsFromCountry, type ProvinceTiles } from "../provinces/province-cohorts.js";
 
 export type CountryHourlyBalanceRow = {
   hour: number;
@@ -55,6 +55,12 @@ type CountryResourceBalanceOptions = {
     | "hiddenMultiplierOverride"
     | "localIndustryLevel"
   >;
+  // Which of the country's provinces carry each resource tile, for THIS game.
+  // Randomised per playthrough, so it comes from a coalition plan
+  // (countries.<id>.province_tiles), never from the country YAML. Omitted ⇒
+  // every province treated as non-resource-producing (see
+  // buildProvinceCohortsFromCountry).
+  provinceTiles?: ProvinceTiles;
 };
 
 function buildZeroBalances(resources: readonly Resource[]) {
@@ -124,7 +130,7 @@ export function buildCountryHourlyResourceBalanceTable(
       "cash" as Resource,
       "manpower" as Resource,
       ...country.cities.map(city => city.resource as Resource),
-      ...buildProvinceCohortsFromCountry(country)
+      ...buildProvinceCohortsFromCountry(country, opts.provinceTiles)
         .flatMap(cohort => cohort.resource ? [cohort.resource] : []),
       ...Object.keys(opts.startingBalances ?? {}).map(resource => resource as Resource),
     ])
@@ -162,7 +168,7 @@ export function buildCountryHourlyResourceBalanceTable(
     }
   }
 
-  for (const cohort of buildProvinceCohortsFromCountry(country)) {
+  for (const cohort of buildProvinceCohortsFromCountry(country, opts.provinceTiles)) {
     for (const resource of [cohort.resource, "cash", "manpower"] as const) {
       if (!resource) continue;
 

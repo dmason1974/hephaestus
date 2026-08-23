@@ -34,6 +34,11 @@ countries:
   # New Delhi: electronics pop6, air_base 1
   india:
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      components: 1
+      electronics: 1
     demands:
       - unitId: stealth_air_superiority_fighter
         count: 50
@@ -46,6 +51,12 @@ countries:
   # commando mobilises from provinces (not city slots); mercenary_outpost required in city build chain
   russia:
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      components: 1
+      fuel: 1
+      rares: 1
     demands:
       - unitId: theatre_defense_system
         count: 40
@@ -60,6 +71,12 @@ countries:
   italy:
     # Rome: supplies pop6, air_base 1
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      components: 1
+      fuel: 1
+      electronics: 1
     demands:
       - unitId: mobile_anti_air_vehicle
         count: 100
@@ -67,6 +84,10 @@ countries:
   south_africa:
     # Cape Town: rares pop6, air_base 1 (no naval base)
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      rares: 1
+      electronics: 1
     demands:
       - unitId: mobile_anti_air_vehicle
         count: 100
@@ -74,6 +95,10 @@ countries:
   new_zealand:
     # Wellington: supplies pop6, air_base 1
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      electronics: 1
     demands:
       - unitId: mobile_anti_air_vehicle
         count: 100
@@ -83,6 +108,11 @@ countries:
   japan:
     # Tokyo: supplies pop6, air_base 1 (no naval base)
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      fuel: 1
+      rares: 1
+      electronics: 1
     demands:
       - unitId: multiple_rocket_launcher
         count: 72
@@ -94,6 +124,10 @@ countries:
   pakistan:
     # Islamabad: fuel pop6, air_base 1
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      electronics: 1
     demands:
       - unitId: multiple_rocket_launcher
         count: 72
@@ -105,6 +139,12 @@ countries:
   australia:
     # Canberra: supplies pop6, air_base 1
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      fuel: 1
+      rares: 1
+      electronics: 1
     demands:
       - unitId: multiple_rocket_launcher
         count: 72
@@ -118,6 +158,10 @@ countries:
   # Oslo: fuel pop6, air_base 1
   norway:
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      fuel: 1
+      electronics: 1
     demands:
       - unitId: mechanized_infantry
         count: 40
@@ -129,11 +173,21 @@ countries:
   united_kingdom:
     # London: supplies pop6, air_base 1 — captured player country
     status: occupied
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      components: 1
+      fuel: 1
+      rares: 1
+      electronics: 1
     demands: []
 
   iran:
     # Tehran: components pop5 — captured AI nation (single city)
     status: occupied
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      fuel: 1
     demands: []
 
   madagascar:

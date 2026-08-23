@@ -55,6 +55,8 @@
     "smoke:multipliers": "node --import tsx src/harness/smoke/multipliers.ts",
     "smoke:db-check": "node --import tsx src/harness/smoke/db-connectivity.ts",
     "db:tunnel": "bash scripts/db-tunnel.sh",
+    "db:create": "node --import tsx src/db/create-database.ts",
+    "db:migrate": "node --import tsx src/db/migrate.ts",
     "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {

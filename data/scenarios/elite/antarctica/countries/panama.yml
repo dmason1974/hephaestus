@@ -15,3 +15,6 @@ cities:
       air_base: 0
       naval_base: 0
       underground_bunkers: 0
+
+provinces:
+  total: 9

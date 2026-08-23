@@ -51,6 +51,26 @@ npm run validate:countries
 npm run convert:beam-city:build-plan
 ```
 
+## Database
+
+Harness output is persisted to Postgres (RDS, reached through an SSH tunnel via the
+Lightsail bastion) rather than written to HTML files. Credentials live in a gitignored
+`.env` — copy `.env.example` and fill in `PGUSER` / `PGPASSWORD`.
+
+```bash
+npm run db:tunnel      # separate terminal, must stay running while any DB script runs
+npm run db:create      # once — creates PGDATABASE via the `postgres` maintenance db
+npm run db:migrate     # applies sql/*.sql; idempotent, safe to re-run
+npm run smoke:db-check # verify connectivity
+```
+
+Schema lives in `sql/` as plain, reviewable SQL and is versioned by a `schema_migration`
+ledger. `sql/001_core.sql` holds the core tables shared by **all** Hephaestus units
+(`run`, `run_country`, `run_city`, `resource_flow`); `sql/002_eco.sql` holds the Unit 1 /
+1.5 eco tables. Every invocation appends a new `run` row rather than overwriting, so
+engine revisions can be diffed against each other. See CLAUDE.md's "Postgres
+Persistence" section for the schema contract, including the `resource_flow` scope rules.
+
 ## Smoke Scripts
 
 Ad-hoc scripts for spot-checking models from the command line.
@@ -87,6 +107,7 @@ default, so it must always be passed). Roster/rationale documented in
 ```bash
 # Unit 1 — Eco Planner: theoretical, per-city-isolated optimal eco build sequence
 # (a reference ceiling — NOT what drives Unit 3's cost/income; see Unit 1.5)
+# Writes to Postgres, not HTML — needs `npm run db:tunnel` up and `npm run db:migrate` applied.
 ECO_COUNTRY=all npm run smoke:eco-plan                  # all countries in default scenario
 ECO_PLAN=pnth-v-iron-2026-aug ECO_COUNTRY=all npm run smoke:eco-plan   # every country in the plan (this is the default when a plan is loaded)
 ECO_COUNTRY=norway npm run smoke:eco-plan               # single country

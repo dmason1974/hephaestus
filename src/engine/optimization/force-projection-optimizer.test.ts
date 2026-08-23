@@ -8,12 +8,12 @@ import { loadMergedUnitCatalogForScenario } from "../../scenarios/io/load-unit-c
 import { scenarioStartAbsoluteHour } from "../../core/time.js";
 import { optimizeForceProjection, formatSolution, formatSearchStats } from "./force-projection-optimizer.js";
 
-test("optimizeForceProjection finds optimal solution for germany mobile_anti_air_vehicle", () => {
-  // Load germany_mrl scenario data
-  const scenario = loadScenarioFile("standard/ww3");
-  const country = loadScenarioCountry("standard/ww3", "germany");
+test("optimizeForceProjection finds optimal solution for italy mobile_anti_air_vehicle", () => {
+  // Italy: 7-city homeland country, elite/antarctica
+  const scenario = loadScenarioFile("elite/antarctica");
+  const country = loadScenarioCountry("elite/antarctica", "italy");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
+  const unitCatalog = loadMergedUnitCatalogForScenario("elite/antarctica");
 
   // 28-day deadline from scenario start
   const scenarioStart = scenarioStartAbsoluteHour(scenario);
@@ -39,7 +39,7 @@ test("optimizeForceProjection finds optimal solution for germany mobile_anti_air
   assert.equal(result.bestSolution.feasible, true);
   assert.equal(result.bestSolution.costBreakdown.feasible, true);
   
-  // Should use some cities (at least 1, at most 7 for Germany)
+  // Should use some cities (at least 1, at most 7 for Italy)
   assert.ok(result.bestSolution.config.cities.length >= 1);
   assert.ok(result.bestSolution.config.cities.length <= 7);
   
@@ -65,10 +65,10 @@ test("optimizeForceProjection finds optimal solution for germany mobile_anti_air
 });
 
 test("optimizeForceProjection handles smaller unit count efficiently", () => {
-  const scenario = loadScenarioFile("standard/ww3");
-  const country = loadScenarioCountry("standard/ww3", "germany");
+  const scenario = loadScenarioFile("elite/antarctica");
+  const country = loadScenarioCountry("elite/antarctica", "italy");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
+  const unitCatalog = loadMergedUnitCatalogForScenario("elite/antarctica");
 
   const scenarioStart = scenarioStartAbsoluteHour(scenario);
   const deadlineHour = scenarioStart + (28 * 24);
@@ -97,10 +97,10 @@ test("optimizeForceProjection handles smaller unit count efficiently", () => {
 });
 
 test("optimizeForceProjection returns sorted solutions by cost", () => {
-  const scenario = loadScenarioFile("standard/ww3");
-  const country = loadScenarioCountry("standard/ww3", "germany");
+  const scenario = loadScenarioFile("elite/antarctica");
+  const country = loadScenarioCountry("elite/antarctica", "italy");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
+  const unitCatalog = loadMergedUnitCatalogForScenario("elite/antarctica");
 
   const scenarioStart = scenarioStartAbsoluteHour(scenario);
   const deadlineHour = scenarioStart + (28 * 24);
@@ -136,9 +136,9 @@ test("optimizeForceProjection returns sorted solutions by cost", () => {
 });
 
 test("optimizeForceProjection handles country with no cities gracefully", () => {
-  const scenario = loadScenarioFile("standard/ww3");
+  const scenario = loadScenarioFile("elite/antarctica");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
+  const unitCatalog = loadMergedUnitCatalogForScenario("elite/antarctica");
 
   // Create a country with no cities
   const emptyCountry = {
@@ -151,11 +151,6 @@ test("optimizeForceProjection handles country with no cities gracefully", () => 
     cities: [],
     provinces: {
       total: 0,
-      supplies: 0,
-      components: 0,
-      fuel: 0,
-      rares: 0,
-      electronics: 0,
     },
   };
 
@@ -179,10 +174,10 @@ test("optimizeForceProjection handles country with no cities gracefully", () => 
 });
 
 test("formatSolution produces readable output", () => {
-  const scenario = loadScenarioFile("standard/ww3");
-  const country = loadScenarioCountry("standard/ww3", "germany");
+  const scenario = loadScenarioFile("elite/antarctica");
+  const country = loadScenarioCountry("elite/antarctica", "italy");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
+  const unitCatalog = loadMergedUnitCatalogForScenario("elite/antarctica");
 
   const scenarioStart = scenarioStartAbsoluteHour(scenario);
   const deadlineHour = scenarioStart + (28 * 24);
@@ -211,10 +206,10 @@ test("formatSolution produces readable output", () => {
 });
 
 test("formatSearchStats produces readable output", () => {
-  const scenario = loadScenarioFile("standard/ww3");
-  const country = loadScenarioCountry("standard/ww3", "germany");
+  const scenario = loadScenarioFile("elite/antarctica");
+  const country = loadScenarioCountry("elite/antarctica", "italy");
   const buildings = loadBuildingsFile();
-  const unitCatalog = loadMergedUnitCatalogForScenario("standard/ww3");
+  const unitCatalog = loadMergedUnitCatalogForScenario("elite/antarctica");
 
   const scenarioStart = scenarioStartAbsoluteHour(scenario);
   const deadlineHour = scenarioStart + (28 * 24);

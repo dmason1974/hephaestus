@@ -378,16 +378,14 @@ test("country hourly balance table includes province cash, manpower, and counted
     ],
     provinces: {
       total: 10,
-      supplies: 2,
-      components: 1,
-      fuel: 0,
-      rares: 0,
-      electronics: 0,
     },
   };
 
   const table = buildCountryHourlyResourceBalanceTable(country, 1, "4x", {
     buildingsFile: buildings,
+    // Game-specific tile observation — see province-cohorts.ts. Values match
+    // what this test used to hardcode directly on the country fixture.
+    provinceTiles: { supplies: 2, components: 1 },
   });
 
   assert.equal(table.rows[0]?.balances.supplies, 63);
@@ -408,19 +406,17 @@ test("country hourly balance table applies province local industry to resources 
     cities: [],
     provinces: {
       total: 10,
-      supplies: 2,
-      components: 0,
-      fuel: 0,
-      rares: 0,
-      electronics: 0,
     },
   };
+  const provinceTiles = { supplies: 2 };
 
   const base = buildCountryHourlyResourceBalanceTable(country, 4, "4x", {
     buildingsFile: buildings,
+    provinceTiles,
   });
   const improved = buildCountryHourlyResourceBalanceTable(country, 4, "4x", {
     buildingsFile: buildings,
+    provinceTiles,
     provinceDefaults: {
       localIndustryLevel: 1,
       combatOutpostLevel: 1,

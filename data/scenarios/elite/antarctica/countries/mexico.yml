@@ -70,6 +70,9 @@ cities:
       naval_base: 0
       underground_bunkers: 0
 
+provinces:
+  total: 29
+
 starting_balance:
   supplies: 35748
   components: 26810

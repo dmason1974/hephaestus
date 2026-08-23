@@ -58,8 +58,8 @@ cities:
 
 provinces:
   total: 16
-  supplies: 1
-  components: 0
-  fuel: 0
-  rares: 0
-  electronics: 0
+  # Observed resource tiles from a previous playthrough. Tile assignment is
+  # game-specific and now lives in a coalition plan's province_tiles; this
+  # scenario has no such plan yet, so the values are recorded here as a
+  # comment rather than lost. Not read by the engine.
+  # supplies: 1

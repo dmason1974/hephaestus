@@ -46,17 +46,24 @@ function generateCandidateSequences(): CandidateSequence[] {
 
 const CANDIDATE_SEQUENCES = generateCandidateSequences();
 
-function scoreCohort(
+export function scoreCohort(
   cohort: ProvinceCohort,
   total: Record<Resource, number>
 ): number {
-  if (cohort.resource !== null) return total[cohort.resource];
-  return total.manpower;
+  // Every province produces cash and manpower regardless of whether it also
+  // carries a resource tile — unlike a city, where the native resource is the
+  // sole "job" and other resources are incidental. Both must count toward the
+  // score, or a combat_outpost's cash/manpower morale bonus is invisible to
+  // the beam entirely for resource cohorts, and to half of it for non-resource
+  // cohorts.
+  const resourceComponent = cohort.resource !== null ? total[cohort.resource] : 0;
+  return resourceComponent + total.cash + total.manpower;
 }
 
-function buildCostForSequence(
+export function buildCostForSequence(
   buildings: BuildingsFile,
-  sequence: CandidateSequence
+  sequence: CandidateSequence,
+  provinceCount: number
 ): Partial<Record<Resource, number>> {
   const cost: Partial<Record<Resource, number>> = {};
   for (const step of sequence) {
@@ -64,7 +71,7 @@ function buildCostForSequence(
     if (!levelDef) continue;
     for (const [resource, amount] of Object.entries(levelDef.cost ?? {})) {
       if (amount) {
-        cost[resource as Resource] = (cost[resource as Resource] ?? 0) + amount;
+        cost[resource as Resource] = (cost[resource as Resource] ?? 0) + amount * provinceCount;
       }
     }
   }
@@ -159,7 +166,7 @@ export function runProvinceEcoBeam(
       })),
       totalProduction: bestTotal,
       hourlyCohortProduction: bestHourly,
-      totalEcoBuildCost: buildCostForSequence(buildings, bestSequence),
+      totalEcoBuildCost: buildCostForSequence(buildings, bestSequence, cohort.totalProvinceCount),
     });
   }
 

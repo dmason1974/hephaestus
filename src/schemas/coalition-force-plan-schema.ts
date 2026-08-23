@@ -58,6 +58,22 @@ const countryPlanSchema = z
     city_credits: z.record(z.string().min(1), z.string().min(1)).optional(),
     // Only meaningful when status: occupied. See provinceCreditsSchema above.
     province_credits: provinceCreditsSchema.optional(),
+    // How many of this country's provinces carry each resource tile, for THIS game.
+    // Tile assignment is randomised per playthrough, so it is a property of the game
+    // rather than of the country — the country YAML carries only `provinces.total`.
+    // Omitted or absent ⇒ tiles unknown ⇒ every province is treated as
+    // non-resource-producing (the "default" ranking, before tiles are observed).
+    // The sum across resources must not exceed the country's provinces.total; the
+    // remainder becomes the non_resource_provinces cohort.
+    province_tiles: z
+      .object({
+        supplies: z.number().int().min(0).optional(),
+        components: z.number().int().min(0).optional(),
+        fuel: z.number().int().min(0).optional(),
+        rares: z.number().int().min(0).optional(),
+        electronics: z.number().int().min(0).optional(),
+      })
+      .optional(),
     demands: z.array(demandSchema),
     // Hand-specified unit levels to schedule ASAP (earliest physically feasible
     // time) instead of JIT-deferring them to the deadline. Reuses the existing

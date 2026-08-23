@@ -27,14 +27,37 @@ export function buildCountrySchema(enums: Enumerations) {
     starting: StartingSchema,
   });
 
-  const ProvinceSchema = z.object({
-    total: NonNegativeInt,
-    supplies: NonNegativeInt,
-    components: NonNegativeInt,
-    fuel: NonNegativeInt,
-    rares: NonNegativeInt,
-    electronics: NonNegativeInt,
-  });
+  // Province resource-tile assignment is randomised per playthrough, so it is a
+  // game-specific fact and lives in the coalition plan
+  // (countries.<id>.province_tiles), not here. The province COUNT is a stable
+  // property of the country and stays.
+  const LEGACY_PROVINCE_TILE_KEYS = [
+    "supplies",
+    "components",
+    "fuel",
+    "rares",
+    "electronics",
+  ] as const;
+
+  const ProvinceSchema = z
+    .looseObject({ total: NonNegativeInt })
+    .superRefine((value, ctx) => {
+      const present = LEGACY_PROVINCE_TILE_KEYS.filter(
+        key => (value as Record<string, unknown>)[key] !== undefined
+      );
+      if (present.length > 0) {
+        ctx.addIssue({
+          code: "custom",
+          message:
+            `province resource tiles (${present.join(", ")}) have moved to the coalition plan. ` +
+            `Set them under countries.<id>.province_tiles in the plan YAML and delete these keys ` +
+            `from the country YAML — tile assignment is randomised per game, so it is not a ` +
+            `property of the country.`,
+        });
+      }
+    })
+    // Drop any other unrecognised keys so the parsed shape stays exactly { total }.
+    .transform(value => ({ total: value.total }));
 
   const StartingBalanceSchema = z.object({
     supplies: z.number().min(0),
@@ -55,14 +78,7 @@ export function buildCountrySchema(enums: Enumerations) {
       status: z.enum(["homeland", "occupied"]).optional().default("homeland"),
     }),
     cities: z.array(CitySchema).min(1),
-    provinces: ProvinceSchema.optional().default({
-      total: 0,
-      supplies: 0,
-      components: 0,
-      fuel: 0,
-      rares: 0,
-      electronics: 0,
-    }),
+    provinces: ProvinceSchema.optional().default({ total: 0 }),
     starting_balance: StartingBalanceSchema.optional(),
   });
 

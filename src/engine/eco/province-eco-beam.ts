@@ -2,7 +2,7 @@ import type { CityStatus, GameSpeed, Resource } from "../../core/constants.js";
 import type { BuildingsFile } from "../../schemas/building-schema.js";
 import type { Country } from "../../schemas/country-schema.js";
 import type { ScenarioStartLike } from "../../core/time.js";
-import { buildProvinceCohortsFromCountry, type ProvinceCohort } from "../provinces/province-cohorts.js";
+import { buildProvinceCohortsFromCountry, type ProvinceCohort, type ProvinceTiles } from "../provinces/province-cohorts.js";
 import {
   simulateProvinceBuildOrder,
   type ProvinceBuildAction,
@@ -116,9 +116,9 @@ export function runProvinceEcoBeam(
   country: Country,
   scenario: ScenarioStartLike & { speed: GameSpeed },
   buildings: BuildingsFile,
-  opts: { hoursToSimulate: number; cityStatus?: CityStatus }
+  opts: { hoursToSimulate: number; cityStatus?: CityStatus; provinceTiles?: ProvinceTiles }
 ): ProvinceEcoBeamResult[] {
-  const cohorts = buildProvinceCohortsFromCountry(country);
+  const cohorts = buildProvinceCohortsFromCountry(country, opts.provinceTiles);
   if (cohorts.length === 0) return [];
 
   const cityStatus = opts.cityStatus ?? "homeland";

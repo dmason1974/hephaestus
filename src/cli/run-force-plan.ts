@@ -15,8 +15,8 @@ if (args.length === 0) {
   console.error("   or: npm run plan <plan_id>  (searches all scenarios)");
   console.error("");
   console.error("Examples:");
-  console.error("  npm run plan standard/ww3/germany_mrl");
-  console.error("  npm run plan germany_mrl");
+  console.error("  npm run plan elite/antarctica/pnth-v-iron-2026-aug");
+  console.error("  npm run plan pnth-v-iron-2026-aug");
   process.exit(1);
 }
 

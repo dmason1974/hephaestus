@@ -450,6 +450,7 @@ for (const [sourceId, sourcePlan] of Object.entries(plan.countries)) {
     captureRelHour: sourceCaptureRelHour,
     hoursToSimulate,
     truceDays: plan.truce_days,
+    provinceTiles: sourcePlan.province_tiles,
     forcedAirBaseDestructionAbsHour: sourceForcedAirBaseDestructionAbsHour,
     cityIdFilter: bareCityId => myCities.includes(bareCityId),
     cohortCountOverride: (cohortId, fullCount) => {
@@ -539,7 +540,7 @@ for (const city of country.cities) {
 
 // Province income + build cost — same rule as iron-eco-plan.ts: build sequence
 // kept for supplies/electronics cohorts, base-only (no build) for everything else.
-const provinceCohorts = buildProvinceCohortsFromCountry(country);
+const provinceCohorts = buildProvinceCohortsFromCountry(country, plan.countries[countryId]?.province_tiles);
 const provinceIncome = zeroResources();
 const provinceBuildCost = zeroResources();
 // Province build costs were previously computed for the Resource Balance totals

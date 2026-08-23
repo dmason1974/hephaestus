@@ -26,6 +26,12 @@ countries:
   italy:
     # European — Rome: supplies pop6, air_base 1
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      components: 1
+      fuel: 1
+      electronics: 1
     demands:
       - unitId: multiple_rocket_launcher
         count: 44
@@ -37,6 +43,11 @@ countries:
   japan:
     # Western — Tokyo: supplies pop6, air_base 1 (no naval base)
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      fuel: 1
+      rares: 1
+      electronics: 1
     demands:
       - unitId: stealth_air_superiority_fighter
         count: 34
@@ -100,6 +111,12 @@ countries:
     # Eastern — Moscow: components pop6, air_base 1
     # commando mobilises from provinces (not city slots); mercenary_outpost required in city build chain
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      components: 1
+      fuel: 1
+      rares: 1
     demands:
       - unitId: mobile_sam_launcher
         count: 30
@@ -133,6 +150,10 @@ countries:
   south_africa:
     # European — Cape Town: rares pop6, air_base 1 (no naval base)
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      rares: 1
+      electronics: 1
     demands:
       - unitId: multiple_rocket_launcher
         count: 44
@@ -144,6 +165,10 @@ countries:
   pakistan:
     # Western — Islamabad: fuel pop6, air_base 1
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      electronics: 1
     demands:
       - unitId: multiple_rocket_launcher
         count: 44
@@ -155,6 +180,11 @@ countries:
   india:
     # Eastern — New Delhi: electronics pop6, air_base 1; highest electronics output of any candidate
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      components: 1
+      electronics: 1
     demands:
       - unitId: stealth_air_superiority_fighter
         count: 34
@@ -197,6 +227,12 @@ countries:
     # Target force is 8 mobile_radar total, but Australia keeps its starting-garrison
     # radar (not suicided on day 4 like the rest of the garrison) — only 7 need mobilising.
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      fuel: 1
+      rares: 1
+      electronics: 1
     demands:
       - unitId: mobile_radar
         count: 7
@@ -242,6 +278,10 @@ countries:
   new_zealand:
     # European — Wellington: supplies pop6, air_base 1; #1 remaining candidate on supplies+electronics
     status: homeland
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      supplies: 1
+      electronics: 1
     demands:
       - unitId: multiple_rocket_launcher
         count: 44
@@ -260,6 +300,10 @@ countries:
   norway:
     # Western — Oslo: fuel pop6, air_base 1; occupied by day 4
     status: occupied
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      fuel: 1
+      electronics: 1
     capture_day: 4
     city_credits:
       kristiansand: australia   # electronics
@@ -296,6 +340,9 @@ countries:
   iran:
     # Tehran: components pop5 — captured AI nation, occupied by day 4
     status: occupied
+    # Game-specific: which of this country's provinces carry resource tiles.
+    province_tiles:
+      fuel: 1
     capture_day: 4
     city_credits: { tehran: italy }
     province_credits:

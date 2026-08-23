@@ -721,16 +721,87 @@ Unit 3 — Resource Projection            ✅ COMPLETE
 
 ---
 
+## Postgres Persistence — Shared Across All Units
+
+Harness output is persisted to Postgres rather than to HTML files. Connectivity landed
+in `de499c2` (pg `Pool` in `src/db/pool.ts`, SSH tunnel through the Lightsail bastion via
+`scripts/db-tunnel.sh`, `npm run smoke:db-check`); the schema and write path were added
+afterwards, with **Unit 1 as the first consumer**.
+
+**The schema is deliberately not Unit-1-shaped.** Units 1.5, 2 and 3 are all expected to
+write into the same core tables, discriminated by `run.unit`.
+
+### Schema
+
+Migrations are plain, reviewable SQL in `sql/`, applied in lexical order by
+`npm run db:migrate` (`src/db/migrate.ts`). Each file runs in its own transaction
+alongside its `schema_migration` ledger insert, so re-running is a no-op and a failure
+leaves nothing half-applied. `schema_migration` itself is created by the runner, not by
+`001_core.sql`, since the runner must query it before it can apply anything.
+
+- `sql/001_core.sql` — **shared core**: `run` (one row per invocation: unit, scenario,
+  plan, params JSONB, git commit, started/finished), `run_country`, `run_city`, and
+  `resource_flow`.
+- `sql/002_eco.sql` — **Unit 1 / 1.5**: `eco_city_result`, `eco_build_action`,
+  `eco_step_delta`, `eco_province_cohort`.
+
+**`resource_flow` is the important one.** It captures the "Resource → number map" shape
+that recurs throughout the engine, as **wide columns** (one per resource) rather than
+EAV, so ranking stays a direct `SUM(supplies + electronics) ORDER BY ...` with no pivot.
+Rows are keyed by `scope_type` (`run` | `country` | `city` | `province_cohort`),
+`scope_id` and `category`. Unit 1 writes `production_total` and `eco_build_cost`; Unit 3
+can add `eco_income` / `mob_cost` / `upkeep` / `net` to the same table.
+
+⚠ **`country` rows are aggregates of that country's `city` and `province_cohort` rows.**
+Never `SUM` across scope types in one query or you will double-count.
+
+⚠ **Game hours are fractional — store them as `NUMERIC`, never `INTEGER`.** Build
+durations are morale-adjusted and computed in minutes (`build-order-timeline.ts` derives
+`startRelHour` as `minutes / 60`), so values like `301.2352941176471` are normal. The
+first real write against the DB failed on exactly this (`invalid input syntax for type
+integer`) — the HTML sink had hidden it for years by only ever displaying hours through
+`Math.floor`. Units 2/3 store flip points and mobilisation hours and will hit the same
+thing.
+
+### Two conventions worth knowing
+
+- **Runs are append-only history.** Every invocation inserts a new `run`; nothing is
+  upserted. This is what makes one engine revision diffable against another, replacing
+  the old manual "archive the tmp directory" workflow. A row with `finished_at IS NULL`
+  died part-way and its results are incomplete.
+- **`city_id` is stored BARE.** The engine keys city results as `${countryId}:${cityId}`
+  while Unit 2's slots use the bare id — the long-documented join-key trap. The write
+  path strips the prefix in exactly one place (`bareCityId`,
+  `src/db/eco-run-repository.ts`) so later cross-unit joins work.
+
+### Setup
+
+```
+npm run db:tunnel     # separate terminal, must stay running
+npm run db:create     # once — creates PGDATABASE via the `postgres` maintenance db
+npm run db:migrate    # idempotent; safe to re-run
+npm run smoke:db-check
+```
+
+Credentials live in a gitignored `.env` (see `.env.example`). Note `.env` does not exist
+in fresh worktrees.
+
 ## Unit 1 — Eco Planner ✅ COMPLETE
 
 ### What Was Built
 
 `src/harness/smoke/eco-plan.ts` — standalone eco harness, `npm run smoke:eco-plan`.
 
-Writes `tmp/eco-<countryId>.html` per country. Three sections per country:
-1. **City Eco Build Plans** — step-by-step build sequence per city with day/hour timestamps
-2. **City Production Summary** — total resource flow per city over the full truce window (gross, no flip)
-3. **Eco Build Costs** — one-time resource costs for all eco builds
+**Persists to Postgres** (no longer writes `tmp/eco-<countryId>.html` — the HTML sink
+was removed; see "Postgres Persistence" below). Each invocation opens one `run` row and
+writes, per country: `run_country`, `run_city`, `eco_city_result` (starting levels,
+explored count, full hourly production as JSONB), `eco_build_action` (the winning build
+sequence), `eco_step_delta` (per-step marginal resource impact), `eco_province_cohort`,
+and `resource_flow` rows carrying `production_total` / `eco_build_cost` at city, cohort
+and country scope.
+
+Requires the SSH tunnel (`npm run db:tunnel`) and an applied schema
+(`npm run db:create` once, then `npm run db:migrate`).
 
 **Run syntax:**
 ```
@@ -1093,7 +1164,7 @@ Three further bugs surfaced only once real harness output was checked against th
 
 `npm test` had 7 failures present before any of the Unit 3 work started (confirmed via `git stash`). Root-caused and triaged:
 
-- **5 failures — left as-is, deliberately out of scope**: `data/scenarios/standard/units/naval_units.yml` and `seasonal_units.yml` are empty placeholder files (`units: {}`) — the standard-tier naval/seasonal unit catalog was never filled in. Causes 2 direct schema-validation failures (`unit-schema.test.ts`) plus 3 cascading `Error: unknown unit "naval_veteran"` / `"epic_airstrike_officer"` failures in `unit-mobilization-plan.test.ts`. This project's focus is the elite/Antarctica tier; standard-tier naval/seasonal data was never a priority.
+- **5 failures — left as-is, deliberately out of scope**: `data/scenarios/standard/units/naval_units.yml` and `seasonal_units.yml` are empty placeholder files (`units: {}`) — the standard-tier naval/seasonal unit catalog was never filled in. Causes 2 direct schema-validation failures (`unit-schema.test.ts`) plus 3 cascading `Error: unknown unit "naval_veteran"` / `"epic_airstrike_officer"` failures in `unit-mobilization-plan.test.ts`. This project's focus is the elite/Antarctica tier; standard-tier naval/seasonal data was never a priority. **Superseded**: those 5 tests were removed in `5054886`, and `data/scenarios/standard/` itself was deleted entirely in a later session — the project's tier fixtures are elite-only now (see "Province Resource Tiles Moved to the Plan; Standard Scenario Removed" below); this entry is kept as history.
 - **1 failure fixed — stale test expectation**: `cost-calculator.test.ts`'s `"calculateTotalCost returns scalarized building, mobilisation, and upkeep totals"` test asserted pre-triangular-upkeep values (`upkeep: 7.2`) that were never updated after `calculateTriangularUpkeepForConfig` (staggered per-unit upkeep — see Unit 2's Engine Changes) replaced the old flat-upkeep calculation in `225b151`. Hand-verified the triangular formula independently against the test's exact fixture inputs before trusting the code's output — the code was correct, only the test was stale. Updated to `upkeep: 77.23636363636363` / `total: 4187.236363636363`.
 - **1 failure fixed — real scheduling bug**: `simulateUnitResearchTargets`'s JIT backward scheduler (`unit-research-sim.ts`) reported a **phantom research segment** for any task that couldn't fit before its deadline: the task was removed from the active scheduling set (`unscheduled`) but the final segment-mapping step still defaulted its missing start/end hours to `scenarioStartHour` instead of dropping it (`?? scenarioStartHour` fallback). This defeated `planMobilizationBuild`'s existing "retry with more cities" safety net (`unit-mobilization-plan.ts`), which only checked segment *existence* for a unit, not whether that segment was genuinely scheduled — so a genuinely infeasible 1-city SASF plan was silently accepted, with SASF L1 shown starting at scenario start hour 15, ~192 hours before its own ASF L4 prerequisite actually finished (hour 207). Fixed by filtering the final `segments` array to only tasks with a real `scheduledStarts` entry; the existing retry-with-more-cities loop (`tryScheduleGroups`) now works exactly as originally designed — no change needed there.
 
@@ -2239,10 +2310,11 @@ instead of flat `tmp/`: `const outputDir = process.env.IRON_OUTPUT_DIR ??
 root. `iron-daily-balance.ts` and `iron-resource-projection.ts` read from
 `tmp/<outputDir>/build-plans/iron-bp-<id>.html` accordingly, so the whole pipeline is
 self-consistent under one directory without any manual file-moving. The unconstrained
-Unit 1 beam's own output (`smoke:eco-plan`, `tmp/eco-<id>.html`) is a separate,
-non-Iron harness and still writes to flat `tmp/` — the user's `eco-beam/`
-subdirectory is for those files specifically, moved there manually since that script
-doesn't have (and doesn't need) the same `IRON_OUTPUT_DIR` convention.
+Unit 1 beam's own output no longer writes files at all — `smoke:eco-plan` persists to
+Postgres (see "Postgres Persistence" below), so the `IRON_OUTPUT_DIR` convention is
+moot for it and the old `eco-beam/` manual-move workflow is retired. Existing
+`tmp/eco-<id>.html` files from before that change are historical artefacts; nothing
+regenerates them.
 
 Per the user: `tmp/pnth-v-iron-aug26/` will be moved to Google Drive after the
 current game ends, to serve as a baseline snapshot for evaluating strategic engine
@@ -2524,3 +2596,160 @@ Perth each mobilise `mobile_radar` (3/2/2) before `mechanized_infantry` (10
 each), flip points ~day 19-20 instead of the old day 23h11; Canberra hosts 24
 MAAV with only `army_base L1` (the L2 requirement was radar's alone); Adelaide/
 Gold Coast host 23 MAAV each; Sydney fully vacated (pure eco for the truce).
+
+## Province Resource Tiles Moved to the Plan; Standard Scenario Removed (session, 2026-08-23)
+
+### Province tiles are now a plan fact, not a country fact
+
+User direction: province resource-tile *distribution* is randomised per playthrough
+(confirmed by tracing `ProvinceResourceInputs` — country identity, population, and
+doctrine are not inputs to province production at all; only `resource`, `provinceCount`,
+morale, and building levels are), so it doesn't belong in the country YAML alongside the
+stable `provinces.total` count. Moved to the coalition plan.
+
+- `ProvinceSchema` (`country-schema.ts`) now parses only `{ total }` — a `looseObject`
+  with a `superRefine` that **rejects** (not silently strips) any of the five legacy
+  tile keys (`supplies`/`components`/`fuel`/`rares`/`electronics`) if still present,
+  naming the offending keys and pointing at the plan. Chosen over silent stripping
+  specifically because ~25 country YAMLs were being hand-edited in the same session —
+  a rejected file surfaces immediately; a silently-stripped one would produce a
+  quietly-wrong ranking with no signal.
+- `countryPlanSchema` (`coalition-force-plan-schema.ts`) gained `province_tiles?:
+  { supplies?, components?, fuel?, rares?, electronics? }` (all optional non-negative
+  ints), alongside the existing per-country `status`/`capture_day`/`city_credits`.
+- `buildProvinceCohortsFromCountry` (`province-cohorts.ts`) takes an optional second
+  `tiles?: ProvinceTiles` argument. **Omitted ⇒ every province is treated as
+  non-resource-producing** and a once-per-country `console.warn` fires naming the
+  country — this is the "default" ranking (city yield + known tiles only, valid across
+  any playthrough). Supplying the game's observed tiles produces the "bespoke" ranking
+  for that specific game. Also validates `Σtiles ≤ total`, throwing a clear error
+  otherwise (province count is a hard ceiling on the plan's own account of itself).
+- Threaded through every real consumer as an optional opt (old call sites unaffected):
+  `runProvinceEcoBeam`'s `opts.provinceTiles` (used by `eco-plan.ts`, sourced from
+  `planCountry?.province_tiles`), `CountryResourceBalanceOptions.provinceTiles`
+  (`country-resource-balance.ts`), and `OccupiedYieldArgs.provinceTiles`
+  (`occupied-yield.ts`, consumed by both `iron-bp-plan.ts` and
+  `iron-occupied-plan.ts`). `iron-eco-plan.ts` previously loaded no plan at all (its
+  province cohorts came straight off the country YAML) — it now loads one
+  (`IRON_PLAN`, same default as the other Iron scripts) purely to source
+  `province_tiles`; nothing else about it became plan-dependent.
+- `pnth-v-iron-2026-aug.yml` and the superseded `pnth_v_road_2026_jun.yml` both gained
+  `province_tiles` per country, transcribed from the country YAMLs' real observed
+  values before they were stripped (Italy: supplies/components/fuel/electronics all 1;
+  full set in the plan files themselves). All 36 `elite/antarctica` country YAMLs had
+  their tile keys removed; `chile.yml` had a pre-existing one-space indentation bug in
+  its `provinces:` key (predates this session, unrelated) fixed along the way — it had
+  been silently accepted before since Zod's old schema didn't care about YAML
+  indentation, only the mis-indented parse itself was the actual YAML syntax error,
+  surfaced once `validate:countries` was re-run.
+- **Default vs. bespoke ranking, concretely**: a no-plan `ECO_COUNTRY=all` sweep now
+  produces the country-yield-only "default" ranking (every `eco_province_cohort` row is
+  `non_resource_provinces` — verified directly against a real run in the live DB, see
+  below); passing `ECO_PLAN=pnth-v-iron-2026-aug` produces the "bespoke" ranking for
+  that specific game's observed tiles. The two are expected to diverge and both are
+  legitimate — they answer different questions ("what can any playthrough of this
+  country do" vs. "what can this actual game's tile draw do").
+
+### First real Postgres write, and a genuine schema bug it caught
+
+The `hephaestus` database was created and migrated for real against the live
+`furiosa-prod` RDS instance this session (`npm run db:create` / `db:migrate`, both
+idempotent, both verified). The first real write (Solomon Islands, chosen as the
+cheapest possible country — one city — specifically to validate the write path without
+running an expensive sweep) failed immediately:
+`invalid input syntax for type integer: "301.2352941176471"`.
+
+Root cause: `sql/002_eco.sql`'s hour columns (`last_build_completion_abs_hour`,
+`start_rel_hour`, `start_abs_hour`, `start_hour`) were typed `INTEGER`. Game hours are
+fractional — build durations are morale-adjusted and computed in minutes
+(`build-order-timeline.ts` derives `startRelHour` as `minutes / 60`), so values like
+`301.2352941176471` are normal, not corrupt input. The old HTML sink had hidden this
+indefinitely by only ever displaying hours through `Math.floor`. Fixed by retyping all
+four columns `NUMERIC` (schema was minutes old with no real data yet, so fixed at
+source rather than via a corrective migration). **Units 2/3 will hit the identical
+issue** when they add their own hour-bearing tables (flip points, mobilisation
+timestamps) — flagged in the schema doc comments directly.
+
+Verified end-to-end against live data after the fix: `city_id` stored bare (`honiara`,
+not `solomon_islands:honiara` — the documented join-key trap, holding in real data not
+just the unit test); the `country` `resource_flow` row exactly equals its `city` +
+`province_cohort` rows summed (cash 24,665 = 20,109 + 4,556); the fractional hour
+(`301.2352941176471`) round-trips exactly.
+
+### Standard scenario removed entirely
+
+Per explicit user direction ("frankly obsolete and not the key aim of this"),
+`data/scenarios/standard/` (units, `ww3/countries`, `ww3/plans`, `ww3/scenario.yml` —
+30 files) was deleted via `git rm -rf`. The project's focus has been elite/Antarctica
+for the whole of this rebuild (see the Modular Architecture section); standard-tier
+data had no consumer left except test fixtures.
+
+**Real dependency found and migrated first** (would otherwise have broken `npm test`
+with ENOENT): 4 test files loaded real files from `data/scenarios/standard/units/*.yml`
+and `standard/ww3`'s scenario/country data purely as stable, arbitrary fixture input for
+testing scenario-agnostic engine logic (research scheduling, mobilisation planning, unit
+catalog resolution) — not testing standard-tier gameplay content itself. Per the user's
+explicit rule ("migrate only if not already covered in the elite test harness"), each
+was individually triaged:
+
+- `load-unit-catalog.test.ts` — one test (`resolveUnitCatalogDirForScenario` fallback
+  for `standard/ww3`) was an exact duplicate of the `elite/ww3` case directly above it
+  (the function has no tier-specific branching) — deleted, not migrated. The other two
+  (catalog loads successfully; file-path resolution) were migrated to `elite/ww3`.
+- `unit-mobilization-plan.test.ts` — its `loadMergedUnitCatalog()` helper pulled 5
+  separate standard catalogs together but the one test using it only ever exercised
+  `air_superiority_fighter`; replaced with the file's own already-elite
+  `loadEliteFighterCatalog()`, and the now-dead helper deleted.
+- `force-projection-optimizer.test.ts` — all 6 tests are structural/generic
+  (`optimizeForceProjection`'s own engine, not this codebase's newer
+  `country-force-projection.ts`/Unit 2 engine — has **zero callers anywhere else in the
+  codebase**, flagged here as dead code worth a future removal pass, not touched this
+  session since that's a separate decision from fixture migration). Migrated wholesale
+  from `standard/ww3`+`germany` to `elite/antarctica`+`italy` (both have
+  `mobile_anti_air_vehicle`/`tank_veteran`), since nothing else in the suite exercises
+  this file's actual subject.
+- `unit-research-sim.test.ts` — the deepest migration: several tests already used
+  `elite/units/*.yml` (added in later sessions for stealth-ASF prerequisite-chain
+  coverage), but ~14 references still loaded standard `fighter_units.yml`/
+  `infantry_units.yml`. Most assertions are structural (gap ≥ buffer hours, ordering,
+  `deepEqual` between two runs) and needed only a path swap. Three tests assert **exact**
+  exact hour/cost values tied to the specific catalog's real unlock days and durations
+  (chained-level scheduling: L2 end/duration; unlock-day-through-offset shift for
+  `special_forces` L5) — these were **not hand-derived**, but captured by directly
+  invoking `simulateUnitResearchQueue` against the real elite catalog data and reading
+  off the actual output (a lightweight, deterministic scheduling calculation over one
+  unit — not a beam search, so within the "no expensive beam runs" boundary) — then
+  sanity-checked against the raw YAML unlock days/durations before trusting them. One
+  hand-derivation attempt (predicting `special_forces` L2's start hour from the unlock-day
+  formula) was wrong and discarded in favour of the captured real value — `L2` does
+  **not** wait for `L1`'s own completion in `simulateUnitResearchQueue` (only the
+  unlock-day gate and slot availability apply), which running the code surfaced
+  immediately and hand-derivation had silently assumed otherwise.
+- `country-resource-balance.test.ts` and `province-cohorts.test.ts` — not
+  standard-scenario dependent, but broken by the `province_tiles` schema change itself
+  (fixtures built a `Country` object with the now-removed inline tile fields). Updated
+  to pass tiles via the new `provinceTiles` opt instead; one new test added
+  (`province-cohorts.test.ts`) asserting the omitted-tiles/all-non-resource default
+  explicitly, and one asserting the `Σtiles > total` rejection.
+
+Two cosmetic-only references left outside the test suite were also fixed: `run-force-plan.ts`'s
+usage-example strings (now point at `pnth-v-iron-2026-aug`), and
+`ww3-2026-remaining-occupied-economy.ts`'s default `WROE_SCENARIO` (now `elite/antarctica`
+— this is a standalone, never-tested harness from the project's earlier WW3-focused
+period, not wired to any `npm run` script; the country id it loads is already derived
+from the scenario rather than hardcoded, so no other change was needed there).
+
+**Verified**: `npm test` — 193 pass, 0 fail throughout (184 baseline this session → 194
+after the province-cohorts test additions → 193 after the one genuinely-redundant test
+was deleted). `npm run validate:countries -- elite/antarctica` /  `elite/ww3` clean.
+`data/scenarios/standard` confirmed absent from disk and from every code/doc reference
+in `src/`.
+
+### A restore-then-redo detour, for the record
+
+Mid-session, `data/scenarios/standard` was found deleted from the worktree with no
+corresponding instruction yet given — treated as accidental (matching this project's
+"investigate unfamiliar state before deleting/overwriting" convention) and restored via
+`git checkout` before the user clarified it was their own deliberate action, taken
+directly against worktree files. Redone properly once confirmed, with the real test
+dependency this surfaced (above) migrated first rather than skipped.

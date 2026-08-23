@@ -260,133 +260,42 @@ When a city is building air_base L5 (32h) and then secret_weapons_lab (25h) in s
 
 ---
 
-## Antarctica Elite Scenario — PNTH Coalition Force Plan
+## Coalition Force Plan — Schema & Mechanics
 
-**Scenario parameters:**
+**Scenario parameters** (`elite/antarctica`):
 - `truce_length_days: 28`
 - `unlocked_through_day_at_start: 10` (shifts all unlock_day gates back by 10 days)
 - Game starts day 1, hour 15
 - Speed: `4x`
 
-**Active coalition — PNTH V Iron Aug 2026 (current)**
-(`data/scenarios/elite/antarctica/plans/pnth-v-iron-2026-aug.yml`) — supersedes the
-PNTH V Road Jun 2026 plan below. Roster picked from real computed economic output
-(`npm run smoke:eco-plan`), not population/resource-tier heuristics — see
-`data/scenarios/elite/antarctica/coalition-plan.md` for the full ranking and
-rationale. 8v8: 6 countries are mainland-forced (hard constraint), 2 chosen on
-economics (highest supplies+electronics of the remaining candidates).
-
-| Country | Doctrine | Status | Role |
-|---|---|---|---|
-| Italy | european | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
-| Japan | western | homeland | Mainland-forced — 34 SASF (pinned to Tokyo/Fujisawa/Sendai, dead-window AWACS sharing — see UAT Round 3 below) + 8 AWACS + 1 Fixed Wing Veteran + 10 Elite Attack Helicopter (level 3, pinned to Yono — dedicated city, air_base L4 only) |
-| Russia | eastern | homeland | Mainland-forced — 30 Mobile SAM Launcher + 24 Special Forces (pinned to Samara — electronics, see below) + 12 Commando (province) |
-| South Africa | european | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
-| Pakistan | western | homeland | Mainland-forced — 44 MRL + 1 Tank Veteran + 75 MAAV |
-| India | eastern | homeland | Mainland-forced — 34 SASF (pinned to Mumbai/Kolkata/New Delhi, dead-window warhead/UAV sharing — see UAT Round 3 below) + 1 Fixed Wing Veteran + 15 UAV + 120 Cruise Missiles + 240 Warheads (60 mob slots) |
-| Australia | western | homeland | Chosen (economics) — 30 Mechanized Infantry + 70 MAAV + 7 Mobile Radar (keeps its 1 starting-garrison radar instead of suiciding it) |
-| New Zealand | european | homeland | Chosen (economics) — 44 MRL + 1 Tank Veteran + 75 MAAV |
-| Norway | western | occupied, capture day 4 | Eco only — all 7 cities + 31 provinces individually credited to the 5 manpower-deficit homeland countries (Australia/Italy/New Zealand/Pakistan/South Africa), not kept by Norway itself; see "Captured-Territory Credits" below |
-| Madagascar | european | occupied, capture day 4 | Eco only (captured AI nation, single city — credited to South Africa) |
-| Solomon Islands | european | occupied, capture day 4 | Eco only (captured AI nation, single city — credited to New Zealand) |
-| Iran | eastern | occupied, capture day 4 | Eco only (captured AI nation, single city — credited to Italy) |
-
-**Doctrine data gaps affecting this roster (now placeholder-filled)**: Russia's Mobile
-SAM Launcher (was `theatre_defense_system` — a hallucinated unit ID, corrected this
-session; the real unit was added to `support_units.yml`) and India's Fixed Wing
-Veteran (`fixed_wing_veteran` never had `eastern` data at all) were both caught by the
-missing-doctrine-data fix (see Unit 3's Known Design Decisions) — surfaced loudly in
-`bp-<country>.html`'s "⚠ MISSING DOCTRINE DATA" banner instead of silently dropped.
-Both now have **unconfirmed placeholder data** (`western`+`eastern` for Mobile SAM
-Launcher, `eastern` for Fixed Wing Veteran — each copied verbatim from `european`,
-per the project's existing placeholder convention, e.g. `air_superiority_fighter`'s
-eastern baseline) so both demands are back in their country's plan; real screenshot
-data for these doctrines is still pending and should replace the placeholders when
-available.
-
-**Starting garrison** (every homeland country, all L1, scenario-wide fact in
-`scenario.yml`'s `starting_units`): 14 Motorized Infantry, 1 Gunship, 1 Mobile Radar.
-Plan decision: disband on day 4 (Australia keeps its radar instead). See "Province
-Mobilisation Engine" and "Starting Units" sections below.
-
-Resources are **shared across all coalition countries**.
+Resources are **shared across all coalition countries** (manpower excepted — see
+"Resource Pooling Rules" below). Current coalition roster, per-country roles, and
+selection rationale live in
+`data/scenarios/elite/antarctica/plans/pnth-v-iron-2026-aug.yml` and
+`coalition-plan.md` — not duplicated here, since plan membership changes
+independently of this file. Superseded plans are kept in the `plans/` directory and
+git history, not inline.
 
 ### Captured-Territory Credits (`city_credits` / `province_credits`)
 
 Real game mechanic: manpower is `PER_COUNTRY_RESOURCES` (never pooled — see Chunk 7's
 "Resource Pooling Rules"), so a captured city or province's manpower output would be
 stranded on the occupying-in-name-only country's own dead ledger unless explicitly
-transferred. The plan YAML now credits every one of an occupied country's cities and
+transferred. A plan can credit every one of an occupied country's cities and
 provinces individually to whichever homeland coalition member actually receives its
 output — `countryPlanSchema.city_credits` (bare city id → homeland country id) and
 `province_credits` (cohort resource key, or `non_resource` → homeland country id →
 province count credited), both optional, only meaningful when `status: occupied`.
-
-In the active plan, all 4 captured nations are fully carved up (nothing left for the
-source country's own report): Norway's 7 cities/31 provinces split across the 5
-manpower-deficit homeland countries (Australia, Italy, New Zealand, Pakistan, South
-Africa); Madagascar → South Africa; Solomon Islands → New Zealand; Iran → Italy. All
-4 now capture on day 4 uniformly (previously the 3 single-city AI nations captured on
-day 2 — changed alongside this credits rollout).
+Current credit assignments live in the plan YAML, not here.
 
 **Engine**: `src/harness/smoke/occupied-yield.ts`'s `computeOccupiedYield` is the
 shared build-sequence + yield computation, used by both `iron-occupied-plan.ts` (a
-source country's own report — `cityIdFilter` excludes any city with a credit, so a
-fully-carved-up country like Norway legitimately renders zero cities) and
+source country's own report — `cityIdFilter` excludes any city with a credit) and
 `iron-bp-plan.ts` (a homeland country's report — scopes `computeOccupiedYield` to just
 the cities/provinces credited to it, folding their build sequence, cost, and income
 into that homeland's own Resource Balance). Nothing is double-counted: a credited
-asset appears in exactly one report.
-
-**Per-city exceptions to the shared heuristic**: `OCCUPIED_CITY_EXTRA_FIRST_BUILD`
-(`iron-heuristic.ts`) is a per-city override table, separate from the resource-keyed
-`OCCUPIED_AI_TARGET_BY_RESOURCE` rules — currently one entry: Kristiansand (Norway's
-electronics city, credited to Australia) builds `underground_bunkers` L1 before
-`annex_city`. Beam-search validated this session (the real production beam at 400
-search width, ~30k sequences explored) as a small net-positive specifically at
-Kristiansand's population (pop 5: +44 electronics/-25 cash vs. no bunkers) — proven
-net-negative at Honiara's (pop 4, same electronics tier), so this is deliberately a
-per-city exception, not a change to the shared resource-keyed heuristic. Root cause
-underlying the finding: `underground_bunkers`' `morale_bonus_pct` only accelerates
-the *build time* of whatever's queued next (via the morale→build-duration formula in
-`build-order-timeline.ts`); it has no standing production effect of its own, so it's
-only ever worth building while something else is still queued behind it, and even
-then only barely, and only once morale hasn't already converged to its ceiling (built
-*after* a city's build chain finishes, it does nothing at all — confirmed by both a
-direct simulation and the real beam engine giving byte-identical production with or
-without it in that position). A related rendering gap was found and fixed in the same
-pass: `iron-bp-plan.ts`'s captured-city segment collection only looked at
-`recruiting_office`/`annex_city`/`arms_industry`, silently dropping any
-`underground_bunkers` segment from both the displayed build sequence and the hourly
-cost-event walk — fixed to also include it. (The identical gap exists in
-`iron-occupied-plan.ts`'s own three segment-collection sites, pre-existing and
-currently harmless since Kristiansand — the only city with an override — is always
-excluded from Norway's own report; not fixed there this session, flagged if a future
-override ever targets a non-credited city.)
-
-<details>
-<summary>Previous plan — PNTH V Road Jun 2026 (superseded, kept for reference)</summary>
-
-(`data/scenarios/elite/antarctica/plans/pnth_v_road_2026_jun.yml`)
-
-| Country | Doctrine | Status | Role |
-|---|---|---|---|
-| Indonesia | european | homeland | Air 1: 50 SASF + 18 UAV + 50 cruise missiles + 100 warheads |
-| India | eastern | homeland | Air 2: 50 SASF + 10 AWACS |
-| Russia | eastern | homeland | TDS: 40 TDS + 15 mobile radar + 15 commando (province) |
-| Italy | european | homeland | MAAV: 100 MAAV |
-| South Africa | european | homeland | MAAV: 100 MAAV |
-| New Zealand | european | homeland | MAAV: 100 MAAV |
-| Japan | western | homeland | MRL: 72 MRL + 27 MAAV + 1 Tank Veteran |
-| Pakistan | western | homeland | MRL: 72 MRL + 27 MAAV + 1 Tank Veteran |
-| Australia | western | homeland | MRL: 72 MRL + 27 MAAV + 1 Tank Veteran |
-| Norway | western | homeland | Mech Inf: 40 Mech Inf + 20 CRV |
-| United Kingdom | european | occupied | Eco only (captured player country) |
-| Iran | eastern | occupied | Eco only (captured AI nation, single city) |
-| Madagascar | european | occupied | Eco only (captured AI nation, single city) |
-| Solomon Islands | european | occupied | Eco only (captured AI nation, single city) |
-
-</details>
+asset appears in exactly one report. Per-city overrides to the shared occupied-city
+build heuristic live in `iron-heuristic.ts`'s `OCCUPIED_CITY_EXTRA_FIRST_BUILD` table.
 
 ### Coalition Force Plan YAML Schema (`domain: coalition_force_plan`)
 
@@ -414,7 +323,7 @@ countries:
 **Key design decisions:**
 - No `city_roles` field — city assignment is **optimizer output**, not YAML input. All cities are candidates for any role the optimizer needs; none are locked as eco.
 - `resource_priority` is coalition-level (not split by queue type). Guides which cities to prefer flipping last (high-priority resource cities lose more eco income when flipped).
-- `status` is plan-specific (see Unit 1's "Status + capture day, plan-aware" note above) — a country's occupied-ness is a decision this particular plan made, not an inherent country fact, except for single-city AI nations where it's always true.
+- `status` is plan-specific (see Unit 1's "Status + capture day, plan-aware" note below) — a country's occupied-ness is a decision this particular plan made, not an inherent country fact, except for single-city AI nations where it's always true.
 - `capture_day` (added this session): per-country override for when an occupied country is actually captured — `eco-plan.ts` reads it when `ECO_PLAN` is set; defaults to day 4 if omitted.
 - `mobilisation_source: province` marks units that mobilise from provinces rather than city slots (commando, and any other unit gated on `mercenary_outpost`). These don't compete for city mobilisation capacity, don't require recruiting offices, and use their own capacity model — one slot per province (`src/engine/simulation/province-mobilization-plan.ts`).
 - Warheads (`conventional_warhead`) have `batch_size: 4` — each mobilisation slot produces 4 units. They compete for the same city mobilisation slot as all other units. The slot is per-city, not per-building.
@@ -580,28 +489,6 @@ Eco-only countries (UK, Iran, Madagascar, Solomon Islands) show only their balan
 - **OOM fixed**: coalition contribution now computed inline in `analyseCountry` (cityResults not retained); `--max-old-space-size=8192` baked into npm script as safety net for single-country beam peaks.
 - **Eco buildings at flip are worst-city only**: `ecoBuildingsAtFlip` in city queue tables shows the state of the constrained (worst) city; other assigned cities may have more eco buildings at the same flip point.
 
-### Corrected Coalition Results (beam_width=50)
-
-Starting balance = per-country value × 10 homeland countries (pooled resources); manpower per-country.
-
-```
-                  supplies    components    fuel      rares     electronics  cash
-Total eco income  1,417,743   1,176,534   690,474   408,327   506,063      3,905,547
-+ Starting bal      357,480     268,100   134,060    98,300    98,300      1,340,620
-= Gross available 1,775,223   1,444,634   824,534   506,627   604,363      5,246,167
-− Infra cost        372,250     294,150   405,250    46,500   237,875      1,661,475
-− Mob cost          816,750     684,100    12,500    67,500   391,850      1,759,875
-− Upkeep cost       291,421         428   192,455         0    63,282        668,974
-= Net balance      +294,802    +465,956  +214,329  +392,627   -88,644     +1,155,843
-```
-
-**Single binding pooled shortfall: electronics (−88,644).** All other pooled resources surplus.
-
-Manpower per-country (eco income + 13,406 starting − mob − upkeep):
-- Russia, UK: surplus. All other homeland countries: shortfall ~−11k to −25k each.
-- Manpower shortfall is structural (driven by mob + upkeep costs exceeding eco income + starting).
-  Cannot be fixed by eco optimization; must reduce unit counts or accept the shortfall.
-
 ### Next Steps (Chunk 9+)
 
 - **Joint demand optimisation per country**: treat multi-demand countries as a single optimisation problem (shared city pool)
@@ -671,9 +558,9 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 | `air_superiority_fighter` | ✓ Complete | european + eastern + western; 7 levels; eastern = european baseline (placeholder pending screenshots) |
 | `awacs` | ✓ Complete | all doctrines; 6 levels |
 | `uav` | ✓ Complete | all doctrines; 6 levels |
-| `fixed_wing_veteran` | ⚠ eastern is placeholder | european + western have real data (7 levels); `doctrine` field originally only listed `[european, western]` — eastern was added this session as a verbatim `european` copy (unconfirmed placeholder) purely to unblock India's PNTH V Iron demand (1), which the missing-doctrine-data fix had surfaced as excluded. Needs real eastern screenshots |
+| `fixed_wing_veteran` | ⚠ eastern is placeholder | european + western have real data (7 levels); `doctrine` field originally only listed `[european, western]` — eastern was added as a verbatim `european` copy (unconfirmed placeholder) after the missing-doctrine-data fix surfaced a coalition-plan demand needing this doctrine as excluded. Needs real eastern screenshots |
 | `theatre_defense_system` | ✓ Complete | western + european + eastern; 6 levels; mob/upkeep verified from screenshots; eastern mob/upkeep pending screenshots (unlock days derived: W=5,7,11,13,20,25 / Eu=6,8,12,15,20,28 / Ea=7,10,14,17,20,28) |
-| `mobile_sam_launcher` | ⚠ western + eastern are placeholder | Added this session (`support_units.yml`) — corrects a hallucinated `theatre_defense_system` reference in Russia's PNTH V Iron demand. Only `european` research/mobilisation/daily_upkeep data was from real screenshots; `western`/`eastern` added as verbatim `european` copies (unconfirmed placeholders) to unblock Russia's demand (30), which the missing-doctrine-data fix had surfaced as excluded. Needs real western/eastern screenshots |
+| `mobile_sam_launcher` | ⚠ western + eastern are placeholder | Added (`support_units.yml`) — corrects a hallucinated `theatre_defense_system` reference in an earlier coalition-plan demand. Only `european` research/mobilisation/daily_upkeep data was from real screenshots; `western`/`eastern` added as verbatim `european` copies (unconfirmed placeholders) after the missing-doctrine-data fix surfaced a coalition-plan demand needing this doctrine as excluded. Needs real western/eastern screenshots |
 | `mobile_anti_air_vehicle` | ✓ Flat format | all doctrines (western + european + eastern); 7 levels |
 | `multiple_rocket_launcher` | ✓ Complete | european + western + **eastern** (added); 5 levels |
 | `mechanized_infantry` | ✓ All doctrines | western + european + eastern; 6 levels; values ported from standard — needs screenshot verification |
@@ -686,7 +573,7 @@ All elite units live in `data/scenarios/elite/units/`. As of the most recent ses
 | `motorized_infantry` | ⚠ Western only | `infantry_units.yml`; old flat format with bare `doctrine: Western` string — european/eastern have no data at all. Used as a Western-values placeholder for all doctrines in starting-garrison upkeep calcs (`scenario.yml`'s `starting_units`) pending real screenshots |
 | `tank_veteran` | ✓ Complete | all doctrines; multi-level; armoured_units |
 | `gunship` | ⚠ Inline upkeep only, not a catalog unit | Starting-garrison unit (`scenario.yml`'s `starting_units`), never researched/mobilised by the player — deliberately **not** added to `data/scenarios/elite/units/`. L1 daily upkeep confirmed from screenshots: `manpower: 25, fuel: 25, electronics: 25, cash: 80`, identical for eastern/european; western unconfirmed (borrowed from eastern/european, same value) |
-| `helicopter_gunship` | ⚠ western is placeholder | eastern real screenshot data; `helicopter_units.yml`; 6 levels; requires `air_base level 1` + `arms_industry level 1` at every level (own-level chain implicit via `helicopter_gunship level N-1`). Western added this session as a verbatim eastern copy (unconfirmed placeholder) to unblock Japan's PNTH V Iron `elite_attack_helicopter` demand — Japan's doctrine is western and this is EAH's prerequisite chain. Needs real western screenshots |
+| `helicopter_gunship` | ⚠ western is placeholder | eastern real screenshot data; `helicopter_units.yml`; 6 levels; requires `air_base level 1` + `arms_industry level 1` at every level (own-level chain implicit via `helicopter_gunship level N-1`). Western added as a verbatim eastern copy (unconfirmed placeholder) to unblock a western-doctrine coalition-plan demand for `elite_attack_helicopter`, whose prerequisite chain runs through this unit. Needs real western screenshots |
 | `elite_attack_helicopter` | ⚠ western is placeholder | eastern real screenshot data; `seasonal_units.yml`; 3 levels; requires `air_base L3/4/5` + `secret_weapons_lab L1` + `arms_industry L1` + its own prior level. Has a real `unit_limit` mobilisation cap of 5/10/15 at levels 1/2/3 (matches `elite_frigate`'s pattern in the same file). In-game the research prerequisite is "Any Helicopter (Tier N)" — an OR across `helicopter_gunship`/`attack_helicopter`/`asw_helicopter` that the engine's `requirements` array cannot express (every string is parsed as a mandatory AND, confirmed by tracing all five parsing sites — `unit-research-sim.ts`, `unit-mobilization-plan.ts`, `flip-point-solver.ts`, `joint-city-optimizer.ts`, `country-force-projection.ts` — no OR/alternative syntax exists anywhere). Per user direction, anchored to `helicopter_gunship` specifically (the eastern-doctrine unit actually in play) at levels 1/4/6 for EAH levels 1/2/3 respectively, rather than dropping the gate entirely. Western doctrine added this session (verbatim eastern copy, unconfirmed placeholder) to unblock Japan's demand (10 units, needs level 3 via research auto-upgrade — resolves within the 5+10 unit_limit tranche, so only air_base L4 is actually required, not L5). Needs real western screenshots |
 
 ---
@@ -1059,14 +946,13 @@ when an inline `daily_upkeep` is present (gunship) — that overrides the catalo
 since gunship isn't (and per the user, doesn't need to be) a full catalog entry with
 research/mobilisation data; it's never actually researched or mobilised by the player.
 
-**PNTH V Iron plan decision**: all garrison units disband on day 4, except Australia
-keeps its starting Mobile Radar (folds into its 8-radar target, so only 7 need
-mobilising instead of 8). Combined daily upkeep per homeland country before the day-4
-disband: supplies 580, fuel 250, electronics 25, cash 960, manpower 250 (see
-`coalition-plan.md` for the full breakdown table). **Now wired into Unit 3** (see
-below) via `computeGarrisonUpkeep` — though Australia's radar-retention exception is
-not modeled there yet (uniform disband for all homeland countries, a deliberate small
-simplification — see Unit 3's Known Limitations).
+**Plan-level disband timing** — when the garrison disbands, and any per-country
+exceptions to a uniform disband — is a per-plan decision, not part of this mechanic.
+**Now wired into Unit 3** (see below) via `computeGarrisonUpkeep`, whose generic knob
+is `RP_GARRISON_DISBAND_DAY` (default day 4) — it disbands uniformly for every
+homeland country; per-country keep-a-unit exceptions aren't modeled (see Unit 3's
+Known Limitations). See `coalition-plan.md` for a specific plan's actual decision and
+upkeep breakdown.
 
 **Airport-demolish consequence (session, 2026-08-15)**: disbanding the gunships also
 forces destruction of each homeland capital's original airport (`air_base` level 1,
@@ -1113,16 +999,16 @@ RP_PLAN=pnth-v-iron-2026-aug RP_COUNTRY=russia npm run smoke:resource-projection
 - **`RP_PLAN` has no default** — deliberately, unlike `FP_PLAN`'s stale default (`pnth_v_road_2026_jun`). This is the harness that produces the real combined balance sheet, so silently running the wrong plan is worse here than a required-env-var error.
 - **`capture_day` now genuinely per-country** in this pipeline: `resource-projection.ts` reads `countryPlan?.capture_day ?? 4` (the `eco-plan.ts` pattern), not the hardcoded day-4 the older `coalition-force-plan.ts` uses.
 - **Hourly cash-flow minima is an approximation, not a reconciliation**: income is capped precisely at the flip point; infra costs are deducted at each infra step's completion hour (exact, reusing the same `calculateBuildingCost` totals as the top-level cost aggregate); mob costs are deducted at batch start (exact); but upkeep in the hourly walk uses a **continuous L1 rate** rather than the exact stepped (auto-upgrade-aware) rate the totals table uses (`costs.upkeep`, via `computeSteppedUpkeep`). The two won't bit-match at the final hour — this is called out directly in the rendered HTML. Good enough to answer "does the pool ever go negative mid-window", not a substitute for the totals row.
-- **Australia's radar exception is not modeled** — `computeGarrisonUpkeep` disbands the full starting garrison uniformly for every homeland country (default day 4, `RP_GARRISON_DISBAND_DAY`). The documented PNTH V Iron exception (Australia keeps 1 mobile radar) is a deliberate v1 simplification — small dollar impact (~480 supplies / ~360 fuel / ~360 manpower / ~960 cash total over the window for one unit).
+- **Per-country garrison-retention exceptions aren't modeled** — `computeGarrisonUpkeep` disbands the full starting garrison uniformly for every homeland country (default day 4, `RP_GARRISON_DISBAND_DAY`). A plan keeping one unit back (e.g. a radar) instead of disbanding it is a deliberate v1 simplification to skip — small dollar impact (~480 supplies / ~360 fuel / ~360 manpower / ~960 cash total over the window for one unit).
 - **HTML rendering duplicated inline**, not extracted to a shared module — matches the existing convention across all `harness/smoke/*.ts` scripts (each owns its own `escapeHtml`/`htmlTable`/balance-sheet formatting helpers; there is no shared-lib precedent in that directory).
 - **Missing-doctrine-data bug, fixed this session**: `unitMobTimeHours` (`country-force-projection.ts`) returned `0` for a unit with genuinely zero mob time (a real launcher platform) *and* for a unit with no mobilisation data at all for the country's doctrine — `classifyDemands` couldn't tell the two apart, so a demand with a doctrine data gap was silently misclassified as a launcher platform and dropped from the plan entirely, with zero warning (found via Russia's `mobile_sam_launcher`, added this session with only `european` data, while Russia's doctrine is `eastern`). Fixed: `hasMobilisationData` checks presence explicitly; `classifyDemands` now routes data-gap demands to a new `missingDataDemands` bucket, kept separate from `launcherDemands` (genuine zero-cost launchers, e.g. `conventional_cruise_missile`) and excluded from `activeDemands` (so `computePlanWeights` never throws on it). Surfaced loudly in `bp-<countryId>.html` (a `⚠ MISSING DOCTRINE DATA` banner at the top, not the quiet grey "Skipped Demands" list) instead of silently. See `country-force-projection.test.ts`'s two `classifyDemands` regression tests.
 
 ### Known Limitations
 
 - Hourly-minima walk's upkeep approximation (see above) means it's a shortfall detector, not a bit-exact reconciliation of the totals balance sheet.
-- Australia's radar-retention exception not modeled (uniform garrison disband for all homeland countries).
+- A plan's per-country garrison-retention exceptions aren't modeled (uniform disband for all homeland countries — see `RP_GARRISON_DISBAND_DAY`).
 - No optimal city-subset search — inherited from Unit 2's fold-in (capital-first-ish) city ordering; still a future chunk.
-- **Doctrine data gaps, now placeholder-filled**: Russia's `mobile_sam_launcher` and India's `fixed_wing_veteran` both lacked `eastern` doctrine data (surfaced by the fix above); both now have unconfirmed `european`-copy placeholder data — see the PNTH coalition table's data-gap note. Real screenshot data still pending.
+- **Doctrine data gaps, now placeholder-filled**: Russia's `mobile_sam_launcher` and India's `fixed_wing_veteran` both lacked `eastern` doctrine data (surfaced by the fix above); both now have unconfirmed `european`-copy placeholder data (see the Elite Unit Catalog Status table). Real screenshot data still pending.
 
 ---
 

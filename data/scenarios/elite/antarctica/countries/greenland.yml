@@ -4,6 +4,7 @@ country:
   id: greenland
   name: Greenland
   doctrine: european
+  status: occupied
 
 cities:
   - id: nuuk

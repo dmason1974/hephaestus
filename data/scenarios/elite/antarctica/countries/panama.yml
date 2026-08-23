@@ -4,6 +4,7 @@ country:
   id: panama
   name: Panama
   doctrine: western
+  status: occupied
 
 cities:
   - id: panama_city

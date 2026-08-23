@@ -4,6 +4,7 @@ country:
   id: oman
   name: Oman
   doctrine: western
+  status: occupied
 
 cities:
   - id: muscat

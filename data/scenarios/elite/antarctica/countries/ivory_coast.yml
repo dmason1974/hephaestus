@@ -4,6 +4,7 @@ country:
   id: ivory_coast
   name: Ivory Coast
   doctrine: european
+  status: occupied
 
 cities:
   - id: yamoussoukro

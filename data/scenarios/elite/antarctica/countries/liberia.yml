@@ -4,6 +4,7 @@ country:
   id: liberia
   name: Liberia
   doctrine: eastern
+  status: occupied
 
 cities:
   - id: monrovia

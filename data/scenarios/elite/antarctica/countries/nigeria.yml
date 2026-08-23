@@ -4,6 +4,7 @@ country:
   id: nigeria
   name: Nigeria
   doctrine: western
+  status: occupied
 
 cities:
   - id: abuja

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { loadBuildingsFile } from "../../scenarios/io/load-buildings.js";
 import { loadScenarioFile } from "../../scenarios/io/load-scenario.js";
+import { scenarioResearchUnlockedThroughDayAtStart } from "../../schemas/scenario-schema.js";
 import { loadScenarioCoalitionPlan } from "../../scenarios/io/load-coalition-plan.js";
 import { loadScenarioCountry } from "../../scenarios/io/load-country.js";
 import { loadMergedUnitCatalogForScenario } from "../../scenarios/io/load-unit-catalog.js";
@@ -15,6 +16,7 @@ import {
   computeParityGateWeights,
   WEIGHT_FORMULA_EXCLUDED_RESOURCES,
   foldInDemands,
+  estimateBestNewCityConfig,
 } from "./joint-city-optimizer.js";
 import { baselineHomelandMoraleOnDay } from "../economy/morale.js";
 
@@ -126,6 +128,7 @@ test("foldInDemands splits a preferredCities demand evenly across exactly those 
   const result = foldInDemands(
     [{ unitId: "stealth_air_superiority_fighter", effectiveCount: 34, preferredCities: ["mumbai", "kolkata", "new_delhi"] }],
     allCityIds, catalog, buildings, "eastern", scenarioAbsHour, deadlineAbsHour, weights, 5, moraleAtAbsHour,
+    scenarioResearchUnlockedThroughDayAtStart(scenario),
   );
 
   const usedCityIds = result.citySlots.map(s => s.cityId).sort();
@@ -161,6 +164,7 @@ test("foldInDemands leaves demands without preferredCities on the unchanged cost
       { unitId: "uav", effectiveCount: 15 }, // unpinned — normal cost-driven fold-in
     ],
     allCityIds, catalog, buildings, "eastern", scenarioAbsHour, deadlineAbsHour, weights, 5, moraleAtAbsHour,
+    scenarioResearchUnlockedThroughDayAtStart(scenario),
   );
 
   // Every SASF-primary slot must be one of the 3 preferred cities.
@@ -175,4 +179,36 @@ test("foldInDemands leaves demands without preferredCities on the unchanged cost
   for (const cid of uavPrimaryCities) {
     assert.ok(!["mumbai", "kolkata", "new_delhi"].includes(cid), `uav should not open a NEW dedicated slot in a pinned city (${cid})`);
   }
+});
+
+// ── estimateBestNewCityConfig: ceiling-level feasibility gate ───────────────
+
+test("estimateBestNewCityConfig rejects a single-city config that a flat-L1 duration would have wrongly accepted, once the real (higher-level) duration doesn't fit", () => {
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const catalog = loadMergedUnitCatalogForScenario(scenarioId);
+  const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
+  const unlockedThroughDayAtStart = scenarioResearchUnlockedThroughDayAtStart(scenario);
+  const moraleAtAbsHour = (absHour: number) => baselineHomelandMoraleOnDay(Math.floor(absHour / 24) + 1);
+  const weights = computePlanWeights([{ unitId: "mobile_sam_launcher", effectiveCount: 15 }], catalog, "eastern", 28);
+
+  // A window sized between flat-L1's total (15 units x ~14h = ~210h) and the
+  // ceiling level's total (15 units x ~18h = ~270h) at RO2: wide enough that
+  // the OLD flat-L1 gate would have accepted 1 city, tight enough that the
+  // real (research-level-aware) duration genuinely doesn't fit.
+  const wideDeadline = scenarioAbsHour + 5000; // establish infraOpenHour at RO2 without hitting window<=0
+  const wide = estimateBestNewCityConfig(
+    "mobile_sam_launcher", 15, 2, 2, 1, scenarioAbsHour, wideDeadline,
+    catalog, buildings, "eastern", moraleAtAbsHour, weights, unlockedThroughDayAtStart,
+  );
+  assert.ok(wide, "fixture assumption: a wide deadline must be feasible");
+  const infraOpenHour = wide!.infraOpenHour;
+
+  const tightDeadline = infraOpenHour + 240; // between the two totals above
+  const tight = estimateBestNewCityConfig(
+    "mobile_sam_launcher", 15, 2, 2, 1, scenarioAbsHour, tightDeadline,
+    catalog, buildings, "eastern", moraleAtAbsHour, weights, unlockedThroughDayAtStart,
+  );
+
+  assert.equal(tight, null, "the ceiling-level gate should reject this single-city config, not accept it using flat-L1 duration");
 });

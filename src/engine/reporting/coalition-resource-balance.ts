@@ -159,7 +159,7 @@ export function computeCountryResourceBalance(input: CountryResourceBalanceInput
       if (entry.count <= 0) continue;
       const perUnitHours = (entry.endAbsHour - entry.startAbsHour) / entry.count;
 
-      const perUnitCost: ResourceCost = calculateMobilizationCost(entry.unitId, 1, 1, catalog, doctrine);
+      const perUnitCost: ResourceCost = calculateMobilizationCost(entry.unitId, entry.level ?? 1, 1, catalog, doctrine);
 
       for (let i = 0; i < entry.count; i++) {
         const unitStartAbsHour = entry.startAbsHour + i * perUnitHours;

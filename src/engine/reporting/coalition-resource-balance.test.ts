@@ -33,7 +33,10 @@ function emptyForceProjection(overrides: Partial<CountryForceProjectionResult> =
     provinceMobResults: [],
     demandLabels: [],
     skippedDemands: [],
+    missingDataDemands: [],
     infeasible: false,
+    overrunDemands: [],
+    planWeights: {},
     ...overrides,
   };
 }

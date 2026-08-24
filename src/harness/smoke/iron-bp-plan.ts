@@ -725,7 +725,7 @@ if (feasible) {
     for (const step of otherSteps) costEvents.push({ hour: step.startHour, cost: step.cost });
     for (const m of mobSteps) {
       const perUnitHours = m.count > 0 ? (m.endAbsHour - m.startAbsHour) / m.count : 0;
-      const perUnitCost = calculateMobilizationCost(m.unitId, 1, 1, catalog, country.country.doctrine);
+      const perUnitCost = calculateMobilizationCost(m.unitId, m.level ?? 1, 1, catalog, country.country.doctrine);
       for (let i = 0; i < m.count; i++) {
         costEvents.push({ hour: m.startAbsHour + i * perUnitHours, cost: perUnitCost });
       }

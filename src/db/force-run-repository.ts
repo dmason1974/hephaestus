@@ -11,6 +11,13 @@ export type CountryForceWriteInput = {
   doctrine: string;
   status: "homeland" | "occupied";
   captureDay?: number;
+  /** Converts provinceMobResults' relative-to-scenario-start hours (see
+   *  planProvinceMobilization's own doc comments) to the same absolute-hour
+   *  frame every other persisted table already uses (research segments, city
+   *  infra/mob steps) — keeps force_province_mob_result's stored hours
+   *  directly comparable/renderable the same way, with no per-consumer
+   *  conversion needed. */
+  scenarioAbsHour: number;
   forceProjection: CountryForceProjectionResult;
   /** Name/resource/capital for every city with an assigned demand, keyed by bare
    *  cityId — sourced by the harness from the country YAML (country.cities).
@@ -29,7 +36,7 @@ export type CountryForceWriteInput = {
  * writeCountryEcoResult's transaction shape.
  */
 export async function writeCountryForceResult(input: CountryForceWriteInput): Promise<void> {
-  const { runId, forceProjection: fp } = input;
+  const { runId, scenarioAbsHour, forceProjection: fp } = input;
 
   const client = await pool.connect();
   try {
@@ -114,6 +121,18 @@ export async function writeCountryForceResult(input: CountryForceWriteInput): Pr
     }
 
     for (const [i, r] of fp.provinceMobResults.entries()) {
+      // planProvinceMobilization's hours are all relative-to-scenario-start
+      // (see its own doc comments) — convert to the same absolute-hour frame
+      // research segments and city infra/mob steps already use, so a
+      // consumer never has to know province timing is a special case.
+      const absTranches = r.tranches.map(t => ({
+        ...t,
+        mercenaryOutpostStartHour: scenarioAbsHour + t.mercenaryOutpostStartHour,
+        mercenaryOutpostCompleteHour: scenarioAbsHour + t.mercenaryOutpostCompleteHour,
+        mobilisationEarliestHour: scenarioAbsHour + t.mobilisationEarliestHour,
+        mobStartHour: scenarioAbsHour + t.mobStartHour,
+        completionHour: scenarioAbsHour + t.completionHour,
+      }));
       await client.query(
         `INSERT INTO force_province_mob_result
            (run_country_id, step_no, unit_id, level, count, province_count,
@@ -130,7 +149,7 @@ export async function writeCountryForceResult(input: CountryForceWriteInput): Pr
         [
           runCountryId, i + 1, r.unitId, r.level, r.count, r.provinceCount,
           r.mercenaryOutpostRequiredLevel, r.mercenaryOutpostBuildHours,
-          r.mobStartHour, r.completionHour, r.mobilizationDurationHours, JSON.stringify(r.tranches),
+          scenarioAbsHour + r.mobStartHour, scenarioAbsHour + r.completionHour, r.mobilizationDurationHours, JSON.stringify(absTranches),
           ...resourceValues(r.mercenaryOutpostBuildCost), ...resourceValues(r.mobilizationCost),
         ]
       );

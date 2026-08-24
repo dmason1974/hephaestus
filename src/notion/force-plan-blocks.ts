@@ -3,17 +3,22 @@ import type { ForceOverrunDemandData, ForceProjectionCityData, ForceProjectionCo
 
 /**
  * Pure DB-data -> Notion-block transform for a Unit 2 (force projection) country
- * report. Section layout/wording mirrors iron-fp-<country>.html exactly (Research
- * Plan, City Mob Build Plans as one continuously-numbered step table per city,
- * Mobilisation Cost Summary, Province Mobilisation Detail as a nested list) — as
- * Notion API block objects instead of <table> markup, per explicit user
- * direction. The one deliberate difference: research slots stay as separate
+ * report. Section layout/wording mirrors iron-fp-<country>.html (Research Plan,
+ * City Mob Build Plans and Province Mobilisation Detail both as one
+ * continuously-numbered step table per city/unit, Mobilisation Cost Summary) —
+ * as Notion API block objects instead of <table> markup, per explicit user
+ * direction. The two deliberate differences: research slots stay as separate
  * tables (not one combined table with a Slot column — also explicit user
- * direction) rather than iron-fp's single table. This is the PLAIN force
- * projection (computeCountryForceProjection, unmodified, no eco credit, no beam
- * search) — same computation iron-fp-plan.ts runs, not a tailored eco build. No
- * network calls, no re-simulation: every value already lives in the rows
- * `readForceProjectionCountryData` returned.
+ * direction), and Province Mobilisation Detail is placed before Mobilisation
+ * Cost Summary rather than after (per explicit user direction) — both unlike
+ * iron-fp-*.html. This is the PLAIN force projection (computeCountryForceProjection,
+ * unmodified, no eco credit, no beam search) — same computation iron-fp-plan.ts
+ * runs, not a tailored eco build. No network calls, no re-simulation: every
+ * value already lives in the rows `readForceProjectionCountryData` returned
+ * (province mobilisation hours included — converted from
+ * planProvinceMobilization's relative-to-scenario-start convention to the same
+ * absolute-hour frame as everything else at write time, see
+ * force-run-repository.ts).
  *
  * A "Deadline Overrun" section (below) was added when this was ported onto a
  * fixed engine that now correctly splits mobilisation cost/duration by the
@@ -255,28 +260,56 @@ function costSummaryTable(data: ForceProjectionCountryData): NotionBlock {
   return table(["", ...RESOURCE_COLUMNS], rows);
 }
 
-// ── Province Mobilisation Detail — nested bullet list ───────────────────────
+// ── Province Mobilisation Detail — one numbered step table per unit, same
+// shape as a city's step table (build steps then mob steps, continuously
+// numbered) ──────────────────────────────────────────────────────────────
 
+type ProvinceTranche = {
+  level: number;
+  count: number;
+  mercenaryOutpostRequiredLevel: number;
+  mercenaryOutpostStartHour: number;
+  mercenaryOutpostCompleteHour: number;
+  mobStartHour: number;
+  completionHour: number;
+  mobilizationDurationHours: number;
+};
+
+function provinceStepTable(r: ForceProjectionCountryData["provinceMobResults"][number]): NotionBlock {
+  const rows: NotionRichText[][][] = [];
+  let stepNum = 1;
+  for (const t of r.tranches as ProvinceTranche[]) {
+    // A tranche only triggers a real build when it needs a NEW mercenary_outpost
+    // level — mercenaryOutpostStartHour === mercenaryOutpostCompleteHour means
+    // it reused a level an earlier tranche already built.
+    if (t.mercenaryOutpostCompleteHour > t.mercenaryOutpostStartHour) {
+      rows.push([
+        rt(String(stepNum++)),
+        rt(`mercenary_outpost L${t.mercenaryOutpostRequiredLevel}`),
+        rt(fmtAbsHour(t.mercenaryOutpostStartHour)),
+        rt(fmtAbsHour(t.mercenaryOutpostCompleteHour)),
+        rt(`${Math.round(t.mercenaryOutpostCompleteHour - t.mercenaryOutpostStartHour)}h`),
+      ]);
+    }
+    rows.push([
+      rt(String(stepNum++)),
+      rt(`${unitLabel(r.unitId)} L${t.level} mob ×${t.count}`),
+      rt(fmtAbsHour(t.mobStartHour)),
+      rt(fmtAbsHour(t.completionHour)),
+      rt(`${Math.round(t.mobilizationDurationHours)}h`),
+    ]);
+  }
+  return table(["#", "step", "start", "complete", "dur"], rows);
+}
+
+/** One section (h3 + intro) per province-mobilised unit, mirroring
+ *  cityMobBuildPlanBlocks' shape exactly. */
 function provinceMobBlocks(data: ForceProjectionCountryData): NotionBlock[] {
-  return data.provinceMobResults.map(r => {
-    const trancheItems = r.tranches.map(t => {
-      const tr = t as {
-        level: number;
-        count: number;
-        mobStartHour: number;
-        mobilisationEarliestHour: number;
-        completionHour: number;
-        mobilizationDurationHours: number;
-      };
-      return bulletedListItem(
-        rt(`L${tr.level}: ${tr.count} units — research floor hour ${tr.mobilisationEarliestHour}, mobilise ${tr.mobStartHour}→${tr.completionHour} (${tr.mobilizationDurationHours}h)`)
-      );
-    });
-    return bulletedListItem(
-      rt(`${unitLabel(r.unitId)} × ${r.count} — mercenary_outpost → L${r.mercenaryOutpostRequiredLevel} (${r.mercenaryOutpostBuildHours}h cumulative), capacity ${r.provinceCount} provinces`),
-      trancheItems
-    );
-  });
+  return data.provinceMobResults.flatMap(r => [
+    heading3(`${unitLabel(r.unitId)} — capacity ${r.provinceCount} provinces`),
+    paragraph(rt(`Build: mercenary_outpost → L${r.mercenaryOutpostRequiredLevel} · Mob: ${r.count} units across ${r.tranches.length} tranche(s)`)),
+    provinceStepTable(r),
+  ]);
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -333,6 +366,11 @@ export function buildForceProjectionCountryPage(data: ForceProjectionCountryData
     blocks.push(...deadlineOverrunBlocks(data));
   }
 
+  if (data.provinceMobResults.length > 0) {
+    blocks.push(heading2("Province Mobilisation Detail"));
+    blocks.push(...provinceMobBlocks(data));
+  }
+
   blocks.push(heading2("Mobilisation Cost Summary"));
   if (data.demandLabels.length > 0) {
     blocks.push(paragraph(rt(data.demandLabels.join(" · "))));
@@ -344,11 +382,6 @@ export function buildForceProjectionCountryPage(data: ForceProjectionCountryData
     blocks.push(costSummaryTable(data));
   } else {
     blocks.push(costSummaryTable(data));
-  }
-
-  if (data.provinceMobResults.length > 0) {
-    blocks.push(heading2("Province Mobilisation Detail"));
-    blocks.push(...provinceMobBlocks(data));
   }
 
   if (data.missingDataDemands.length > 0) {

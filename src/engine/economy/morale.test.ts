@@ -5,6 +5,7 @@ import {
   homelandMoraleOnDayWithBunkers,
   moraleOnDay,
   moraleProductionMultiplier,
+  occupiedMoraleOnDay,
 } from "./morale.js";
 import { buildTestBuildings } from "../../test-support/buildings-fixture.js";
 
@@ -25,6 +26,12 @@ test("homeland morale with bunkers keeps T fixed and applies bunker through N", 
   assert.equal(homelandMoraleOnDayWithBunkers(1, 0), baselineHomelandMoraleOnDay(1));
   const buildings = buildTestBuildings();
   assert.equal(homelandMoraleOnDayWithBunkers(2, 1, buildings), 72);
+});
+
+test("occupiedMoraleOnDay starts from the captured baseline, not the homeland one", () => {
+  assert.equal(occupiedMoraleOnDay(1), 25);
+  assert.notEqual(occupiedMoraleOnDay(1), baselineHomelandMoraleOnDay(1));
+  assert.equal(occupiedMoraleOnDay(28), moraleOnDay(28, { S: 25, T: 92, N: 0, D: 13 }));
 });
 
 test("moraleProductionMultiplier remains the baseline coefficient mapping", () => {

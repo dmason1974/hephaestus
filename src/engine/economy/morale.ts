@@ -1,4 +1,5 @@
 import {
+  CAPTURED_STARTING_MORALE_DAY1,
   DEFAULT_MORALE_DECAY_D,
   HOMELAND_TARGET_MORALE,
   MORALE_MULTIPLIER_COEFFICIENT,
@@ -79,6 +80,20 @@ export function moraleOnDayWithDynamicBonus(
 
 export function baselineHomelandMoraleOnDay(day: number): number {
   return homelandMoraleOnDayWithBunkers(day, 0);
+}
+
+/**
+ * Occupied/captured-country morale curve: same target and decay as homeland, but
+ * starting from the lower captured baseline (no bunker bonus — occupied cities
+ * don't carry one into this curve).
+ */
+export function occupiedMoraleOnDay(day: number): number {
+  return moraleOnDay(day, {
+    S: CAPTURED_STARTING_MORALE_DAY1,
+    T: HOMELAND_TARGET_MORALE,
+    N: 0,
+    D: DEFAULT_MORALE_DECAY_D,
+  });
 }
 
 export function homelandMoraleOnDayWithBunkers(

@@ -292,7 +292,15 @@ export function computeAsapResearchCompletions(
   pins: ResearchAsapPin[],
   scenario: ResearchPlanningScenarioLike,
   doctrine: string,
-  slots?: number
+  slots?: number,
+  /** Same idle slot time simulateUnitResearchTargets reserves before every
+   *  level 2+ task (level 1 is always exempt, same rule both places) — must be
+   *  passed through here too, or this forward walk's completion estimates come
+   *  out systematically too optimistic (assuming back-to-back placement) once
+   *  the real backward-fill scheduler applies the buffer to these same tasks,
+   *  which can let a later level get greedily placed before its own
+   *  as-yet-unscheduled predecessor has claimed the room it actually needs. */
+  bufferHours = 0
 ): Map<string, number> {
   const maxLevelByUnit = new Map<string, number>();
   for (const pin of pins) {
@@ -301,7 +309,7 @@ export function computeAsapResearchCompletions(
   }
   const pinnedUnits = new Set(maxLevelByUnit.keys());
 
-  type Task = { releaseHour: number; duration: number; deps: string[] };
+  type Task = { level: number; releaseHour: number; duration: number; deps: string[] };
   const tasks = new Map<string, Task>();
   for (const [unitId, maxLevel] of maxLevelByUnit.entries()) {
     for (let level = 1; level <= maxLevel; level++) {
@@ -322,6 +330,7 @@ export function computeAsapResearchCompletions(
       }
 
       tasks.set(`${unitId}:${level}`, {
+        level,
         releaseHour: researchUnlockAbsoluteHour(scenario, researchData.unlock_day),
         duration: normalizeDurationHours(durationHours(researchData.time)),
         deps,
@@ -364,7 +373,7 @@ export function computeAsapResearchCompletions(
     const task = tasks.get(bestTaskId)!;
     const endHour = bestStartHour + task.duration;
     completions.set(bestTaskId, endHour);
-    slotAvailableAt[bestSlot] = endHour;
+    slotAvailableAt[bestSlot] = task.level === 1 ? endHour : endHour + bufferHours;
     pending.delete(bestTaskId);
   }
 
@@ -391,10 +400,10 @@ function unitLevelImpactScore(
   return Math.max(1, mobResources + upkeepResources * 24);
 }
 
-function expandTargetsWithUnitRequirements(
+export function expandTargetsWithUnitRequirements(
   catalog: UnitCatalog,
   targets: UnitResearchTargets
-) {
+): Map<string, number> {
   const expanded = new Map<string, number>();
   const queue = Object.entries(targets).map(([unitId, targetLevel]) => ({
     unitId,
@@ -575,7 +584,22 @@ export function simulateUnitResearchTargets(
   scenario: ResearchPlanningScenarioLike,
   opts?: {
     slots?: number;
+    /** HARD ceiling — a task that cannot fit within it is dropped (and the drop
+     *  cascades to anything depending on it), never silently relaxed. Use this
+     *  for genuine causal requirements (e.g. "this research must complete
+     *  before this unit's own mobilisation opens" — mobilising before research
+     *  completes is not a schedule to degrade gracefully into, it's wrong). */
     latestCompletionByUnitLevel?: Record<string, number>;
+    /** Task ids ("unitId:level") to schedule ASAP via a real forward pass
+     *  (commitAsapTier) BEFORE the JIT backward-fill runs at all — not a hint
+     *  fed into the backward-fill, a fully separate commit step. This is what
+     *  keeps ASAP scheduling robust under real multi-chain slot contention:
+     *  one algorithm decides what's achievable, not two independently-computed
+     *  schedules that can disagree. Use for "do this as early as possible"
+     *  (e.g. default ASAP research), never for a requirement whose violation
+     *  would produce a nonsensical schedule — that's what
+     *  latestCompletionByUnitLevel is for. */
+    asapEligibleTaskIds?: Set<string>;
     unitDemandCounts?: Record<string, number>;
     mobilizationStartHour?: number;
     enableJitScheduling?: boolean;
@@ -842,17 +866,192 @@ export function simulateUnitResearchTargets(
     }
   }
 
+  type Interval = { start: number; end: number };
+
   const scheduledStarts = new Map<string, number>();
   const scheduledEnds = new Map<string, number>();
   const scheduledSlots = new Map<string, number>();
-  const slotFreeBefore = Array.from({ length: slotCount }, () => deadlineAbsoluteHour);
+  // Consumed region per scheduled task (its own span plus any reserved buffer
+  // before it) — kept so the exact freed space can be restored if this task
+  // ever has to be retroactively unscheduled (see dropTaskAndCascade below).
+  const consumedRegionByTask = new Map<string, { slot: number; start: number; end: number }>();
+  // Free space per slot as a real list of intervals, not a single monotonic
+  // ceiling. A single ceiling can only ever shrink, so a tightly-bounded task
+  // (e.g. ASAP-pinned) placed earlier in processing order — but at an earlier
+  // point in real time than some other task already committed above it —
+  // permanently seals off whatever free time is left between them: nothing
+  // can ever backfill that gap once the ceiling has moved below it. Tracking
+  // real intervals lets a later-processed task use ANY still-free gap, not
+  // just the one directly below the current ceiling.
+  const freeIntervals: Interval[][] = Array.from({ length: slotCount }, () => [
+    { start: scenarioStartHour, end: deadlineAbsoluteHour },
+  ]);
   const unscheduled = new Set(plannedTasks.keys());
+  const droppedTaskIds = new Set<string>();
+
+  // Ordering is enforced entirely by a predecessor's own successor-derived
+  // bound (predecessor.end <= successor.start) — there is no separate check
+  // when a task is scheduled that its dependencies actually exist. That's fine
+  // going forward (successors are always scheduled before their own
+  // predecessors even get examined, by construction), but if a predecessor
+  // LATER turns out infeasible and has to be dropped, any successor that was
+  // already committed on the assumption the predecessor would exist is now
+  // scheduled on a false premise (research is strictly sequential — level N+1
+  // is meaningless without level N actually completing). Recursively unwind
+  // it too, reclaiming its slot time, rather than leaving an inconsistent
+  // schedule where a higher level exists without its own prerequisite.
+  function dropTaskAndCascade(taskId: string) {
+    if (droppedTaskIds.has(taskId)) return;
+    droppedTaskIds.add(taskId);
+    unscheduled.delete(taskId);
+
+    const consumed = consumedRegionByTask.get(taskId);
+    if (consumed) {
+      freeIntervals[consumed.slot].push({ start: consumed.start, end: consumed.end });
+      consumedRegionByTask.delete(taskId);
+      scheduledStarts.delete(taskId);
+      scheduledEnds.delete(taskId);
+      scheduledSlots.delete(taskId);
+      if (process.env.PLAN_DEBUG === "true") {
+        console.error(`[research-sim] Retroactively unscheduling ${taskId} — its own prerequisite turned out infeasible`);
+      }
+    }
+
+    const task = plannedTasks.get(taskId);
+    if (task) {
+      for (const successorId of [...task.successorIds]) dropTaskAndCascade(successorId);
+    }
+    for (const [, otherTask] of plannedTasks.entries()) {
+      const index = otherTask.successorIds.indexOf(taskId);
+      if (index !== -1) otherTask.successorIds.splice(index, 1);
+    }
+  }
+
+  /** Latest-possible placement for `task` within `bound`, searching every free
+   *  interval of every slot — not just "the current ceiling" — so a gap opened
+   *  earlier in processing order but later in real slot position stays usable.
+   *
+   *  releaseFloor also respects any of this task's OWN dependencies that are
+   *  already scheduled (whether committed by commitAsapTier below, or simply
+   *  scheduled earlier in this very backward-fill pass) — a general
+   *  correctness floor: never place a task before a dependency whose real
+   *  completion is already known, regardless of why it's already known. */
+  function bestPlacement(task: PlannedTask, bound: number): { slot: number; intervalIndex: number; start: number; end: number } | null {
+    const dependencyFloor = task.dependencyIds.reduce(
+      (floor, depId) => Math.max(floor, scheduledEnds.get(depId) ?? -Infinity),
+      -Infinity,
+    );
+    const releaseFloor = Math.max(task.releaseHour, dependencyFloor);
+    let best: { slot: number; intervalIndex: number; start: number; end: number } | null = null;
+    for (let slot = 0; slot < freeIntervals.length; slot++) {
+      const intervals = freeIntervals[slot];
+      for (let i = 0; i < intervals.length; i++) {
+        const interval = intervals[i];
+        const end = Math.min(interval.end, bound);
+        const start = end - task.durationHours;
+        if (start < Math.max(interval.start, releaseFloor)) continue;
+        if (best === null || end > best.end) best = { slot, intervalIndex: i, start, end };
+      }
+    }
+    return best;
+  }
+
+  /** Forward/earliest-fit mirror of bestPlacement, used only by
+   *  commitAsapTier below. */
+  function bestForwardPlacement(task: PlannedTask, floor: number): { slot: number; intervalIndex: number; start: number; end: number } | null {
+    let best: { slot: number; intervalIndex: number; start: number; end: number } | null = null;
+    for (let slot = 0; slot < freeIntervals.length; slot++) {
+      const intervals = freeIntervals[slot];
+      for (let i = 0; i < intervals.length; i++) {
+        const interval = intervals[i];
+        const start = Math.max(interval.start, floor);
+        const end = start + task.durationHours;
+        if (end > interval.end) continue;
+        if (best === null || start < best.start) best = { slot, intervalIndex: i, start, end };
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Commits every ASAP-eligible task via one real forward pass — earliest
+   * feasible slot, respecting dependencies and the same buffer rule as the
+   * backward-fill below — using the SAME interval infrastructure the
+   * backward-fill uses for everything else. This is what makes ASAP
+   * scheduling robust under real multi-chain contention: there is only ever
+   * ONE algorithm deciding what's achievable, not two independently-computed
+   * schedules (a forward estimate fed in as a "preference", and a separate
+   * backward placement) that can silently disagree once several ASAP chains
+   * compete for the same 2 physical slots — confirmed via direct testing to
+   * be a real, recurring failure mode of that earlier design (see
+   * country-force-projection.test.ts's Japan case history).
+   *
+   * A task whose dependency isn't resolvable during this forward pass (e.g.
+   * it depends on a genuinely JIT-deferred task, not itself ASAP-eligible —
+   * an unusual but possible catalog shape) is simply left in `unscheduled`
+   * for the ordinary backward-fill pass below to attempt normally, rather
+   * than forced or dropped here.
+   */
+  function commitAsapTier(eligibleIds: Set<string>) {
+    const pending = new Set(eligibleIds);
+    while (pending.size > 0) {
+      let bestTaskId: string | null = null;
+      let bestResult: { slot: number; intervalIndex: number; start: number; end: number } | null = null;
+
+      for (const taskId of pending) {
+        const task = plannedTasks.get(taskId);
+        if (!task) {
+          pending.delete(taskId);
+          continue;
+        }
+        const depsReady = task.dependencyIds.every(depId => scheduledStarts.has(depId));
+        if (!depsReady) continue;
+
+        const floor = Math.max(
+          task.releaseHour,
+          scenarioStartHour,
+          ...task.dependencyIds.map(depId => scheduledEnds.get(depId) ?? -Infinity),
+        );
+        const placement = bestForwardPlacement(task, floor);
+        if (!placement) continue;
+
+        if (
+          bestTaskId === null ||
+          placement.start < bestResult!.start ||
+          (placement.start === bestResult!.start && taskId.localeCompare(bestTaskId) < 0)
+        ) {
+          bestTaskId = taskId;
+          bestResult = placement;
+        }
+      }
+
+      if (bestTaskId === null) break; // nothing more resolvable right now — leave the rest for the backward-fill pass
+
+      const task = plannedTasks.get(bestTaskId)!;
+      const { slot, intervalIndex, start, end } = bestResult!;
+      const interval = freeIntervals[slot][intervalIndex];
+      const consumedEnd = task.isLevel1 ? end : Math.min(interval.end, end + (opts?.bufferHours ?? 0));
+
+      freeIntervals[slot].splice(intervalIndex, 1);
+      if (start > interval.start) freeIntervals[slot].push({ start: interval.start, end: start });
+      if (interval.end > consumedEnd) freeIntervals[slot].push({ start: consumedEnd, end: interval.end });
+
+      scheduledStarts.set(bestTaskId, start);
+      scheduledEnds.set(bestTaskId, end);
+      scheduledSlots.set(bestTaskId, slot + 1);
+      consumedRegionByTask.set(bestTaskId, { slot, start, end: consumedEnd });
+      unscheduled.delete(bestTaskId);
+      pending.delete(bestTaskId);
+    }
+  }
+
+  if (opts?.asapEligibleTaskIds && opts.asapEligibleTaskIds.size > 0) {
+    commitAsapTier(opts.asapEligibleTaskIds);
+  }
 
   while (unscheduled.size > 0) {
     let selectedTaskId: string | null = null;
-    let selectedSlot = -1;
-    let selectedStartHour = Number.NEGATIVE_INFINITY;
-    let selectedEndHour = Number.NEGATIVE_INFINITY;
+    let selectedPlacement: { slot: number; intervalIndex: number; start: number; end: number } | null = null;
     let anyDroppedThisPass = false;
 
     for (const taskId of unscheduled) {
@@ -862,86 +1061,68 @@ export function simulateUnitResearchTargets(
       const allSuccessorsScheduled = task.successorIds.every(successorId => scheduledStarts.has(successorId));
       if (!allSuccessorsScheduled) continue;
 
+      const successorDerivedBound = task.successorIds.length > 0
+        ? Math.min(...task.successorIds.map(successorId => scheduledStarts.get(successorId) ?? deadlineAbsoluteHour))
+        : deadlineAbsoluteHour;
+
       // JIT scheduling: Level 1 must complete before mobilization, higher levels are JIT for truce end
-      let successorStartBound = Math.min(
-        task.successorIds.length > 0
-          ? Math.min(...task.successorIds.map(successorId => scheduledStarts.get(successorId) ?? deadlineAbsoluteHour))
-          : deadlineAbsoluteHour,
-        opts?.latestCompletionByUnitLevel?.[taskId] ?? deadlineAbsoluteHour,
-      );
-
-      // Apply JIT scheduling constraint: level 1 must complete before mobilization starts
-      if (enableJitScheduling && task.isLevel1) {
-        successorStartBound = Math.min(successorStartBound, mobilizationStartHour);
-      } else if (!task.isLevel1 && !(opts?.noBufferTaskIds?.has(taskId) ?? false)) {
-        // The buffer protects every task-to-task handoff (see slotFreeBefore ratchet
-        // below), but without this, whichever task lands last in a slot (no scheduled
-        // successor bounding it) is free to complete literally at the deadline itself —
-        // zero margin between "research finishes" and "truce ends". Reserving
-        // bufferHours off the deadline too keeps that final handoff consistent with
-        // every other one. Exempt: level 1 (bounded by mobilizationStartHour, never
-        // buffered) and noBufferTaskIds (hand-pinned ASAP chains).
-        successorStartBound = Math.min(successorStartBound, deadlineAbsoluteHour - (opts?.bufferHours ?? 0));
-      }
-
-      // Check if this task can possibly fit
-      let canFit = false;
-      for (let slot = 0; slot < slotFreeBefore.length; slot++) {
-        const candidateEndHour = Math.min(slotFreeBefore[slot], successorStartBound);
-        const candidateStartHour = candidateEndHour - task.durationHours;
-        if (candidateStartHour >= task.releaseHour) {
-          canFit = true;
-          
-          const isBetter = candidateBeatsCurrent({
-            candidateTask: task,
-            candidateTaskId: taskId,
-            candidateStartHour,
-            candidateSlot: slot,
-            selectedTaskId,
-            selectedStartHour,
-            selectedSlot,
-          });
-
-          if (isBetter) {
-            selectedTaskId = taskId;
-            selectedSlot = slot;
-            selectedStartHour = candidateStartHour;
-            selectedEndHour = candidateEndHour;
-          }
+      function boundWithOverride(overrideHour: number) {
+        let bound = Math.min(successorDerivedBound, overrideHour);
+        // Apply JIT scheduling constraint: level 1 must complete before mobilization starts
+        if (enableJitScheduling && task.isLevel1) {
+          bound = Math.min(bound, mobilizationStartHour);
+        } else if (!task.isLevel1 && !(opts?.noBufferTaskIds?.has(taskId) ?? false)) {
+          // The buffer protects every task-to-task handoff (reserved as part of
+          // the consumed region when a task is placed, see below), but without
+          // this, whichever task lands last in a slot (no scheduled successor
+          // bounding it) is free to complete literally at the deadline itself —
+          // zero margin between "research finishes" and "truce ends". Reserving
+          // bufferHours off the deadline too keeps that final handoff consistent
+          // with every other one. Exempt: level 1 (bounded by
+          // mobilizationStartHour, never buffered) and noBufferTaskIds
+          // (hand-pinned/auto-ASAP chains).
+          bound = Math.min(bound, deadlineAbsoluteHour - (opts?.bufferHours ?? 0));
         }
+        return bound;
       }
-      
-      // If this task cannot fit in any slot, skip it (don't research this level)
-      if (!canFit) {
+
+      // latestCompletionByUnitLevel is a HARD ceiling — never relaxed. It's what
+      // a caller uses for a genuine causal requirement (e.g. "must complete
+      // before this unit's own mobilisation opens"); if a task can't fit within
+      // it, dropping it (and cascading to dependents) is the correct outcome,
+      // not silently mobilising before research completes. ASAP-eligible tasks
+      // never reach this loop at all (see commitAsapTier above) — everything
+      // examined here is genuinely JIT.
+      const hardCeiling = opts?.latestCompletionByUnitLevel?.[taskId] ?? deadlineAbsoluteHour;
+      const bound = boundWithOverride(hardCeiling);
+      const placement = bestPlacement(task, bound);
+
+      if (!placement) {
         if (process.env.PLAN_DEBUG === "true") {
-          console.error(`[research-sim] Skipping ${taskId}: cannot fit (releaseHour=${task.releaseHour}, deadline=${successorStartBound})`);
+          console.error(`[research-sim] Dropping ${taskId}: cannot fit anywhere (releaseHour=${task.releaseHour}, tried bound=${bound})`);
         }
-        unscheduled.delete(taskId);
         anyDroppedThisPass = true;
-
-        // Remove this task from successor lists of all other tasks
-        for (const [otherTaskId, otherTask] of plannedTasks.entries()) {
-          const index = otherTask.successorIds.indexOf(taskId);
-          if (index !== -1) {
-            otherTask.successorIds.splice(index, 1);
-            if (process.env.PLAN_DEBUG === "true") {
-              console.error(`[research-sim] Removed ${taskId} from ${otherTaskId}'s successors`);
-            }
-          }
-          
-          // Also skip tasks that depend on this one
-          if (otherTask.dependencyIds.includes(taskId)) {
-            if (process.env.PLAN_DEBUG === "true") {
-              console.error(`[research-sim] Also skipping ${otherTaskId}: depends on skipped ${taskId}`);
-            }
-            unscheduled.delete(otherTaskId);
-          }
-        }
+        dropTaskAndCascade(taskId);
         continue;
+      }
+
+      const isBetter = candidateBeatsCurrent({
+        candidateTask: task,
+        candidateTaskId: taskId,
+        candidateStartHour: placement.start,
+        candidateSlot: placement.slot,
+        selectedTaskId,
+        selectedStartHour: selectedPlacement?.start ?? Number.NEGATIVE_INFINITY,
+        selectedSlot: selectedPlacement?.slot ?? -1,
+      });
+
+      if (isBetter) {
+        selectedTaskId = taskId;
+        selectedPlacement = placement;
       }
     }
 
-    if (selectedTaskId === null || selectedSlot < 0 || !Number.isFinite(selectedStartHour)) {
+    if (selectedTaskId === null || selectedPlacement === null) {
       if (anyDroppedThisPass) {
         // A same-pass drop can free an earlier-visited dependency (e.g. a lower
         // research level whose only successor just got dropped) that this pass's
@@ -966,13 +1147,28 @@ export function simulateUnitResearchTargets(
       throw new Error(`missing selected research task "${selectedTaskId}"`);
     }
 
-    scheduledStarts.set(selectedTaskId, selectedStartHour);
-    scheduledEnds.set(selectedTaskId, selectedEndHour);
-    scheduledSlots.set(selectedTaskId, selectedSlot + 1);
+    const { slot, intervalIndex, start, end } = selectedPlacement;
     const skipBuffer = selectedTask.isLevel1 || (opts?.noBufferTaskIds?.has(selectedTaskId) ?? false);
-    slotFreeBefore[selectedSlot] = skipBuffer
-      ? selectedStartHour
-      : selectedStartHour - (opts?.bufferHours ?? 0);
+    const bufferAmount = skipBuffer ? 0 : (opts?.bufferHours ?? 0);
+    const interval = freeIntervals[slot][intervalIndex];
+    // Clamp to the interval's own start rather than reserving buffer space
+    // that belongs to a different, already-consumed region.
+    const consumedStart = Math.max(interval.start, start - bufferAmount);
+    const consumedEnd = end;
+
+    // Split the interval the task landed in: whatever's left before the
+    // (buffer-extended) consumed region, and whatever's left after it — the
+    // "after" leftover only exists when the task's own bound capped it below
+    // the interval's real end, and stays free for some other, less-tightly-
+    // bounded task to use.
+    freeIntervals[slot].splice(intervalIndex, 1);
+    if (consumedStart > interval.start) freeIntervals[slot].push({ start: interval.start, end: consumedStart });
+    if (interval.end > consumedEnd) freeIntervals[slot].push({ start: consumedEnd, end: interval.end });
+
+    scheduledStarts.set(selectedTaskId, start);
+    scheduledEnds.set(selectedTaskId, end);
+    scheduledSlots.set(selectedTaskId, slot + 1);
+    consumedRegionByTask.set(selectedTaskId, { slot, start: consumedStart, end: consumedEnd });
     unscheduled.delete(selectedTaskId);
   }
 

@@ -1037,7 +1037,7 @@ Three related fixes, all discovered via UAT of `resource-projection.ts`'s output
 
 **Shipped design**: `computeCoalitionPlanWeights` (`joint-city-optimizer.ts`) — every homeland country's eco beam is weighted by the **aggregate demand across the whole coalition** (Σ mob + avg-upkeep cost summed across every homeland country's own demands, normalised once), not that country's own narrow demand list. Root cause this fixes directly: Italy's own demands (MRL/MAAV/Tank Veteran) barely touch electronics (its own weight ≈ 0.117), so Messina's beam had no reason to invest further — even though India/Japan's SASF/UAV-heavy demands make electronics one of the coalition's most valuable pooled resources. Feeding every country's beam the coalition-wide weight instead fixes this with **zero pre-distortion of the beam's own scoring** — it only changes which weights are handed to it. `computeCountryForceProjection`'s fold-in (`foldInDemands`) keeps using each country's own `computePlanWeights` unchanged (a genuinely country-scoped decision — RO level/city assignment cost comparisons).
 
-Coalition-wide weights alone weren't quite strong enough (material resources are structurally capped below cash's dominant weight in the mob+upkeep-cost-derived formula) — `resource-projection.ts` runs a **two-round pass**: round 1 computes every country with the base coalition-wide weights and checks the resulting real coalition balance for genuine deficits; round 2 (`boostWeightsFromDeficit`, boost-only — never reduces a weight, so it can't cause the round-1-attempt-1 collateral damage) raises weight toward 1.0 proportional to deficit severity for resources still short, and re-runs *only* the cities producing those resources (`runCityEcoBeam` with `cityFilter`, preserving round 1's `hqCityId` decision). Confirmed empirically: Messina/Sendai AI L3→L4, electronics weight 0.151→0.468, electronics coalition deficit −148k→−132k, Palermo (not in deficit) correctly untouched. **Known limitation**: a single boost round narrows but doesn't fully close every deficit (supplies/electronics/cash all still negative after round 2) — a second boost round would likely narrow further at the cost of another full beam-search pass; not implemented, flagged for a future round if needed. Single-country runs (`RP_COUNTRY=<id>`) still load every plan country's demand list to compute the coalition-wide weight (cheap, no beam search), so they remain fast and correctly coalition-aware even in isolation.
+Coalition-wide weights alone weren't quite strong enough (material resources are structurally capped below cash's dominant weight in the mob+upkeep-cost-derived formula) — at the time this was written, `resource-projection.ts` ran a **two-round pass**: round 1 computed every country with the base coalition-wide weights and checked the resulting real coalition balance for genuine deficits; round 2 (`boostWeightsFromDeficit`, boost-only — never reduced a weight, so it couldn't cause the round-1-attempt-1 collateral damage) raised weight toward 1.0 proportional to deficit severity for resources still short, and re-ran *only* the cities producing those resources (`runCityEcoBeam` with `cityFilter`, preserving round 1's `hqCityId` decision). Confirmed empirically at the time: Messina/Sendai AI L3→L4, electronics weight 0.151→0.468, electronics coalition deficit −148k→−132k, Palermo (not in deficit) correctly untouched. **This two-round `boostWeightsFromDeficit` design has since been replaced** (commit `95146f6`, #10) by `computeParityGateWeights`'s multi-round bidirectional convergence — see "Coalition Eco-Investment Weight Formula — ✅ Fixed" below for the current design; `boostWeightsFromDeficit` no longer exists in the codebase.
 
 ### SASF dead-window city sharing (India + Japan)
 
@@ -1098,8 +1098,10 @@ Tasks deferred until after UAT of the current coalition force plan engine output
 ### Why This Exists
 
 UAT of the automated coalition-weight eco engine (the beam-search decision-making
-layer — `computeCoalitionPlanWeights` → `runActualEcoBuild` → `boostWeightsFromDeficit`,
-see UAT Round 3 above) found it miscalibrated: under-invests in short resources
+layer — `computeCoalitionPlanWeights` → `runActualEcoBuild` → the parity-gate boost
+pass, see UAT Round 3 above; `boostWeightsFromDeficit` was the boost-pass
+implementation at the time this section was written, since replaced by
+`computeParityGateWeights`) found it miscalibrated: under-invests in short resources
 (supplies, electronics), over-invests in resources that are already comfortably
 supplied (fuel, components). Rather than debug the automated decision-making layer
 directly, the user's direction was to build a parallel, **hand-specified** eco
@@ -1312,65 +1314,22 @@ whole-coalition run is confirmation at scale, not just a single-country anecdote
 - No optimal city-subset search (inherited limitation, same as the production
   pipeline) — capital-first-ish ordering from Unit 2's fold-in.
 
-### Diagnosed But Not Fixed — Unit 3's Coalition Eco-Investment Weight Formula
+### Coalition Eco-Investment Weight Formula — ✅ Fixed (#10, `95146f6`)
 
-Not an iron-pipeline bug — a real defect in the **production** pipeline
-(`computeCoalitionPlanWeights`/`boostWeightsFromDeficit`, `joint-city-optimizer.ts`),
-diagnosed by comparing prod against the now-validated iron baseline above. Parked for
-a future session ("this is for another time") — recorded here so the diagnosis isn't
-lost.
-
-**Symptom**: prod has two real coalition-wide deficits (supplies −15,416, electronics
-−103,957) that iron doesn't have, while iron runs a smaller components/fuel surplus
-than prod.
-
-**Root cause, diagnosed in two steps, both from data already sitting in the balance
-sheets — no new instrumentation needed**:
-
-1. **Cash pollutes the weight formula.** `weight[resource] = Σ mobilisation_cost[r] ×
-   count + Σ daily_upkeep[r] × count × remaining_days` is currently computed across
-   all resource keys, including cash — but cash is never a city's native `resource`
-   field (no city produces it directly; it only ever shows up as `arms_industry`'s
-   flat per-level bonus). Since unit mob/upkeep costs typically have cash components
-   an order of magnitude larger than any material resource, cash's raw cost magnitude
-   crowds out the material-resource signal the formula is supposed to be measuring.
-   Fix: exclude cash (and manpower, same reasoning — no city produces manpower
-   either) from the weight formula entirely, not just down-weight them.
-
-2. **The formula has no capacity/scarcity term at all — it's pure demand.** Confirmed
-   by computing `cost[r] / income[r]` (income only — **not** gross available, which
-   includes the one-time starting balance and understates true ongoing utilization)
-   for both pipelines, from numbers already in each Coalition Balance Sheet:
-
-   | Resource | Iron util | Prod util | Delta |
-   |---|---|---|---|
-   | electronics | 115.2% | 153.4% | prod +38pt worse |
-   | supplies | 116.1% | 131.3% | prod +15pt worse |
-   | cash | 109.4% | 137.4% | prod +28pt worse |
-   | components | 122.2% | 110.8% | prod −11pt better |
-   | fuel | 121.5% | 106.9% | prod −15pt better |
-   | rares | 48.5% | 64.7% | prod +16pt (slack in both) |
-
-   Prod runs electronics/supplies materially hotter than iron while running
-   components/fuel more comfortably — ~11-15 points of headroom parked in
-   components/fuel that electronics/supplies don't have. Rares is slack in both
-   pipelines (nowhere near its production ceiling), the clearest resource to pull
-   investment from if something needs funding.
-
-**Proposed fix, in order** (not yet started):
-1. Instrument the current formula to confirm cash's contribution magnitude directly
-   (the diagnosis above is inferred from outcomes, not yet observed in the formula's
-   own intermediate values).
-2. Exclude cash/manpower from the weight formula.
-3. Rework `boostWeightsFromDeficit`'s single fixed-size boost pass into something that
-   iterates toward `cost[r]/income[r]` parity across resources, rather than stopping
-   after one round (CLAUDE.md's UAT Round 3 section already flags "a second boost
-   round would likely narrow further... not implemented" — this generalizes that idea
-   into a real convergence target instead of a second fixed pass).
-4. Re-validate against the iron baseline (`npm run smoke:iron-resource-projection`)
-   after each step — the target is prod's `cost/income` ratios landing close to level
-   across resources, not skewed 153%/131% on two resources and 107%/111% on two
-   others.
+This section previously recorded a diagnosed-but-unfixed defect in
+`computeCoalitionPlanWeights`/`boostWeightsFromDeficit`. Both root causes named below
+are fixed as of commit `95146f6` ("feat: time-bounded eco beam + parity-derived
+coalition weights (Unit 1.5) (#10)"); `boostWeightsFromDeficit` no longer exists in
+the codebase. `computeCoalitionPlanWeights` now excludes cash/manpower via
+`WEIGHT_FORMULA_EXCLUDED_RESOURCES` (`joint-city-optimizer.ts`), and the old
+single-round boost was replaced by `computeParityGateWeights` — `resource-projection.ts`
+now runs a genuine convergence loop (`MAX_PARITY_ROUNDS`) toward `cost[r]/income[r]`
+parity across resources, both bidirectional (a resource's gate weight falls again once
+its income improves, not just boosted once and left) and capacity-aware from the
+start rather than as an afterthought. See `joint-city-optimizer.test.ts` for the
+current formula's regression coverage. The original diagnosis (cash polluting the
+formula, no scarcity term) is preserved in git history for context if this area needs
+revisiting.
 
 ---
 

@@ -6,16 +6,15 @@ import { POOLED_RESOURCES } from "../../core/constants.js";
 import { scenarioStartAbsoluteHour, toAbsoluteHour } from "../../core/time.js";
 import type { CityEcoResult, CountryEcoBeamResult } from "../../engine/eco/city-eco-beam.js";
 import { resimulateHourlyProductionWithExtraActions, WEIGHT_THRESHOLD } from "../../engine/eco/city-eco-beam.js";
-import { runActualEcoBuild } from "../../engine/eco/actual-eco-build.js";
 import type { BuildingId } from "../../engine/orchestration/build-order-timeline.js";
-import { classifyDemands, computeCountryForceProjection, getBatchSize, type CountryForceProjectionResult } from "../../engine/optimization/country-force-projection.js";
+import { classifyDemands, getBatchSize, type CountryForceProjectionResult } from "../../engine/optimization/country-force-projection.js";
 import {
-  computePlanWeights,
   computeCoalitionPlanWeights,
   computeParityGateWeights,
   WEIGHT_FORMULA_EXCLUDED_RESOURCES,
   type PlanWeights,
 } from "../../engine/optimization/joint-city-optimizer.js";
+import { computeEcoCreditedForceProjection } from "../../engine/optimization/eco-credited-force-projection.js";
 import { computeGarrisonUpkeep } from "../../engine/optimization/garrison-upkeep.js";
 import type { ResourceCost } from "../../engine/optimization/types.js";
 import {
@@ -202,28 +201,6 @@ function buildCoalitionEcoWeights(): PlanWeights {
 const baseCoalitionEcoWeights = buildCoalitionEcoWeights();
 console.log(`  ${(Object.entries(baseCoalitionEcoWeights) as [Resource, number][]).map(([r, w]) => `${r}=${w.toFixed(2)}`).join(", ")}`);
 
-// Axis A: bounds Unit 1.5's eco beam search to each city's own real flip point
-// instead of the flat full-truce-window. A city's flip point only comes out of
-// computeCountryForceProjection, which itself consumes Unit 1.5's eco results — a
-// genuine circularity — resolved by starting from a cheap, eco-independent seed
-// (computeCountryForceProjection with actualEcoResultsByCity omitted, which falls
-// back to the formula-based infra chain for every city) and refining it with up to
-// MAX_HORIZON_ROUNDS beam passes, stopping once the flip-point estimate stabilizes.
-const MAX_HORIZON_ROUNDS = 2;
-const HORIZON_CONVERGENCE_TOLERANCE_HOURS = 6;
-
-function deriveHorizonByCity(forceProjection: CountryForceProjectionResult): Record<string, number> {
-  const horizon: Record<string, number> = {};
-  for (const slot of forceProjection.citySlots) {
-    // Cities with no demand assigned never get a slot at all, so they simply never
-    // appear here — runActualEcoBuild's hoursToSimulateByCity lookup falls back to
-    // the flat hoursToSimulate for any city id absent from this map, which is
-    // exactly right for a pure-eco city with no military-phase deadline to bound it.
-    horizon[slot.cityId] = Math.max(1, Math.min(hoursToSimulate, Math.ceil(slot.flipPointAbsHour - scenarioAbsHour)));
-  }
-  return horizon;
-}
-
 /**
  * @param gateWeights Coalition-derived resource weights (see computeParityGateWeights)
  *   used ONLY to gate which cities' candidate pools include
@@ -232,85 +209,19 @@ function deriveHorizonByCity(forceProjection: CountryForceProjectionResult): Rec
  */
 function analyseCountry(countryId: string, gateWeights: PlanWeights = baseCoalitionEcoWeights): CountryAnalysis {
   const ctx = countryContexts.get(countryId) ?? loadCountryContext(countryId);
-  const { country, doctrine, status, captureAbsHour, demands, researchAsapPins } = ctx;
+  const { country, doctrine, status, captureAbsHour } = ctx;
 
   console.log(`[${countryId}] running actual eco build (Unit 1.5) + force projection (status=${status})...`);
 
-  const { activeDemands } = classifyDemands(demands, doctrine, catalog);
-  // Unit 2's fold-in (computeCountryForceProjection below) keeps using this
-  // country's own plan weights — a genuinely country-scoped decision (RO
-  // level/city assignment cost comparisons), unrelated to shared-pool priorities.
-  const planWeights = computePlanWeights(
-    activeDemands.map(d => ({ unitId: d.unitId, effectiveCount: Math.ceil(d.count / getBatchSize(d.unitId, catalog)) })),
-    catalog, doctrine, plan.truce_days,
+  const { forceProjection, actualEco } = computeEcoCreditedForceProjection(
+    ctx,
+    {
+      scenario, buildings, catalog, scenarioAbsHour, deadlineAbsHour,
+      truceDays: plan.truce_days, maxRoLevel, hoursToSimulate, beamWidth, topN,
+      researchBufferHours: plan.research_buffer_hours,
+    },
+    gateWeights,
   );
-
-  const baseForceProjectionInput = {
-    country, doctrine, status,
-    demands,
-    scenario, buildings, catalog,
-    scenarioAbsHour, deadlineAbsHour,
-    truceDays: plan.truce_days,
-    maxRoLevel,
-    planWeights,
-    researchBufferHours: plan.research_buffer_hours,
-    researchAsapPins,
-  };
-
-  // Round 0 (seed): no eco beam run at all — computeCountryForceProjection falls
-  // back to the formula-based infra chain per city, giving a real, research-aware
-  // flip-point estimate at zero beam-search cost.
-  const seedProjection = computeCountryForceProjection({ ...baseForceProjectionInput, actualEcoResultsByCity: undefined });
-  let horizonByCity = deriveHorizonByCity(seedProjection);
-
-  // Unit 1.5: the "actual eco build" — Unit 1's beam engine, bounded per-city to
-  // horizonByCity (Axis A — running the search itself over the real budget, not
-  // truncating an already-found longer-budget answer) and scored by gateWeights
-  // (Axis B) exactly as the old weighted mode did: a weighted sum across ALL
-  // resources, not just the city's own native one. This matters — an earlier
-  // version of this feature tried scoreNativeResourceOnly (score by native resource
-  // alone, gateWeights only gating which buildings are even considered) and
-  // verified empirically WORSE on the real coalition plan (utilization spread
-  // widened, not narrowed): once a building clears the binary gate, native-only
-  // scoring has zero awareness of what it costs in OTHER resources, so a fuel city
-  // climbing arms_industry would happily burn electronics/rares along the way. The
-  // weighted score keeps that cross-resource cost visible in the ranking itself.
-  // gateWeights is what fixes the two diagnosed problems in the OLD weighted
-  // formula (cash/manpower excluded; derived from real parity, not raw demand cost)
-  // — reusing the SAME mechanism the old code already relied on for cross-resource
-  // discipline, not a new one. relocate_headquarters is capped to at most one city.
-  // Unit 1's own unconstrained/theoretical run (smoke:eco-plan) is intentionally
-  // not used here — it's a per-city-isolated reference ceiling, not the real plan.
-  let actualEco = runActualEcoBuild(
-    country, scenario, buildings,
-    { hoursToSimulate, hoursToSimulateByCity: horizonByCity, beamWidth, topN, unconstrained: true },
-    status, captureAbsHour, gateWeights,
-  );
-  let actualEcoResultsByCity = new Map<string, CityEcoResult>(
-    actualEco.cityResults.map(r => [r.cityId.slice(r.cityId.indexOf(":") + 1), r]),
-  );
-  let forceProjection = computeCountryForceProjection({ ...baseForceProjectionInput, actualEcoResultsByCity });
-
-  // Refine the horizon: eco investment credited by round 1 can shrink a city's
-  // remaining military chain, pulling its real flip point later than the seed
-  // estimated — re-run the beam against the refined bound if it moved meaningfully.
-  for (let round = 1; round < MAX_HORIZON_ROUNDS; round++) {
-    const newHorizonByCity = deriveHorizonByCity(forceProjection);
-    const cityIds = new Set([...Object.keys(horizonByCity), ...Object.keys(newHorizonByCity)]);
-    const maxDelta = Math.max(0, ...[...cityIds].map(id => Math.abs((newHorizonByCity[id] ?? hoursToSimulate) - (horizonByCity[id] ?? hoursToSimulate))));
-    if (maxDelta < HORIZON_CONVERGENCE_TOLERANCE_HOURS) break;
-
-    horizonByCity = newHorizonByCity;
-    actualEco = runActualEcoBuild(
-      country, scenario, buildings,
-      { hoursToSimulate, hoursToSimulateByCity: horizonByCity, beamWidth, topN, unconstrained: true },
-      status, captureAbsHour, gateWeights,
-    );
-    actualEcoResultsByCity = new Map<string, CityEcoResult>(
-      actualEco.cityResults.map(r => [r.cityId.slice(r.cityId.indexOf(":") + 1), r]),
-    );
-    forceProjection = computeCountryForceProjection({ ...baseForceProjectionInput, actualEcoResultsByCity });
-  }
 
   // Phase 2 (Bug 1): re-simulate hourly production for any city with backfilled
   // steps (guaranteed builds pulled forward into idle eco-phase time), so the

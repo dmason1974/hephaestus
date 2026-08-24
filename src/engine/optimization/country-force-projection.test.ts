@@ -11,6 +11,7 @@ import type { CityEcoResult } from "../eco/city-eco-beam.js";
 import { runActualEcoBuild } from "../eco/actual-eco-build.js";
 import { computeCountryForceProjection, classifyDemands, getBatchSize } from "./country-force-projection.js";
 import { computePlanWeights } from "./joint-city-optimizer.js";
+import { occupiedMoraleOnDay } from "../economy/morale.js";
 
 test("computeCountryForceProjection produces a feasible plan with a sane flip point for Russia", () => {
   const scenarioId = "elite/antarctica";
@@ -104,7 +105,7 @@ test("computeCountryForceProjection with researchBufferHours stays feasible and 
   }
 });
 
-test("computeCountryForceProjection with research_asap_pins packs Japan's helicopter_gunship/EAH chain tight and buffers everything else (Japan)", () => {
+test("computeCountryForceProjection defaults every unit's L1 and helicopter_gunship/air_superiority_fighter's full chain to ASAP, with no YAML pins, and buffers everything else (Japan)", () => {
   const scenarioId = "elite/antarctica";
   const scenario = loadScenarioFile(scenarioId);
   const buildings = loadBuildingsFile();
@@ -115,7 +116,7 @@ test("computeCountryForceProjection with research_asap_pins packs Japan's helico
   const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
   const deadlineAbsHour = scenarioAbsHour + plan.truce_days * 24;
 
-  assert.ok(countryPlan.research_asap_pins && countryPlan.research_asap_pins.length > 0, "fixture assumption: Japan has research_asap_pins configured");
+  assert.equal(countryPlan.research_asap_pins, undefined, "fixture assumption: Japan's plan no longer needs research_asap_pins — the engine defaults this now");
 
   const result = computeCountryForceProjection({
     country, doctrine: country.country.doctrine, status: countryPlan.status,
@@ -125,63 +126,80 @@ test("computeCountryForceProjection with research_asap_pins packs Japan's helico
     truceDays: plan.truce_days,
     maxRoLevel: 5,
     researchBufferHours: plan.research_buffer_hours,
-    researchAsapPins: countryPlan.research_asap_pins,
   });
 
   assert.equal(result.infeasible, false);
 
-  // Every pinned level must actually be present — the original (slot-unaware)
-  // ASAP-completion computation silently dropped awacs:1/air_superiority_fighter:1
-  // here (infeasible override due to real 2-slot contention among the pinned
-  // chains), leaving their already-scheduled higher levels dangling. This is the
-  // regression guard for that bug.
+  // Every ASAP-eligible level must actually be present — the original
+  // (slot-unaware) ASAP-completion computation silently dropped
+  // awacs:1/air_superiority_fighter:1 here (infeasible override due to real
+  // 2-slot contention among the ASAP-eligible units), leaving their
+  // already-scheduled higher levels dangling. This is the regression guard for
+  // that bug: helicopter_gunship and air_superiority_fighter have zero own
+  // mobilised demand (pure research prerequisites — for elite_attack_helicopter
+  // and stealth_air_superiority_fighter respectively), so ALL their levels are
+  // ASAP-eligible by default; every other demanded unit's own level 1 is too.
+  const asapEligible: Array<[string, number]> = [
+    ...([1, 2, 3, 4, 5, 6] as const).map((l): [string, number] => ["helicopter_gunship", l]),
+    ...([1, 2, 3, 4] as const).map((l): [string, number] => ["air_superiority_fighter", l]),
+    ["elite_attack_helicopter", 1], ["fixed_wing_veteran", 1], ["awacs", 1], ["stealth_air_superiority_fighter", 1],
+  ];
   const byUnitLevel = new Map(result.researchSegments.map(s => [`${s.unitId}:${s.level}`, s]));
-  for (const pin of countryPlan.research_asap_pins!) {
-    for (const level of pin.levels) {
-      assert.ok(byUnitLevel.has(`${pin.unit}:${level}`), `pinned ${pin.unit}:${level} must be scheduled, not silently dropped`);
-    }
+  for (const [unit, level] of asapEligible) {
+    assert.ok(byUnitLevel.has(`${unit}:${level}`), `ASAP-eligible ${unit}:${level} must be scheduled, not silently dropped`);
   }
 
   // helicopter_gunship is never mobilised (zero upkeep benefit to deferring it),
-  // so its pin should land level 1 near scenario start — not deferred to whenever
-  // the deadline-JIT backward scheduler happens to have leftover slot room, which
-  // is what the pre-pin baseline did (gunship L1 started on day 17 of a 28-day
-  // truce before this feature).
+  // so it should land level 1 well before the deadline-JIT backward scheduler
+  // would otherwise place it — the pre-fix baseline deferred it to day 17 of a
+  // 28-day truce (hour ~380+). It won't necessarily land within a day or two of
+  // scenario start, though: it's one of many ASAP-eligible tasks (the full
+  // air_superiority_fighter chain, awacs L1, fixed_wing_veteran L1,
+  // elite_attack_helicopter L1, stealth_air_superiority_fighter L1, gunship's
+  // own L2-L6) all genuinely competing for only 2 slots, each level-2+ task
+  // among them also paying the same 24h buffer as everything else — so a
+  // legitimately-earned hour somewhat later than scenario start is expected and
+  // correct, not a bug. The meaningful assertion is "nowhere near day 17".
   const gunshipL1 = byUnitLevel.get("helicopter_gunship:1");
   assert.ok(gunshipL1);
   assert.ok(
-    gunshipL1!.startAbsoluteHour <= scenarioAbsHour + 48,
-    `helicopter_gunship L1 should start within ~2 days of scenario start, got hour ${gunshipL1!.startAbsoluteHour} (scenario start ${scenarioAbsHour})`
+    gunshipL1!.startAbsoluteHour <= scenarioAbsHour + 200,
+    `helicopter_gunship L1 should start well before the old day-17 JIT-deferred baseline, got hour ${gunshipL1!.startAbsoluteHour} (scenario start ${scenarioAbsHour})`
   );
 
-  // None of the 6 pinned levels' own inter-level gap should ever be inflated by
-  // the 24h research buffer (they're all in noBufferTaskIds) — real unlock-day
-  // gates can still legitimately produce a gap, but never one driven by the
-  // buffer specifically. Verified indirectly: a run with the SAME pins but
-  // researchBufferHours omitted must schedule every gunship level identically,
-  // proving the buffer plays no role in this chain's timing at all.
-  const withoutBufferButPinned = computeCountryForceProjection({
+  // The 24h research buffer applies uniformly to every level 2+ task now,
+  // ASAP-eligible or not (see country-force-projection.ts's ASAP-default
+  // comment — an across-the-board buffer exemption for ASAP chains was
+  // specific to the old hand-pinned Iron workaround, not a real domain rule:
+  // the buffer models real player reaction time, which doesn't care which
+  // economic strategy placed a task). So gunship's own chain should schedule
+  // MEASURABLY TIGHTER with the buffer removed, not identically — the
+  // opposite of what this test asserted before that direction was corrected.
+  const withoutBuffer = computeCountryForceProjection({
     country, doctrine: country.country.doctrine, status: countryPlan.status,
     demands: countryPlan.demands,
     scenario, buildings, catalog,
     scenarioAbsHour, deadlineAbsHour,
     truceDays: plan.truce_days,
     maxRoLevel: 5,
-    researchAsapPins: countryPlan.research_asap_pins,
   });
-  const byUnitLevelNoBuffer = new Map(withoutBufferButPinned.researchSegments.map(s => [`${s.unitId}:${s.level}`, s]));
+  const byUnitLevelNoBuffer = new Map(withoutBuffer.researchSegments.map(s => [`${s.unitId}:${s.level}`, s]));
+  let sawTighterWithoutBuffer = false;
   for (let level = 1; level <= 6; level++) {
     const withBuffer = byUnitLevel.get(`helicopter_gunship:${level}`);
     const noBuffer = byUnitLevelNoBuffer.get(`helicopter_gunship:${level}`);
     assert.ok(withBuffer && noBuffer);
-    assert.equal(
-      withBuffer!.startAbsoluteHour, noBuffer!.startAbsoluteHour,
-      `helicopter_gunship L${level} timing should be identical with/without researchBufferHours (pinned, buffer-exempt)`
+    assert.ok(
+      noBuffer!.startAbsoluteHour <= withBuffer!.startAbsoluteHour,
+      `helicopter_gunship L${level} should never start LATER without the buffer than with it`
     );
+    if (noBuffer!.startAbsoluteHour < withBuffer!.startAbsoluteHour) sawTighterWithoutBuffer = true;
   }
+  assert.ok(sawTighterWithoutBuffer, "expected at least one helicopter_gunship level to schedule tighter without the buffer, proving the buffer genuinely applies to ASAP-eligible chains now");
 
-  // awacs level 2+ and fixed_wing_veteran level 2+ are NOT pinned — they must show
-  // the buffer whenever they immediately follow another segment in the same slot.
+  // awacs level 2+ and fixed_wing_veteran level 2+ are NOT ASAP-eligible (real
+  // own demand, genuinely JIT-deferred) — they must show the buffer whenever
+  // they immediately follow another segment in the same slot.
   const bySlot = new Map<number, typeof result.researchSegments>();
   for (const segment of result.researchSegments) {
     if (!bySlot.has(segment.slot)) bySlot.set(segment.slot, []);
@@ -228,6 +246,34 @@ test("computeCountryForceProjection returns reason 'no_demands' when the country
   assert.equal(result.reason, "no_demands");
   assert.equal(result.infeasible, true);
   assert.equal(result.citySlots.length, 0);
+});
+
+test("computeCountryForceProjection reports the occupied morale curve, not a flat 50, for an occupied country with no demands", () => {
+  const scenarioId = "elite/antarctica";
+  const scenario = loadScenarioFile(scenarioId);
+  const buildings = loadBuildingsFile();
+  const catalog = loadMergedUnitCatalogForScenario(scenarioId);
+  const country = loadScenarioCountry(scenarioId, "russia");
+  const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
+
+  const result = computeCountryForceProjection({
+    country,
+    doctrine: country.country.doctrine,
+    status: "occupied",
+    demands: [],
+    scenario,
+    buildings,
+    catalog,
+    scenarioAbsHour,
+    deadlineAbsHour: scenarioAbsHour + 28 * 24,
+    truceDays: 28,
+    maxRoLevel: 5,
+  });
+
+  assert.equal(result.infeasible, true);
+  assert.equal(result.reason, "no_demands");
+  assert.equal(result.moraleAtStart, occupiedMoraleOnDay(1));
+  assert.notEqual(result.moraleAtStart, 50);
 });
 
 test("classifyDemands routes units with no mobilisation data for the given doctrine to missingDataDemands, not launcherDemands", () => {

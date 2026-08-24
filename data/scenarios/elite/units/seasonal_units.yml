@@ -365,7 +365,7 @@ units:
       "3":
         requirements:
           - mercenary_outpost level 3
-          - special_forces level 3
+          - special_forces level 5
           - commando level 2
         research:
           unlock_day: 30

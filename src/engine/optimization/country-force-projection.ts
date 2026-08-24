@@ -13,7 +13,7 @@ import {
   sumResourceCosts,
 } from "./cost-calculator.js";
 import type { ResourceCost } from "./types.js";
-import { simulateUnitResearchTargets, determineMaximumFeasibleLevel, computeAsapResearchCompletions } from "../simulation/unit-research-sim.js";
+import { simulateUnitResearchTargets, determineMaximumFeasibleLevel, expandTargetsWithUnitRequirements } from "../simulation/unit-research-sim.js";
 import type { UnitResearchSegment, ResearchAsapPin } from "../simulation/unit-research-sim.js";
 import {
   planProvinceMobilization,
@@ -21,7 +21,7 @@ import {
   computeMobilizationTranches,
 } from "../simulation/province-mobilization-plan.js";
 import type { ProvinceMobilizationPlan } from "../simulation/province-mobilization-plan.js";
-import { baselineHomelandMoraleOnDay } from "../economy/morale.js";
+import { baselineHomelandMoraleOnDay, occupiedMoraleOnDay } from "../economy/morale.js";
 import { computeFlipPoint, computeEcoBackfill, withBackfilledLevels } from "../eco/flip-point-solver.js";
 import type { EcoBackfillStep } from "../eco/flip-point-solver.js";
 import type { CityEcoResult } from "../eco/city-eco-beam.js";
@@ -1031,7 +1031,29 @@ function computeUnitLimitTrancheTiming(args: {
     // case it's the more correct value to accumulate.
     cumWithinEntry += split.totalMobHours;
   }
-  return results;
+
+  // Merge adjacent phases that land at the same research level with
+  // contiguous timing — the cross-tranche counterpart to splitMobBatchByLevel's
+  // own within-tranche merging. Faster (ASAP-scheduled) research can let an
+  // earlier tranche's real mobStart already fall inside a later level's
+  // window (research raced ahead of the tranche's own unit_limit gate), so
+  // two nominally-different-level tranches can both resolve to the SAME real
+  // level with zero gap between them — without this merge that shows up as
+  // two adjacent mob steps at an identical level, which every caller
+  // (upkeep integration, HTML/report rendering) expects never to happen.
+  const merged: UnitLimitTrancheTiming[] = [];
+  for (const phase of results) {
+    const prev = merged[merged.length - 1];
+    if (prev && prev.level === phase.level && Math.abs(phase.mobStart - prev.mobEnd) < 1e-6) {
+      prev.count += phase.count;
+      prev.mobEnd = phase.mobEnd;
+      prev.totalMobHours += phase.totalMobHours;
+      prev.T = prev.totalMobHours / prev.count;
+    } else {
+      merged.push({ ...phase });
+    }
+  }
+  return merged;
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────
@@ -1048,8 +1070,7 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
   const isOccupied = status === "occupied";
   const moraleAtAbsHour: MoraleAtHour = (absHour) => {
     const day = Math.floor(absHour / 24) + 1;
-    // TODO: use captured morale curve when an occupied morale function is available
-    return isOccupied ? 50 : baselineHomelandMoraleOnDay(day);
+    return isOccupied ? occupiedMoraleOnDay(day) : baselineHomelandMoraleOnDay(day);
   };
 
   const emptyCosts = { infraRo: {}, infraBuildings: {}, mobilisation: {}, upkeep: {}, provinceMobilisation: {}, provinceUpkeep: {}, total: {} };
@@ -1117,8 +1138,6 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
     activeDemands.map(d => ({
       unitId: d.unitId,
       effectiveCount: Math.ceil(d.count / getBatchSize(d.unitId, catalog)),
-      preferredCities: d.preferred_cities,
-      minRo: d.min_ro,
     })),
     countryAllCityIds,
     catalog,
@@ -1193,27 +1212,113 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
     }
   }
 
-  // Hand-specified ASAP pins (see research_asap_pins schema comment): overwrite the
-  // JIT deadline for specific unit levels with their earliest physically feasible
-  // completion hour, forcing the backward scheduler to place them ASAP instead of
-  // deferring them to the deadline. Also exempt them (level >= 2 only — level 1 is
-  // already buffer-exempt) from researchBufferHours, since packing a hand-pinned
-  // chain (e.g. a research-only prerequisite anchor never itself mobilised) tightly
-  // is the entire point — spacing it out with buffer gaps would defeat the pin.
-  const noBufferTaskIds = new Set<string>();
-  if (researchAsapPins && researchAsapPins.length > 0) {
-    const asapCompletions = computeAsapResearchCompletions(
-      catalog, researchAsapPins, { ...scenario, truce_length_days: truceDays }, doctrine,
-    );
-    for (const pin of researchAsapPins) {
-      for (const level of pin.levels) {
-        const taskId = `${pin.unit}:${level}`;
-        const completion = asapCompletions.get(taskId);
-        if (completion === undefined) continue;
-        latestCompletionByUnitLevel[taskId] = completion;
-        if (level !== 1) noBufferTaskIds.add(taskId);
-      }
+  // unit_limit exception: a unit gated by a per-level mobilisation cap (e.g.
+  // commando's 5/10/15 alive-cap, elite_attack_helicopter's 5/10/15) cannot
+  // mobilise its later tranches until research reaches the level that raises
+  // the cap — so unlike an ordinary unit's L2+, deferring THIS research to
+  // pure JIT isn't free even though the unit has real upkeep-sensitive demand:
+  // a tranche's own research level must complete with enough runway left for
+  // that tranche AND every later tranche to still finish mobilising before the
+  // deadline. Applied as a hard ceiling (latestCompletionByUnitLevel, not the
+  // soft ASAP preference below) because it's a genuine feasibility requirement
+  // — if it can't be met, that tranche's units genuinely cannot all mobilise
+  // in time, the same class of requirement as the L1-before-mobilisation cap
+  // above. This is a conservative pre-pass estimate (assumes the mob queue is
+  // otherwise free for this tranche's own duration, ignoring real queue
+  // contention ahead of it, and ignoring any mercenary_outpost speed bonus for
+  // province-mobilised units) — the precise, queue-aware timing is still
+  // computed later by computeUnitLimitTrancheTiming / planProvinceMobilization
+  // once the real research schedule and infra chain are known; this pre-pass
+  // only has to be safe, not maximally late-optimal.
+  function applyUnitLimitTrancheConstraint(unitId: string, count: number, roLevel: number) {
+    const limitLevels = getUnitLimitLevels(unitId, catalog, doctrine);
+    if (limitLevels.length === 0) return;
+    const tranches = computeMobilizationTranches(count, limitLevels);
+    let remainingMobHoursFromHere = 0;
+    for (let i = tranches.length - 1; i >= 0; i--) {
+      const tranche = tranches[i];
+      const perUnitHours = calculateMobilizationDuration(
+        unitId, tranche.level, 1, 1, roLevel, catalog, buildings, doctrine, moraleAtAbsHour(deadlineAbsHour),
+      );
+      remainingMobHoursFromHere += tranche.count * perUnitHours;
+      const key = `${unitId}:${tranche.level}`;
+      const latestFeasibleCompletion = deadlineAbsHour - remainingMobHoursFromHere;
+      const cur = latestCompletionByUnitLevel[key] ?? Infinity;
+      if (latestFeasibleCompletion < cur) latestCompletionByUnitLevel[key] = latestFeasibleCompletion;
     }
+  }
+  for (const slot of foldResult.citySlots) {
+    for (const entry of slot.mobQueue) {
+      applyUnitLimitTrancheConstraint(entry.unitId, entry.count, slot.roLevel);
+    }
+  }
+  for (const demand of provinceDemands) {
+    // No RO level applies to province mobilisation — pass 1 (no bonus) as a
+    // safe baseline; the real mercenary_outpost speed bonus can only make
+    // actual mobilisation faster than this estimate, never slower.
+    applyUnitLimitTrancheConstraint(demand.unitId, demand.count, 1);
+  }
+
+  // ASAP research, default (not YAML-opt-in): JIT-deferral exists purely to
+  // minimise upkeep (already-mobilised units auto-upgrading sooner) and
+  // mobilisation cost (not-yet-mobilised tranches locking in at whatever level
+  // is unlocked when they mobilise) — both benefits require a unit that is
+  // actually, eventually mobilised. Two cases have neither cost, so deferring
+  // them is pure downside (later completion, more slot contention with real
+  // JIT work, more fragility) for zero benefit:
+  //   1. Every unit's own level 1, always — nothing can be mobilised before L1
+  //      completes, so there is no upkeep/mob-cost window to protect by
+  //      delaying it, only a later mobilisation-open date to avoid.
+  //   2. Every level of a unit with ZERO own mobilised demand (unitDemandCounts
+  //      has no entry / 0) — a pure research-prerequisite for another unit
+  //      (auto-expanded here the same way simulateUnitResearchTargets itself
+  //      expands them) that is never itself mobilised has no upkeep or mob
+  //      cost at any level, ever.
+  // A unit WITH real demand keeps its own level 2+ exactly as JIT-deferred as
+  // before — that's the part actually protecting cost, untouched here.
+  //
+  // Computed as ONE combined ASAP pass covering every eligible unit+level
+  // together (not one isolated call per unit) — this is what closes the real,
+  // previously-documented bug where computing an ASAP-pinned chain's schedule
+  // in isolation from other units competing for the same 2 physical slots
+  // produced a completion hour the real combined schedule couldn't actually
+  // honour, silently dropping the pinned unit's segments (and anything
+  // depending on it) entirely. Folding every ASAP-eligible unit into the same
+  // greedy multi-slot walk means the walk itself resolves that contention,
+  // rather than two independent computations disagreeing about it.
+  const expandedResearchTargets = expandTargetsWithUnitRequirements(catalog, researchTargets);
+  const autoAsapPins: ResearchAsapPin[] = [];
+  for (const [unitId, maxLevel] of expandedResearchTargets.entries()) {
+    if (maxLevel <= 0) continue;
+    const hasOwnDemand = (unitDemandCounts[unitId] ?? 0) > 0;
+    const levels = hasOwnDemand ? [1] : Array.from({ length: maxLevel }, (_, i) => i + 1);
+    autoAsapPins.push({ unit: unitId, levels });
+  }
+  // Hand-specified pins (research_asap_pins) still layer on top — for cases the
+  // auto rule structurally can't reach, e.g. an engine-limitation proxy unit
+  // (see CLAUDE.md's elite_attack_helicopter/helicopter_gunship OR-prerequisite
+  // workaround) that needs full-chain ASAP despite carrying its own real demand.
+  const allAsapPins = [...autoAsapPins, ...(researchAsapPins ?? [])];
+
+  // ASAP-eligible tasks are committed via a real forward pass BEFORE the JIT
+  // backward-fill runs at all (see simulateUnitResearchTargets's
+  // commitAsapTier) — not a preference hint fed into the backward-fill. Two
+  // independently-computed schedules (a forward "preference" estimate and a
+  // separate backward placement) can silently disagree once several ASAP
+  // chains compete for the same 2 physical slots — confirmed via direct
+  // testing to be a real, recurring failure mode, not just theoretical.
+  // researchBufferHours (idle slot time reserved before every level 2+ task,
+  // modelling a player needing real time to notice a slot freed up) applies
+  // uniformly to every level 2+ task, ASAP-eligible or not — the buffer is
+  // about real-world reaction time, not about which economic strategy placed
+  // the task. An across-the-board buffer exemption for ASAP-eligible chains
+  // was specific to the old hand-pinned Iron workaround (packing a manually
+  // pre-planned chain tight); now that ASAP is the automatic default rather
+  // than a hand-curated exception, it gets no special dispensation from the
+  // same friction every other level 2+ task pays.
+  const asapEligibleTaskIds = new Set<string>();
+  for (const pin of allAsapPins) {
+    for (const level of pin.levels) asapEligibleTaskIds.add(`${pin.unit}:${level}`);
   }
 
   const combinedResearch = simulateUnitResearchTargets(
@@ -1221,8 +1326,8 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
     researchTargets,
     { ...scenario, truce_length_days: truceDays },
     {
-      enableJitScheduling: true, doctrine, latestCompletionByUnitLevel, unitDemandCounts,
-      bufferHours: researchBufferHours, noBufferTaskIds,
+      enableJitScheduling: true, doctrine, latestCompletionByUnitLevel, asapEligibleTaskIds, unitDemandCounts,
+      bufferHours: researchBufferHours,
     },
   );
 

@@ -14,6 +14,7 @@ import {
   classifyDemands,
   getBatchSize,
   splitMobBatchByLevel,
+  getUnitBuildingRequirements,
   type LevelStep,
 } from "./country-force-projection.js";
 import { computePlanWeights } from "./joint-city-optimizer.js";
@@ -46,17 +47,17 @@ test("computeCountryForceProjection produces a feasible plan with a sane flip po
     maxRoLevel: 5,
   });
 
-  // Genuinely infeasible, not a regression: mobile_sam_launcher's L1 research
-  // anchor (latestCompletionByUnitLevel) is derived from the mob queue's own
-  // JIT-deferred mobStart estimate — a real, pre-existing circularity (see
-  // CLAUDE.md's "joint cost-optimizing scheduler" deferred-scope item) that
-  // now-correct research-level-split mobilisation duration/cost reveals as a
-  // genuine deadline overrun, where the old flat-L1 measurement silently
-  // reported it as fitting exactly. Surfacing this loudly (via
-  // `overrunDemands`) instead of silently under-reporting it is the entire
-  // point of this fix.
-  assert.equal(result.infeasible, true);
-  assert.ok(result.overrunDemands.length > 0, "expected a genuine overrun to be surfaced for Russia's real plan");
+  // Feasible: every unit's level 1 (and every level of a unit with zero own
+  // mobilised demand) is now scheduled ASAP by default rather than drifting
+  // to whatever the JIT backward-fill's upper bound happened to allow. Before
+  // this fix, special_forces' L1 research (pinned to Samara) landed around
+  // day 14 — needlessly late, since research cost is unaffected by when it
+  // completes — starving the rest of its sequential L2-L5 chain of runway and
+  // pushing L5's real, research-level-split mobEnd 17h past the deadline. L1
+  // now completes on day ~1.6, and the recovered slack (~12 days) comfortably
+  // absorbs the rest of the chain.
+  assert.equal(result.infeasible, false);
+  assert.equal(result.overrunDemands.length, 0, "expected no deadline overruns for Russia's real plan");
   assert.ok(result.citySlots.length > 0, "should allocate at least one city");
 
   for (const slot of result.citySlots) {
@@ -104,15 +105,15 @@ test("computeCountryForceProjection with researchBufferHours stays feasible and 
   const withoutBuffer = computeCountryForceProjection(baseArgs);
   const withBuffer = computeCountryForceProjection({ ...baseArgs, researchBufferHours: 24 });
 
-  // Genuinely infeasible for Italy's real plan under both settings, not a
-  // regression from adding a buffer — see the Russia test's comment above for
-  // the root cause (L1 research anchor circularity, a documented deferred-
-  // scope gap). This test's actual purpose (the bufferHours gap-spacing
-  // assertion below) is independent of feasibility and still holds either way.
-  assert.equal(withoutBuffer.infeasible, true);
-  assert.equal(withBuffer.infeasible, true);
-  assert.ok(withoutBuffer.overrunDemands.length > 0);
-  assert.ok(withBuffer.overrunDemands.length > 0);
+  // Feasible under both settings — see the Russia test's comment above for
+  // why (default ASAP level-1 scheduling recovers the runway the old
+  // JIT-drifted-L1 behaviour wasted). This test's actual purpose (the
+  // bufferHours gap-spacing assertion below) is independent of feasibility
+  // and still holds either way.
+  assert.equal(withoutBuffer.infeasible, false);
+  assert.equal(withBuffer.infeasible, false);
+  assert.equal(withoutBuffer.overrunDemands.length, 0);
+  assert.equal(withBuffer.overrunDemands.length, 0);
 
   const bySlot = new Map<number, typeof withBuffer.researchSegments>();
   for (const segment of withBuffer.researchSegments) {
@@ -140,7 +141,21 @@ test("computeCountryForceProjection with research_asap_pins packs Japan's helico
   const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
   const deadlineAbsHour = scenarioAbsHour + plan.truce_days * 24;
 
-  assert.ok(countryPlan.research_asap_pins && countryPlan.research_asap_pins.length > 0, "fixture assumption: Japan has research_asap_pins configured");
+  // Japan's plan no longer carries research_asap_pins in its YAML (removed
+  // 2026-08-24 — every entry here is now redundant with the engine's default
+  // ASAP rule: helicopter_gunship has zero own demand so all 6 of its levels
+  // auto-qualify, and the rest only ever pinned their own level 1, which every
+  // demanded unit gets by default). Kept here as an inline fixture so the
+  // hand-pin mechanism itself (`researchAsapPins`, still a real, supported
+  // capability for cases the auto rule can't reach) stays covered by a real,
+  // complex multi-unit scenario rather than only a synthetic one.
+  const testAsapPins = [
+    { unit: "helicopter_gunship", levels: [1, 2, 3, 4, 5, 6] },
+    { unit: "elite_attack_helicopter", levels: [1] },
+    { unit: "fixed_wing_veteran", levels: [1] },
+    { unit: "awacs", levels: [1] },
+    { unit: "air_superiority_fighter", levels: [1] },
+  ];
 
   const result = computeCountryForceProjection({
     country, doctrine: country.country.doctrine, status: countryPlan.status,
@@ -150,7 +165,7 @@ test("computeCountryForceProjection with research_asap_pins packs Japan's helico
     truceDays: plan.truce_days,
     maxRoLevel: 5,
     researchBufferHours: plan.research_buffer_hours,
-    researchAsapPins: countryPlan.research_asap_pins,
+    researchAsapPins: testAsapPins,
   });
 
   // Genuinely infeasible for Japan's real plan, not a regression — see the
@@ -170,30 +185,43 @@ test("computeCountryForceProjection with research_asap_pins packs Japan's helico
   // chains), leaving their already-scheduled higher levels dangling. This is the
   // regression guard for that bug.
   const byUnitLevel = new Map(result.researchSegments.map(s => [`${s.unitId}:${s.level}`, s]));
-  for (const pin of countryPlan.research_asap_pins!) {
+  for (const pin of testAsapPins) {
     for (const level of pin.levels) {
       assert.ok(byUnitLevel.has(`${pin.unit}:${level}`), `pinned ${pin.unit}:${level} must be scheduled, not silently dropped`);
     }
   }
 
   // helicopter_gunship is never mobilised (zero upkeep benefit to deferring it),
-  // so its pin should land level 1 near scenario start — not deferred to whenever
-  // the deadline-JIT backward scheduler happens to have leftover slot room, which
-  // is what the pre-pin baseline did (gunship L1 started on day 17 of a 28-day
-  // truce before this feature).
+  // so its pin should land level 1 well before the deadline-JIT backward
+  // scheduler would otherwise leave it — not deferred to whenever leftover slot
+  // room appears, which is what the pre-pin baseline did (gunship L1 started on
+  // day 17 of a 28-day truce before this feature). Since level 1 is now
+  // ASAP-eligible by default for every demanded unit (not just hand-pinned
+  // ones), Japan's real plan has many L1 tasks genuinely competing for the same
+  // 2 slots — a materially tighter contention picture than the old world where
+  // only a handful of hand-curated units raced for early placement. Gunship
+  // still lands early (day ~4-5) relative to the 28-day window, just not within
+  // the old, contention-naive ~2-day bound.
   const gunshipL1 = byUnitLevel.get("helicopter_gunship:1");
   assert.ok(gunshipL1);
   assert.ok(
-    gunshipL1!.startAbsoluteHour <= scenarioAbsHour + 48,
-    `helicopter_gunship L1 should start within ~2 days of scenario start, got hour ${gunshipL1!.startAbsoluteHour} (scenario start ${scenarioAbsHour})`
+    gunshipL1!.startAbsoluteHour <= scenarioAbsHour + 168,
+    `helicopter_gunship L1 should start within ~7 days of scenario start (well before the old day-17 JIT-drift baseline), got hour ${gunshipL1!.startAbsoluteHour} (scenario start ${scenarioAbsHour})`
   );
 
-  // None of the 6 pinned levels' own inter-level gap should ever be inflated by
-  // the 24h research buffer (they're all in noBufferTaskIds) — real unlock-day
-  // gates can still legitimately produce a gap, but never one driven by the
-  // buffer specifically. Verified indirectly: a run with the SAME pins but
-  // researchBufferHours omitted must schedule every gunship level identically,
-  // proving the buffer plays no role in this chain's timing at all.
+  // Being ASAP-eligible only exempts a task from carrying its OWN buffer
+  // padding as level 1 (never buffered, pinned or not) — level 2+ tasks pay
+  // the same 24h buffer whether they're ASAP-committed via commitAsapTier or
+  // JIT-placed by the ordinary backward-fill (PR #19's explicit design
+  // change: "the 24h research buffer now applies uniformly to every level 2+
+  // task, ASAP-eligible or not" — it modelled a hand-pinned Iron-workaround
+  // exemption that no longer reflects the real domain rule). So
+  // helicopter_gunship's own chain is NOT expected to be byte-identical
+  // with/without the buffer — verify instead that its own level 2+ segments
+  // show the same >=24h intra-slot gap the unpinned awacs/fixed_wing_veteran
+  // check below verifies, and that removing the buffer measurably tightens
+  // the chain (proving the buffer is doing real work here, not incidentally
+  // satisfied).
   const withoutBufferButPinned = computeCountryForceProjection({
     country, doctrine: country.country.doctrine, status: countryPlan.status,
     demands: countryPlan.demands,
@@ -201,17 +229,40 @@ test("computeCountryForceProjection with research_asap_pins packs Japan's helico
     scenarioAbsHour, deadlineAbsHour,
     truceDays: plan.truce_days,
     maxRoLevel: 5,
-    researchAsapPins: countryPlan.research_asap_pins,
+    researchAsapPins: testAsapPins,
   });
   const byUnitLevelNoBuffer = new Map(withoutBufferButPinned.researchSegments.map(s => [`${s.unitId}:${s.level}`, s]));
-  for (let level = 1; level <= 6; level++) {
-    const withBuffer = byUnitLevel.get(`helicopter_gunship:${level}`);
-    const noBuffer = byUnitLevelNoBuffer.get(`helicopter_gunship:${level}`);
-    assert.ok(withBuffer && noBuffer);
-    assert.equal(
-      withBuffer!.startAbsoluteHour, noBuffer!.startAbsoluteHour,
-      `helicopter_gunship L${level} timing should be identical with/without researchBufferHours (pinned, buffer-exempt)`
-    );
+  const gunshipL1WithBuffer = byUnitLevel.get("helicopter_gunship:1");
+  const gunshipL6WithBuffer = byUnitLevel.get("helicopter_gunship:6");
+  const gunshipL6NoBuffer = byUnitLevelNoBuffer.get("helicopter_gunship:6");
+  assert.ok(gunshipL1WithBuffer && gunshipL6WithBuffer && gunshipL6NoBuffer);
+  assert.ok(
+    gunshipL6WithBuffer!.endAbsoluteHourExclusive > gunshipL6NoBuffer!.endAbsoluteHourExclusive,
+    "helicopter_gunship's chain should finish later with researchBufferHours set than without it, proving the buffer is actually applied to this ASAP chain",
+  );
+
+  const gunshipSegsByLevel = new Map(
+    result.researchSegments.filter(s => s.unitId === "helicopter_gunship").map(s => [s.level, s]),
+  );
+  const gunshipBySlot = new Map<number, typeof result.researchSegments>();
+  for (const seg of gunshipSegsByLevel.values()) {
+    if (!gunshipBySlot.has(seg.slot)) gunshipBySlot.set(seg.slot, []);
+    gunshipBySlot.get(seg.slot)!.push(seg);
+  }
+  for (const segments of gunshipBySlot.values()) {
+    segments.sort((a, b) => a.startAbsoluteHour - b.startAbsoluteHour);
+    for (let i = 1; i < segments.length; i++) {
+      // The buffer is reserved as trailing padding by the task that finishes
+      // (commitAsapTier's consumedEnd), and level 1 is explicitly exempt from
+      // reserving any — so a level-1 task immediately followed, in the same
+      // slot, by a level 2+ task can show less than the full 24h (that gap is
+      // then driven by whatever else floors the level 2+ task, e.g. its own
+      // cross-slot dependency). Only a level 2+ task following another level
+      // 2+ task in the same slot is guaranteed the full buffer.
+      if (segments[i - 1].level === 1) continue;
+      const gap = segments[i].startAbsoluteHour - segments[i - 1].endAbsoluteHourExclusive;
+      assert.ok(gap >= 24, `expected >=24h buffer before helicopter_gunship L${segments[i].level}, got ${gap}h`);
+    }
   }
 
   // awacs level 2+ and fixed_wing_veteran level 2+ are NOT pinned — they must show
@@ -364,11 +415,10 @@ test("computeCountryForceProjection credits eco-built levels and forces RO first
     actualEcoResultsByCity,
   });
 
-  // Genuinely infeasible for Italy's real plan, not a regression — see the
-  // Russia test's comment above for the root cause. Independent of this
-  // test's actual purpose (verifying eco-credit/RO-first behaviour below).
-  assert.equal(ecoCredited.infeasible, true);
-  assert.ok(ecoCredited.overrunDemands.length > 0);
+  // Feasible — see the Russia test's comment above for why. Independent of
+  // this test's actual purpose (verifying eco-credit/RO-first behaviour below).
+  assert.equal(ecoCredited.infeasible, false);
+  assert.equal(ecoCredited.overrunDemands.length, 0);
   assert.ok(ecoCredited.citySlots.length > 0);
 
   // relocate_headquarters must never appear in the actual eco build for more than
@@ -430,7 +480,7 @@ test("computeCountryForceProjection credits eco-built levels and forces RO first
 
 // ── Dead-window cities (SASF + warhead/uav/awacs sharing a queue) ───────────
 
-test("computeCountryForceProjection: India's SASF demand pins to exactly Mumbai/Kolkata/New Delhi, splitting the 34-unit count across them", () => {
+test("computeCountryForceProjection: India's dead-window SASF cities mobilise a filler unit well before the primary unit's own readiness, using otherwise-idle mob-queue capacity", () => {
   const scenarioId = "elite/antarctica";
   const scenario = loadScenarioFile(scenarioId);
   const buildings = loadBuildingsFile();
@@ -450,59 +500,45 @@ test("computeCountryForceProjection: India's SASF demand pins to exactly Mumbai/
     maxRoLevel: 5,
   });
 
-  const sasfDemand = countryPlan.demands.find(d => d.unitId === "stealth_air_superiority_fighter");
-  assert.ok(sasfDemand, "fixture assumption: India demands stealth_air_superiority_fighter");
-  assert.deepEqual(sasfDemand!.preferred_cities, ["mumbai", "kolkata", "new_delhi"]);
-
-  const sasfSlots = result.citySlots.filter(s => s.primaryUnitId === "stealth_air_superiority_fighter");
-  assert.deepEqual(sasfSlots.map(s => s.cityId).sort(), ["kolkata", "mumbai", "new_delhi"]);
-  const totalSasf = sasfSlots.reduce(
-    (s, slot) => s + slot.mobQueue.filter(e => e.unitId === "stealth_air_superiority_fighter").reduce((s2, e) => s2 + e.count, 0),
-    0,
+  // City assignment is now fully cost-driven (no preferred_cities pin), so
+  // which city and which filler unit end up sharing SASF's dead window is an
+  // outcome of foldInDemands, not a fixture guarantee — discover it rather
+  // than hardcoding "mumbai"/"uav" from the old pinned setup.
+  const sasfCity = result.citySlots.find(
+    s => s.primaryUnitId === "stealth_air_superiority_fighter" &&
+      new Set(s.mobQueue.map(e => e.unitId)).size > 1,
   );
-  assert.equal(totalSasf, sasfDemand!.count);
-});
-
-test("computeCountryForceProjection: India's dead-window SASF cities mobilise uav well before the primary unit's own readiness, using otherwise-idle mob-queue capacity", () => {
-  const scenarioId = "elite/antarctica";
-  const scenario = loadScenarioFile(scenarioId);
-  const buildings = loadBuildingsFile();
-  const catalog = loadMergedUnitCatalogForScenario(scenarioId);
-  const plan = loadScenarioCoalitionPlan(scenarioId, "pnth-v-iron-2026-aug");
-  const country = loadScenarioCountry(scenarioId, "india");
-  const countryPlan = plan.countries.india;
-  const scenarioAbsHour = scenarioStartAbsoluteHour(scenario);
-  const deadlineAbsHour = scenarioAbsHour + plan.truce_days * 24;
-
-  const result = computeCountryForceProjection({
-    country, doctrine: country.country.doctrine, status: countryPlan.status,
-    demands: countryPlan.demands,
-    scenario, buildings, catalog,
-    scenarioAbsHour, deadlineAbsHour,
-    truceDays: plan.truce_days,
-    maxRoLevel: 5,
-  });
-
-  const mumbai = result.citySlots.find(s => s.cityId === "mumbai");
-  assert.ok(mumbai, "fixture assumption: mumbai is a pinned SASF city");
-  const uavStep = mumbai!.mobSteps.find(s => s.unitId === "uav");
-  const sasfStep = mumbai!.mobSteps.find(s => s.unitId === "stealth_air_superiority_fighter");
-  assert.ok(uavStep, "uav should have been absorbed into the SASF city's mob queue (merged pinned-demand slot)");
-  assert.ok(sasfStep);
+  assert.ok(sasfCity, "expected at least one SASF city sharing its mob queue with a filler unit");
+  const sasfStep = sasfCity!.mobSteps.find(s => s.unitId === "stealth_air_superiority_fighter");
+  const fillerStep = sasfCity!.mobSteps.find(s => s.unitId !== "stealth_air_superiority_fighter");
+  assert.ok(sasfStep && fillerStep);
   assert.ok(
-    uavStep!.endAbsHour <= sasfStep!.startAbsHour,
-    "uav must fully mobilise before SASF starts (queue is sequential — this only checks ordering, not the dead-window timing claim below)",
+    fillerStep!.endAbsHour <= sasfStep!.startAbsHour,
+    "the filler must fully mobilise before SASF starts (queue is sequential — this only checks ordering, not the dead-window timing claim below)",
   );
-  // The real claim: uav starts near air_base L1/arms_industry L1 completion (its
-  // own, much smaller, requirement set), not near the FULL air_base L5 chain
-  // completion SASF itself needs (which is what the old shared-infraOpenHour bug
-  // would have produced).
-  const airBaseL5Step = mumbai!.infraSteps.find(s => s.buildingId === "air_base" && s.toLevel >= 5);
-  assert.ok(airBaseL5Step);
-  assert.ok(
-    uavStep!.startAbsHour < airBaseL5Step!.endHour,
-    `uav should start well before air_base L5 completes (${airBaseL5Step!.endHour}), not near the end of the full chain — got ${uavStep!.startAbsHour}`,
-  );
+  // The filler starts at its own, real readiness hour — never later than the
+  // point its own required buildings actually complete. Not asserting "well
+  // before air_base L5" here any more: which filler the cost-driven search
+  // picks (no preferred_cities pin any more) is no longer guaranteed to be
+  // one with a big head-start window like the old hand-picked uav case (uav
+  // needs only air_base L1, so it could start deep inside SASF's L1-L5 climb;
+  // conventional_warhead needs secret_weapons_lab, which itself requires
+  // air_base L5 to build, so it has no such head-start available even though
+  // it's still a genuine, correctly-detected dead-window filler). The
+  // exploitable size of a dead-window benefit is a property of which units
+  // happen to share a city, not something this general mechanism controls —
+  // capturing the biggest such windows is exactly the "optimal city subset
+  // search" gap a real joint city-selection optimizer would need to close.
+  const fillerReqs = getUnitBuildingRequirements(fillerStep!.unitId, catalog, buildings);
+  for (const [bldgId, lvl] of fillerReqs) {
+    const step = sasfCity!.infraSteps.find(s => s.buildingId === bldgId && s.toLevel >= lvl);
+    if (step) {
+      assert.ok(
+        fillerStep!.startAbsHour >= step.endHour,
+        `filler unit (${fillerStep!.unitId}) must not start (${fillerStep!.startAbsHour}) before its own requirement ${bldgId} L${lvl} completes (${step.endHour})`,
+      );
+    }
+  }
 });
 
 test("computeCountryForceProjection: India's dead-window build order puts secret_weapons_lab before recruiting_office's remaining levels", () => {
@@ -525,11 +561,17 @@ test("computeCountryForceProjection: India's dead-window build order puts secret
     maxRoLevel: 5,
   });
 
-  const mumbai = result.citySlots.find(s => s.cityId === "mumbai");
-  assert.ok(mumbai);
-  const secretLabStep = mumbai!.infraSteps.find(s => s.buildingId === "secret_weapons_lab");
-  const roL2Step = mumbai!.infraSteps.find(s => s.buildingId === "recruiting_office" && s.toLevel >= 2);
-  assert.ok(secretLabStep, "fixture assumption: secret_weapons_lab is in Mumbai's infra chain (formula-based, no eco credit in this test)");
+  // City assignment is cost-driven (no preferred_cities pin) — discover the
+  // dead-window SASF city rather than hardcoding "mumbai" from the old pinned
+  // setup.
+  const sasfCity = result.citySlots.find(
+    s => s.primaryUnitId === "stealth_air_superiority_fighter" &&
+      new Set(s.mobQueue.map(e => e.unitId)).size > 1,
+  );
+  assert.ok(sasfCity, "expected at least one SASF city sharing its mob queue with a filler unit");
+  const secretLabStep = sasfCity!.infraSteps.find(s => s.buildingId === "secret_weapons_lab");
+  const roL2Step = sasfCity!.infraSteps.find(s => s.buildingId === "recruiting_office" && s.toLevel >= 2);
+  assert.ok(secretLabStep, "fixture assumption: secret_weapons_lab is in the dead-window city's infra chain (formula-based, no eco credit in this test)");
   if (roL2Step) {
     assert.ok(
       secretLabStep!.startHour < roL2Step.startHour,
@@ -736,7 +778,6 @@ test("computeCountryForceProjection: Japan's unit_limit-gated elite_attack_helic
     truceDays: plan.truce_days,
     maxRoLevel: 5,
     researchBufferHours: plan.research_buffer_hours,
-    researchAsapPins: countryPlan.research_asap_pins,
   });
 
   let sawAnySteps = false;

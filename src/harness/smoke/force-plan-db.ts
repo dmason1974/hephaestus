@@ -88,6 +88,7 @@ async function analyseCountry(runId: number, countryId: string): Promise<void> {
     doctrine,
     status,
     captureDay: status === "occupied" ? captureDay : undefined,
+    scenarioAbsHour,
     forceProjection,
     cityMeta,
   });

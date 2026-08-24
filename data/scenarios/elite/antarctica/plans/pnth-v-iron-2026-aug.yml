@@ -51,26 +51,10 @@ countries:
     demands:
       - unitId: stealth_air_superiority_fighter
         count: 34
-        # Split across 2 supply cities + Sendai (electronics) — these are the same
-        # resource types the coalition eco weights already flag as highest-priority
-        # non-cash need, so the arms_industry/air_base build these cities do for
-        # SASF doubles as real eco investment. Lets Sendai/Tokyo/Fujisawa's
-        # mobilisation queue produce AWACS (needs only air_base L4) + fixed_wing_veteran
-        # during the long air_base L5 climb instead of sitting idle.
-        preferred_cities: [tokyo, fujisawa, sendai]
-        # Forces RO3 here even though SASF alone would settle for RO1 — needed so
-        # AWACS (pinned below, sharing these same three cities) has enough
-        # mobilisation throughput; ditches the separate air_base L4 investment
-        # Oita (fuel) previously needed as a dedicated AWACS city.
-        min_ro: 3
       - unitId: awacs
         count: 8
-        preferred_cities: [tokyo, fujisawa, sendai]
       - unitId: fixed_wing_veteran
         count: 1
-        # Pinned to Tokyo (capital), mobilising alongside SASF/AWACS in the same
-        # dead-window queue.
-        preferred_cities: [tokyo]
       - unitId: elite_attack_helicopter
         count: 10
         # Placeholder: elite_attack_helicopter + its prerequisite
@@ -79,33 +63,24 @@ countries:
         # session to unblock this demand pending real screenshots.
         # 10 units cap out within the unit_limit 5+5 tranche (levels 1-2) —
         # air_base L4 only, not L5; units reach level 3 for free via research
-        # auto-upgrade. Doesn't fit Tokyo/Fujisawa/Sendai's SASF dead-window
-        # capacity without reordering the build chain (checked against
-        # tmp/iron-bp-japan.html — real idle capacity there is ~145h vs
-        # ~230-270h needed) — pinned to a dedicated new city instead.
-        preferred_cities: [yono]
-    # Hand-specified research ordering (see research_asap_pins schema comment).
-    # Slot 2 becomes a clean gunship1 -> EAH1 -> gunship2-6 chain: gunship is
-    # never mobilised (only a research anchor unlocking EAH's higher levels via
-    # its level 1/4/6 -> EAH level 1/2/3 mapping — see CLAUDE.md's Elite Unit
-    # Catalog Status), so there's zero upkeep benefit to JIT-deferring it —
-    # packing it tight ahead of EAH costs nothing. Slot 1 clears
-    # fixed_wing_veteran L1, awacs L1, air_superiority_fighter L1 out of the way
-    # early. Everything NOT listed here (awacs L2+, fixed_wing_veteran L2+, EAH
-    # L2/L3, air_superiority_fighter L2-4, stealth_air_superiority_fighter L1)
-    # keeps normal JIT-backward scheduling and picks up research_buffer_hours
-    # automatically.
-    research_asap_pins:
-      - unit: helicopter_gunship
-        levels: [1, 2, 3, 4, 5, 6]
-      - unit: elite_attack_helicopter
-        levels: [1]
-      - unit: fixed_wing_veteran
-        levels: [1]
-      - unit: awacs
-        levels: [1]
-      - unit: air_superiority_fighter
-        levels: [1]
+        # auto-upgrade.
+    # preferred_cities/min_ro removed (2026-08-24): hand-pinning a demand to
+    # specific named cities was a tactical workaround, not a rule the engine
+    # can generalise from — city assignment for every demand now goes through
+    # the same cost-driven fold-in search (foldInDemands) as every other
+    # country. This may no longer reproduce the specific dead-window sharing
+    # (SASF+AWACS+FWV in the same 3 cities) or the RO3 throughput floor the
+    # pins were hand-tuned to force — that's expected until a real joint
+    # city-selection search replaces this pass's greedy heaviness-first
+    # fold-in (see CLAUDE.md's tracked "optimal city subset search" gap).
+    # research_asap_pins removed (2026-08-24): the engine now defaults every
+    # unit's own level 1, and every level of a unit with zero own mobilised
+    # demand (helicopter_gunship — a pure research anchor unlocking EAH's
+    # higher levels via its level 1/4/6 -> EAH level 1/2/3 mapping, see
+    # CLAUDE.md's Elite Unit Catalog Status — never itself mobilised, so
+    # deferring any of its levels has zero upkeep benefit), to ASAP scheduling
+    # automatically. Verified byte-identical research segments, costs, and
+    # flip points with vs. without this block before removing it.
 
   russia:
     # Eastern — Moscow: components pop6, air_base 1
@@ -122,13 +97,10 @@ countries:
         count: 30
       - unitId: special_forces
         count: 24
-        # Pinned to Samara (electronics — coalition's highest-priority resource)
-        # instead of the cost-driven Moscow/Saint Petersburg split: air_base L1 is
-        # a hard mobilisation requirement for special_forces regardless of city, so
-        # pointing it at Samara turns that requirement into real eco investment
-        # (electronics) instead of wasting it on Moscow, which already starts with
-        # air_base 1, or Saint Petersburg (supplies — lowest coalition priority).
-        preferred_cities: [samara]
+        # preferred_cities: [samara] removed (2026-08-24) — hand-pinning a city
+        # for eco-investment side-benefit was a tactical workaround; city
+        # assignment is now fully cost-driven (foldInDemands), same as every
+        # other demand.
       - unitId: commando
         count: 12
         mobilisation_source: province
@@ -185,41 +157,25 @@ countries:
       supplies: 1
       components: 1
       electronics: 1
+    # preferred_cities removed from every demand below (2026-08-24) —
+    # hand-pinning specific cities per demand (previously used to force
+    # SASF/fixed_wing_veteran/uav dead-window sharing and to keep
+    # conventional_warhead off those same cities) was a tactical workaround;
+    # city assignment is now fully cost-driven (foldInDemands) for every
+    # demand, same as every other country.
     demands:
       - unitId: stealth_air_superiority_fighter
         count: 34
-        # Split across Mumbai + Kolkata (supplies) + New Delhi (electronics) — same
-        # rationale as Japan above. Lets these cities' mobilisation queue produce
-        # fixed_wing_veteran + uav (both need only air_base L1, no secret_weapons_lab)
-        # during the long air_base L5 climb instead of idling. conventional_warhead
-        # deliberately moved OFF these cities (see below) — it only needs
-        # secret_weapons_lab, not air_base, so it doesn't need to share this
-        # particular dead window and was starving RO2/RO3 backfill here.
-        preferred_cities: [mumbai, kolkata, new_delhi]
       - unitId: fixed_wing_veteran
         count: 1
-        # Pinned to New Delhi, mobilised first (ahead of SASF): only needs
-        # air_base L1 + recruiting_office L1, both of which New Delhi builds anyway
-        # as an early byproduct of its own air_base climb toward L5 for SASF — no
-        # dedicated air_base investment needed in Hyderabad (rares, lowest-weighted
-        # resource) purely for this one unit.
-        preferred_cities: [new_delhi]
       - unitId: uav
         count: 15
-        # Moved off Ahmedabad (now a pure conventional_warhead city, see below) into
-        # the dead-window capacity conventional_warhead vacated in the SASF cities.
-        preferred_cities: [mumbai, kolkata, new_delhi]
       - unitId: conventional_cruise_missile
         count: 120
       - unitId: ballistic_missile
         count: 120  # placeholder, mirrored from conventional_cruise_missile's count — not a confirmed target, flag for review
       - unitId: conventional_warhead
         count: 240  # batch_size: 4 — 60 mobilisation slots; enough warheads for 120 missiles (2 each) at game start
-        # Moved exclusively to the fuel/components-tile cities (20 slots each) —
-        # frees Mumbai/Kolkata/New Delhi's dead-window capacity entirely for
-        # fixed_wing_veteran + uav instead, and removes the RO2/RO3-starvation
-        # pressure at its root for those three cities.
-        preferred_cities: [bengaluru, chennai, ahmedabad]
 
   # Chosen on economics (2)
   australia:
@@ -233,47 +189,18 @@ countries:
       fuel: 1
       rares: 1
       electronics: 1
+    # preferred_cities removed from every demand below (2026-08-24) —
+    # hand-pinning mobile_radar/mechanized_infantry to the same 3 cities (to
+    # force queue-sharing) and mobile_anti_air_vehicle to a separate 3 was a
+    # tactical workaround; city assignment is now fully cost-driven
+    # (foldInDemands) for every demand, same as every other country.
     demands:
       - unitId: mobile_radar
         count: 7
-        preferred_cities: [maitland, brisbane, perth]
-        # Moved off Canberra: Canberra's own dedicated-city flip point (day
-        # 23h11) was the latest of any Australian city despite carrying the
-        # smallest workload — correct JIT arithmetic (smaller total mob-hours
-        # legitimately produces a later last-responsible-moment start), but
-        # strategically late. Sharing the mechanized_infantry cities' queue
-        # instead gets it fielded much earlier, at zero net infra cost
-        # (arms_industry, radar's one extra requirement beyond army_base,
-        # is already built during every city's eco phase regardless of
-        # military demand). Listed FIRST and pinned ahead of
-        # mechanized_infantry deliberately — infraCompatible is directional
-        # and only accepts this pairing with mobile_radar as the
-        # primary/first-opened unit; mechanized_infantry must merge in
-        # afterward as the candidate, never the reverse (confirmed:
-        # mechanized_infantry-as-primary rejects mobile_radar-as-candidate,
-        # since mechanized_infantry's own requirements don't include
-        # arms_industry). Real Smith's-rule burden confirms radar mobilises
-        # before mechanized_infantry in the shared queue automatically once
-        # merged, no extra ordering mechanism needed.
       - unitId: mechanized_infantry
         count: 30
-        preferred_cities: [maitland, brisbane, perth]
-        # Explicitly pinned to the SAME 3 cities as mobile_radar (not left to
-        # the normal cost-driven search) — confirmed necessary: leaving this
-        # unpinned let the fold-in decide a single new consolidated city
-        # (higher RO level, cheaper for a 30-unit batch) was better than
-        # absorbing into radar's already-open 3 cities, completely defeating
-        # the intended sharing. Two pinned demands naming the same cities
-        # merge via the existing absorption machinery (same mechanism
-        # already validated for India's SASF+UAV double-pin) rather than
-        # each opening its own disconnected slot.
       - unitId: mobile_anti_air_vehicle
         count: 70
-        preferred_cities: [canberra, adelaide, gold_coast]
-        # Canberra becomes a third dedicated MAAV city (24, vs 23/23 for
-        # Adelaide/Gold Coast) instead of hosting mobile_radar — see below.
-        # Sydney fully vacated (stays eco-only for the truce); which of the
-        # three MAAV cities is dropped doesn't materially matter.
 
   new_zealand:
     # European — Wellington: supplies pop6, air_base 1; #1 remaining candidate on supplies+electronics

@@ -1,26 +1,21 @@
 import type { PoolClient } from "pg";
 
-import type { Resource } from "../core/constants.js";
 import type { CityEcoResult, CountryEcoBeamResult } from "../engine/eco/city-eco-beam.js";
 import type { ProvinceEcoBeamResult } from "../engine/eco/province-eco-beam.js";
 import type { BuildAction } from "../engine/orchestration/build-order-timeline.js";
 import { pool } from "./pool.js";
+import {
+  RESOURCE_COLUMNS,
+  addInto,
+  insertResourceFlow,
+  resourceValues,
+  sumHourly,
+  zeroResources,
+  type ResourceAmounts,
+  type ResourceScope,
+} from "./resource-flow.js";
 
-/** Column order for every resource-bearing table. Must match `Resource`. */
-const RESOURCE_COLUMNS: Resource[] = [
-  "supplies",
-  "components",
-  "fuel",
-  "rares",
-  "electronics",
-  "cash",
-  "manpower",
-];
-
-export type ResourceAmounts = Partial<Record<Resource, number>>;
-
-/** resource_flow.scope_type */
-export type ResourceScope = "run" | "country" | "city" | "province_cohort";
+export { sumHourly, type ResourceAmounts, type ResourceScope };
 
 export type StartRunInput = {
   /** 'eco_plan' for Unit 1. See run.unit in sql/001_core.sql. */
@@ -53,27 +48,6 @@ export function bareCityId(prefixedOrBare: string): string {
   return idx === -1 ? prefixedOrBare : prefixedOrBare.slice(idx + 1);
 }
 
-function resourceValues(amounts: ResourceAmounts): number[] {
-  return RESOURCE_COLUMNS.map(r => amounts[r] ?? 0);
-}
-
-function zeroResources(): Record<Resource, number> {
-  return { supplies: 0, components: 0, fuel: 0, rares: 0, electronics: 0, cash: 0, manpower: 0 };
-}
-
-/** Sums an hourly production series into a single per-resource total. */
-export function sumHourly(hourly: Array<Record<Resource, number>>): Record<Resource, number> {
-  const total = zeroResources();
-  for (const hour of hourly) {
-    for (const r of RESOURCE_COLUMNS) total[r] += hour[r] ?? 0;
-  }
-  return total;
-}
-
-function addInto(target: Record<Resource, number>, source: ResourceAmounts): void {
-  for (const r of RESOURCE_COLUMNS) target[r] += source[r] ?? 0;
-}
-
 /**
  * BuildAction carries two aliased relative-hour fields; the timeline resolves
  * them as `startRelHour ?? startHour`. Mirror that precedence exactly, and
@@ -85,22 +59,6 @@ export function actionHours(
 ): { rel: number | null; abs: number | null } {
   const rel = action.startRelHour ?? action.startHour ?? null;
   return { rel, abs: rel === null ? null : rel + scenarioAbsHour };
-}
-
-async function insertResourceFlow(
-  client: PoolClient,
-  runId: number,
-  scopeType: ResourceScope,
-  scopeId: number | null,
-  category: string,
-  amounts: ResourceAmounts
-): Promise<void> {
-  await client.query(
-    `INSERT INTO resource_flow
-       (run_id, scope_type, scope_id, category, ${RESOURCE_COLUMNS.join(", ")})
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-    [runId, scopeType, scopeId, category, ...resourceValues(amounts)]
-  );
 }
 
 /** Opens a run and returns its id. Results are written against it as they complete. */
@@ -162,7 +120,8 @@ export async function writeCountryEcoResult(input: CountryEcoWriteInput): Promis
     const countryBuildCost = zeroResources();
 
     for (const city of ecoResult.cityResults) {
-      await writeCity(client, runId, runCountryId, city, scenarioAbsHour);
+      const runCityId = await insertRunCity(client, runCountryId, city);
+      await writeEcoCityResult(client, runId, runCityId, city, scenarioAbsHour);
       addInto(countryProduction, sumHourly(city.hourlyCityProduction));
       addInto(countryBuildCost, city.totalEcoBuildCost);
     }
@@ -211,21 +170,37 @@ export async function writeCountryEcoResult(input: CountryEcoWriteInput): Promis
   }
 }
 
-async function writeCity(
+export type RunCityMeta = { cityId: string; cityName: string; resource: string; capital: boolean };
+
+/**
+ * Inserts a `run_city` row and returns its id. Split out of what used to be a
+ * single `writeCity` so a city that carries BOTH eco data (this table) and a
+ * force-projection military chain (force_city_slot, a sibling table written by
+ * force-run-repository.ts) gets exactly one `run_city` row, not two.
+ */
+export async function insertRunCity(
   client: PoolClient,
-  runId: number,
   runCountryId: number,
-  city: CityEcoResult,
-  scenarioAbsHour: number
-): Promise<void> {
+  city: RunCityMeta
+): Promise<number> {
   const { rows } = await client.query<{ id: string }>(
     `INSERT INTO run_city (run_country_id, city_id, city_name, resource, capital)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING id`,
     [runCountryId, bareCityId(city.cityId), city.cityName, city.resource, city.capital]
   );
-  const runCityId = Number(rows[0].id);
+  return Number(rows[0].id);
+}
 
+/** Everything `writeCity` used to do after inserting `run_city` — now reusable
+ *  against a `run_city` row that may have been inserted by a different caller. */
+export async function writeEcoCityResult(
+  client: PoolClient,
+  runId: number,
+  runCityId: number,
+  city: CityEcoResult,
+  scenarioAbsHour: number
+): Promise<void> {
   await client.query(
     `INSERT INTO eco_city_result
        (run_city_id, starting_levels, last_build_completion_abs_hour, explored, hourly_production)

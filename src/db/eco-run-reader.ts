@@ -1,16 +1,6 @@
 import type { Resource } from "../core/constants.js";
 import { pool } from "./pool.js";
-
-/** Column order for resource_flow reads. Must match RESOURCE_COLUMNS in eco-run-repository.ts. */
-const RESOURCE_KEYS: Resource[] = [
-  "supplies",
-  "components",
-  "fuel",
-  "rares",
-  "electronics",
-  "cash",
-  "manpower",
-];
+import { RESOURCE_COLUMNS as RESOURCE_KEYS, resourceRowToMap, toNum, toNumOrNull, zeroResources } from "./resource-flow.js";
 
 export type EcoRunSummary = {
   id: number;
@@ -65,29 +55,6 @@ export type EcoPlanCountryData = {
   countryProduction: Partial<Record<Resource, number>>;
   countryBuildCost: Partial<Record<Resource, number>>;
 };
-
-function toNum(value: unknown): number {
-  if (value === null || value === undefined) return 0;
-  return typeof value === "number" ? value : parseFloat(String(value));
-}
-
-function toNumOrNull(value: unknown): number | null {
-  if (value === null || value === undefined) return null;
-  const n = typeof value === "number" ? value : parseFloat(String(value));
-  return Number.isFinite(n) ? n : null;
-}
-
-function resourceRowToMap(row: Record<string, unknown>): Partial<Record<Resource, number>> {
-  const out: Partial<Record<Resource, number>> = {};
-  for (const r of RESOURCE_KEYS) out[r] = toNum(row[r]);
-  return out;
-}
-
-function zeroResources(): Partial<Record<Resource, number>> {
-  const out: Partial<Record<Resource, number>> = {};
-  for (const r of RESOURCE_KEYS) out[r] = 0;
-  return out;
-}
 
 function mapRunRow(row: Record<string, unknown>): EcoRunSummary {
   return {

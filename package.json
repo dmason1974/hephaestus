@@ -55,6 +55,8 @@
     "smoke:multipliers": "node --import tsx src/harness/smoke/multipliers.ts",
     "smoke:db-check": "node --import tsx src/harness/smoke/db-connectivity.ts",
     "smoke:eco-plan-notion": "node --import tsx src/harness/smoke/eco-plan-notion.ts",
+    "smoke:force-plan-db": "node --max-old-space-size=8192 --import tsx src/harness/smoke/force-plan-db.ts",
+    "smoke:force-plan-notion": "node --import tsx src/harness/smoke/force-plan-notion.ts",
     "db:tunnel": "bash scripts/db-tunnel.sh",
     "db:create": "node --import tsx src/db/create-database.ts",
     "db:migrate": "node --import tsx src/db/migrate.ts",

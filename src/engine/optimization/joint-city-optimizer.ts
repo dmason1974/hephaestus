@@ -746,81 +746,18 @@ function applyAbsorption(
   slot.flipPointHour = Math.max(scenarioAbsHour, latestInfraOpenAcrossQueue - totalInfraHoursForSlot);
 }
 
-// ── Fixed-city-count cost estimation (for preferred_cities pinning) ──────────
-
-/**
- * Like `estimateBestNewCityConfig`'s RO sweep, but with the city count pinned to
- * exactly `numCities` rather than searched — used when a demand carries
- * `preferred_cities` and must open exactly that many named cities regardless of
- * whether a different count would be cheaper.
- */
-function estimateRoLevelForFixedCityCount(
-  unitId: string,
-  n: number,
-  numCities: number,
-  minRo: number,
-  maxRo: number,
-  scenarioAbsHour: number,
-  deadlineAbsHour: number,
-  catalog: UnitCatalog,
-  buildings: BuildingsFile,
-  doctrine: string,
-  moraleAtAbsHour: MoraleAtHour,
-  weights: PlanWeights,
-  unlockedThroughDayAtStart: number,
-): { roLevel: number; unitsPerCity: number } | null {
-  const baseInfraHours = nonRoBuildHours(unitId, catalog, buildings);
-  const upkeepRate = unitUpkeepRateScalar(unitId, catalog, doctrine, weights);
-  const mobCost = resourceCostToScalar(calculateMobilizationCost(unitId, 1, n, catalog, doctrine), weights);
-  const gateLevel = ceilingLevelForGate(unitId, catalog, doctrine, scenarioAbsHour, deadlineAbsHour, unlockedThroughDayAtStart);
-
-  let best: { roLevel: number; unitsPerCity: number; totalCost: number } | null = null;
-
-  for (let ro = minRo; ro <= maxRo; ro++) {
-    const totalInfraHours = baseInfraHours + roBuildHoursRange(0, ro, buildings);
-    const infraOpenHour = scenarioAbsHour + totalInfraHours;
-    const window = deadlineAbsHour - infraOpenHour;
-    if (window <= 0) continue;
-
-    const unitsPerCity = Math.ceil(n / numCities);
-    const T0 = calculateMobilizationDuration(unitId, gateLevel, 1, 1, ro, catalog, buildings, doctrine, moraleAtAbsHour(deadlineAbsHour));
-    if (T0 <= 0) continue;
-    const jitStart = Math.max(infraOpenHour, deadlineAbsHour - unitsPerCity * T0);
-    const T = calculateMobilizationDuration(unitId, gateLevel, 1, 1, ro, catalog, buildings, doctrine, moraleAtAbsHour(jitStart));
-    if (T <= 0 || unitsPerCity * T > window) continue;
-
-    const infraCostPerCity = infraScalarForUnit(unitId, ro, catalog, buildings, weights);
-    const totalInfraCost = numCities * infraCostPerCity;
-
-    let totalUpkeep = 0;
-    for (let ci = 0; ci < numCities; ci++) {
-      const m = ci < n % numCities ? Math.ceil(n / numCities) : Math.floor(n / numCities);
-      totalUpkeep += upkeepRate * T * (m * (m + 1)) / 2;
-    }
-
-    const totalCost = totalInfraCost + mobCost + totalUpkeep;
-    if (!best || totalCost < best.totalCost) {
-      best = { roLevel: ro, unitsPerCity, totalCost };
-    }
-  }
-
-  return best;
-}
-
 // ── Main export ───────────────────────────────────────────────────────────────
 
 /**
  * Folds all demands into a city plan using the incremental heaviness-first algorithm.
  *
  * @param demands  Active demands (province and launcher-platform demands excluded).
- *   A demand with `preferredCities` skips the cost-driven search and opens exactly
- *   those named cities instead (split evenly) — see the pinned pre-pass below.
  * @param cityIds  Available city IDs in priority order (capital first).
  * @param scenarioAbsHour  Absolute hour of game start.
  * @param deadlineAbsHour  Absolute hour of the truce deadline.
  */
 export function foldInDemands(
-  demands: Array<{ unitId: string; effectiveCount: number; preferredCities?: string[]; minRo?: number }>,
+  demands: Array<{ unitId: string; effectiveCount: number }>,
   cityIds: string[],
   catalog: UnitCatalog,
   buildings: BuildingsFile,
@@ -836,101 +773,9 @@ export function foldInDemands(
   unlockedThroughDayAtStart: number,
 ): JointCityResult {
   const citySlots: CityMobSlot[] = [];
+  const cityIdsForOverflow = cityIds;
 
-  // ── Pinned pre-pass: demands with preferred_cities open exactly those named
-  // cities up front, splitting effectiveCount evenly across them, instead of
-  // going through the cost-driven search below. Every OTHER (unpinned) demand
-  // still runs the normal heaviness-sorted fold-in afterward — including trying
-  // to absorb into these pinned slots via the existing infraCompatible/absorption
-  // logic below, unchanged, which already treats a subset-requirement demand
-  // (e.g. a warhead whose reqs are a strict subset of a SASF city's) as a valid
-  // absorption candidate. Pinned cities are removed from the pool so the
-  // unpinned overflow path never re-opens them as a dedicated city for something
-  // else.
-  const usedCityIds = new Set<string>();
-  const pinnedDemands = demands.filter(d => d.preferredCities && d.preferredCities.length > 0);
-  for (const demand of pinnedDemands) {
-    const { unitId, effectiveCount, preferredCities } = demand;
-    const numCities = preferredCities!.length;
-    // Plan-level override (Demand.min_ro) can force a higher RO floor than this
-    // demand alone would ever pick — needed when a later, separately-pinned
-    // demand (e.g. awacs) will share this same city and needs more RO
-    // throughput than the first demand (e.g. SASF) requires by itself.
-    const minRo = Math.max(getUnitMinRo(unitId, catalog), demand.minRo ?? 0);
-    const est = estimateRoLevelForFixedCityCount(
-      unitId, effectiveCount, numCities, minRo, maxRoLevel,
-      scenarioAbsHour, deadlineAbsHour, catalog, buildings, doctrine, moraleAtAbsHour, planWeights,
-      unlockedThroughDayAtStart,
-    );
-    if (!est) continue; // infeasible even at max RO with this exact city count — skip, same as the unpinned overflow path's `if (!est) continue`
-    const { roLevel } = est;
-
-    for (let ci = 0; ci < numCities; ci++) {
-      const cid = preferredCities![ci];
-      // Fair round-robin split (max 1-unit spread across cities), matching the
-      // same per-city count formula the cost estimate above already assumes
-      // (line ~712) — previously this dumped the full remainder on the last
-      // city alone (e.g. 70 across 3 cities → 24/24/22 instead of 24/23/23),
-      // inconsistent with what the RO-level/cost sweep had already modelled.
-      const allocated = ci < effectiveCount % numCities
-        ? Math.ceil(effectiveCount / numCities)
-        : Math.floor(effectiveCount / numCities);
-
-      // Two pinned demands can name the same city (e.g. SASF and uav both pinned
-      // to mumbai) — merge into the existing slot's shared queue via the same
-      // absorption machinery the unpinned path uses (including its dead-window
-      // capacity cap), rather than pushing a second, duplicate CityMobSlot for the
-      // same cityId. Without this, dead-window sharing between two *pinned*
-      // demands silently doesn't happen — each ends up in its own disconnected
-      // slot instead of one shared mob queue.
-      const existingSlotIdx = citySlots.findIndex(s => s.cityId === cid);
-      if (existingSlotIdx !== -1) {
-        const options = evaluateAbsorptionOptions(
-          citySlots, unitId, allocated, minRo, catalog, buildings, doctrine, moraleAtAbsHour, planWeights, maxRoLevel, scenarioAbsHour,
-          deadlineAbsHour, unlockedThroughDayAtStart,
-        ).filter(o => o.slotIdx === existingSlotIdx);
-        // A pinned demand that can't be placed must fail loudly, not vanish
-        // silently — this city is already committed to another pinned demand
-        // (removed from the overflow pool below), so there's no fallback city
-        // to retry with; previously a zero/partial absorption result here just
-        // dropped units with zero trace (confirmed: mechanized_infantry's full
-        // 30-unit demand disappeared with no error when this triggered).
-        if (options.length === 0) {
-          throw new Error(
-            `foldInDemands: pinned demand "${unitId}" (×${allocated}) could not be merged into ` +
-            `${cid}'s existing mob queue (primary: ${citySlots[existingSlotIdx].primaryUnitId}) — ` +
-            `zero absorption capacity found.`
-          );
-        }
-        const opt = options[0];
-        const nPlaced = Math.min(opt.nAbsorbable, allocated);
-        if (nPlaced < allocated) {
-          throw new Error(
-            `foldInDemands: pinned demand "${unitId}" at ${cid} only had capacity for ${nPlaced} of ` +
-            `${allocated} requested units (primary: ${citySlots[existingSlotIdx].primaryUnitId}).`
-          );
-        }
-        applyAbsorption(
-          citySlots[opt.slotIdx], unitId, nPlaced, opt.insertIdx, opt.neededRo,
-          catalog, buildings, doctrine, moraleAtAbsHour, planWeights, scenarioAbsHour,
-        );
-        usedCityIds.add(cid);
-        continue;
-      }
-
-      citySlots.push(buildNewSlot(
-        cid, unitId, allocated, roLevel,
-        catalog, buildings, doctrine, moraleAtAbsHour, planWeights,
-        scenarioAbsHour, deadlineAbsHour,
-      ));
-      usedCityIds.add(cid);
-    }
-  }
-
-  const unpinnedDemands = demands.filter(d => !d.preferredCities || d.preferredCities.length === 0);
-  const cityIdsForOverflow = cityIds.filter(id => !usedCityIds.has(id));
-
-  const sorted = [...unpinnedDemands].sort(
+  const sorted = [...demands].sort(
     (a, b) =>
       infraHeaviness(b.unitId, catalog, buildings, planWeights) -
       infraHeaviness(a.unitId, catalog, buildings, planWeights),

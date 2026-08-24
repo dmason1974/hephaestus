@@ -25,6 +25,7 @@ import {
   resourceCostToScalar,
 } from "./cost-calculator.js";
 import { durationToHours } from "../timing/activity-duration.js";
+import { determineMaximumFeasibleLevel } from "../simulation/unit-research-sim.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -376,6 +377,45 @@ export function infraHeaviness(
   return total;
 }
 
+/**
+ * The highest research level a unit could realistically reach by the deadline
+ * (self-contained, fold-independent — doesn't need the real research schedule,
+ * which doesn't exist yet at fold-in time; `country-force-projection.ts` calls
+ * the same function the same way for research target sizing).
+ *
+ * Used ONLY to bound mobilisation-duration FEASIBILITY GATES in this file
+ * (`if (unitsPerCity * T > window) continue`-shaped checks) — never mobilisation
+ * COST, and never a ranking/comparison quantity (those stay flat-L1, an
+ * explicitly deferred approximation; see CLAUDE.md's "joint cost-optimizing
+ * scheduler" follow-up). Mobilisation duration only ever RISES with level in
+ * this data model (never falls), so a capacity gate computed against the
+ * ceiling level can only be more conservative than reality — it can open one
+ * extra city or RO level where a real research-schedule-aware gate wouldn't
+ * have needed to (an efficiency question, deferred), but it can never wrongly
+ * ACCEPT a config that would actually overrun the deadline once real duration
+ * is used — the failure mode this fix exists to close.
+ *
+ * A unit's ceiling level doesn't depend on RO level, city count, or morale —
+ * only on `(unitId, deadlineAbsHour, doctrine, unlockedThroughDayAtStart)` — so
+ * callers should compute this ONCE per function invocation and reuse it across
+ * an entire (ro × city-count) sweep, not recompute it inside the sweep's inner
+ * loops.
+ */
+function ceilingLevelForGate(
+  unitId: string,
+  catalog: UnitCatalog,
+  doctrine: string,
+  scenarioAbsHour: number,
+  deadlineAbsHour: number,
+  unlockedThroughDayAtStart: number,
+): number {
+  return determineMaximumFeasibleLevel(
+    catalog, unitId,
+    { start: { day: 1, hour: scenarioAbsHour }, research: { unlocked_through_day_at_start: unlockedThroughDayAtStart } },
+    { deadlineAbsoluteHour: deadlineAbsHour, doctrine, slots: 1 },
+  ).maxLevel;
+}
+
 // ── New-city cost estimation ───────────────────────────────────────────────────
 
 export type NewCityEstimate = {
@@ -400,10 +440,14 @@ export function estimateBestNewCityConfig(
   doctrine: string,
   moraleAtAbsHour: MoraleAtHour,
   weights: PlanWeights,
+  unlockedThroughDayAtStart: number,
 ): NewCityEstimate | null {
   const baseInfraHours = nonRoBuildHours(unitId, catalog, buildings);
   const upkeepRate = unitUpkeepRateScalar(unitId, catalog, doctrine, weights);
   const mobCost = resourceCostToScalar(calculateMobilizationCost(unitId, 1, n, catalog, doctrine), weights);
+  // Feasibility-gate duration is bounded by the highest level realistically
+  // reachable by the deadline, not flat L1 — see ceilingLevelForGate's docstring.
+  const gateLevel = ceilingLevelForGate(unitId, catalog, doctrine, scenarioAbsHour, deadlineAbsHour, unlockedThroughDayAtStart);
 
   let best: NewCityEstimate | null = null;
 
@@ -414,7 +458,7 @@ export function estimateBestNewCityConfig(
     if (window <= 0) continue;
 
     // One-pass iteration: estimate T from deadline morale, derive JIT mob start, refine T.
-    const T0 = calculateMobilizationDuration(unitId, 1, 1, 1, ro, catalog, buildings, doctrine, moraleAtAbsHour(deadlineAbsHour));
+    const T0 = calculateMobilizationDuration(unitId, gateLevel, 1, 1, ro, catalog, buildings, doctrine, moraleAtAbsHour(deadlineAbsHour));
     if (T0 <= 0) continue;
 
     const infraCostPerCity = infraScalarForUnit(unitId, ro, catalog, buildings, weights);
@@ -425,7 +469,7 @@ export function estimateBestNewCityConfig(
       const unitsPerCity = Math.ceil(n / nc);
       // Derive morale at the JIT mob start for a city with unitsPerCity units
       const jitStart = Math.max(infraOpenHour, deadlineAbsHour - unitsPerCity * T0);
-      const T = calculateMobilizationDuration(unitId, 1, 1, 1, ro, catalog, buildings, doctrine, moraleAtAbsHour(jitStart));
+      const T = calculateMobilizationDuration(unitId, gateLevel, 1, 1, ro, catalog, buildings, doctrine, moraleAtAbsHour(jitStart));
       if (unitsPerCity * T > window) continue; // infeasible after morale refinement
 
       const totalInfraCost = nc * infraCostPerCity;
@@ -517,8 +561,11 @@ function evaluateAbsorptionOptions(
   weights: PlanWeights,
   maxRoLevel: number,
   scenarioAbsHour: number,
+  deadlineAbsHour: number,
+  unlockedThroughDayAtStart: number,
 ): AbsorptionOption[] {
   const options: AbsorptionOption[] = [];
+  const gateLevel = ceilingLevelForGate(unitId, catalog, doctrine, scenarioAbsHour, deadlineAbsHour, unlockedThroughDayAtStart);
 
   for (let slotIdx = 0; slotIdx < slots.length; slotIdx++) {
     const slot = slots[slotIdx];
@@ -554,7 +601,6 @@ function evaluateAbsorptionOptions(
     if (deadWindowFiller) {
       const primaryEntry = slot.mobQueue.find(e => e.unitId === slot.primaryUnitId);
       if (primaryEntry) {
-        const deadlineAbsHour = slot.infraOpenHour + slot.windowHours;
         const primaryJitStart = deadlineAbsHour - primaryEntry.totalMobHours;
         // Readiness estimate: slot.flipPointHour (already computed — the primary's
         // own latest-safe-flip point, i.e. roughly "when the required/military
@@ -588,7 +634,7 @@ function evaluateAbsorptionOptions(
         // same "not really a dead-window opportunity" case, not a genuine 1-unit-
         // short shortfall — falls back to Infinity too.
         const rawCapN = availableWindow > 0
-          ? Math.floor(availableWindow / Math.max(1, calculateMobilizationDuration(unitId, 1, 1, 1, neededRo, catalog, buildings, doctrine, moraleAtAbsHour(fillerReadinessAbs))))
+          ? Math.floor(availableWindow / Math.max(1, calculateMobilizationDuration(unitId, gateLevel, 1, 1, neededRo, catalog, buildings, doctrine, moraleAtAbsHour(fillerReadinessAbs))))
           : 0;
         deadWindowCapN = rawCapN > 0 ? rawCapN : Infinity;
       }
@@ -597,14 +643,14 @@ function evaluateAbsorptionOptions(
     if (cappedMaxN <= 0) continue;
 
     // One-pass morale iteration: estimate T from deadline morale, derive JIT mob start, refine T
-    const T0 = calculateMobilizationDuration(unitId, 1, 1, 1, neededRo, catalog, buildings, doctrine, moraleAtAbsHour(slot.infraOpenHour + slot.windowHours));
+    const T0 = calculateMobilizationDuration(unitId, gateLevel, 1, 1, neededRo, catalog, buildings, doctrine, moraleAtAbsHour(slot.infraOpenHour + slot.windowHours));
     if (T0 <= 0) continue;
     const remaining = effectiveWindow - slot.usedHours;
     const nEst = Math.min(cappedMaxN, Math.floor(remaining / T0));
     if (nEst <= 0) continue;
     const absorbedInfraOpen = slot.infraOpenHour + roExtraHours;
     const jitStart = Math.max(absorbedInfraOpen, slot.infraOpenHour + slot.windowHours - slot.usedHours - nEst * T0);
-    const T = calculateMobilizationDuration(unitId, 1, 1, 1, neededRo, catalog, buildings, doctrine, moraleAtAbsHour(jitStart));
+    const T = calculateMobilizationDuration(unitId, gateLevel, 1, 1, neededRo, catalog, buildings, doctrine, moraleAtAbsHour(jitStart));
     if (T <= 0) continue;
 
     const nAbsorbable = Math.min(cappedMaxN, Math.floor(remaining / T));
@@ -721,10 +767,12 @@ function estimateRoLevelForFixedCityCount(
   doctrine: string,
   moraleAtAbsHour: MoraleAtHour,
   weights: PlanWeights,
+  unlockedThroughDayAtStart: number,
 ): { roLevel: number; unitsPerCity: number } | null {
   const baseInfraHours = nonRoBuildHours(unitId, catalog, buildings);
   const upkeepRate = unitUpkeepRateScalar(unitId, catalog, doctrine, weights);
   const mobCost = resourceCostToScalar(calculateMobilizationCost(unitId, 1, n, catalog, doctrine), weights);
+  const gateLevel = ceilingLevelForGate(unitId, catalog, doctrine, scenarioAbsHour, deadlineAbsHour, unlockedThroughDayAtStart);
 
   let best: { roLevel: number; unitsPerCity: number; totalCost: number } | null = null;
 
@@ -735,10 +783,10 @@ function estimateRoLevelForFixedCityCount(
     if (window <= 0) continue;
 
     const unitsPerCity = Math.ceil(n / numCities);
-    const T0 = calculateMobilizationDuration(unitId, 1, 1, 1, ro, catalog, buildings, doctrine, moraleAtAbsHour(deadlineAbsHour));
+    const T0 = calculateMobilizationDuration(unitId, gateLevel, 1, 1, ro, catalog, buildings, doctrine, moraleAtAbsHour(deadlineAbsHour));
     if (T0 <= 0) continue;
     const jitStart = Math.max(infraOpenHour, deadlineAbsHour - unitsPerCity * T0);
-    const T = calculateMobilizationDuration(unitId, 1, 1, 1, ro, catalog, buildings, doctrine, moraleAtAbsHour(jitStart));
+    const T = calculateMobilizationDuration(unitId, gateLevel, 1, 1, ro, catalog, buildings, doctrine, moraleAtAbsHour(jitStart));
     if (T <= 0 || unitsPerCity * T > window) continue;
 
     const infraCostPerCity = infraScalarForUnit(unitId, ro, catalog, buildings, weights);
@@ -782,6 +830,10 @@ export function foldInDemands(
   planWeights: PlanWeights,
   maxRoLevel: number,
   moraleAtAbsHour: MoraleAtHour,
+  /** Feeds `determineMaximumFeasibleLevel`'s feasibility-gate duration bound
+   *  (see `ceilingLevelForGate`) — see `scenarioResearchUnlockedThroughDayAtStart`
+   *  at the caller. */
+  unlockedThroughDayAtStart: number,
 ): JointCityResult {
   const citySlots: CityMobSlot[] = [];
 
@@ -808,6 +860,7 @@ export function foldInDemands(
     const est = estimateRoLevelForFixedCityCount(
       unitId, effectiveCount, numCities, minRo, maxRoLevel,
       scenarioAbsHour, deadlineAbsHour, catalog, buildings, doctrine, moraleAtAbsHour, planWeights,
+      unlockedThroughDayAtStart,
     );
     if (!est) continue; // infeasible even at max RO with this exact city count — skip, same as the unpinned overflow path's `if (!est) continue`
     const { roLevel } = est;
@@ -834,6 +887,7 @@ export function foldInDemands(
       if (existingSlotIdx !== -1) {
         const options = evaluateAbsorptionOptions(
           citySlots, unitId, allocated, minRo, catalog, buildings, doctrine, moraleAtAbsHour, planWeights, maxRoLevel, scenarioAbsHour,
+          deadlineAbsHour, unlockedThroughDayAtStart,
         ).filter(o => o.slotIdx === existingSlotIdx);
         // A pinned demand that can't be placed must fail loudly, not vanish
         // silently — this city is already committed to another pinned demand
@@ -892,6 +946,7 @@ export function foldInDemands(
     // ── Try absorbing into existing compatible cities ──────────────────────
     const options = evaluateAbsorptionOptions(
       citySlots, unitId, remaining, minRo, catalog, buildings, doctrine, moraleAtAbsHour, planWeights, maxRoLevel, scenarioAbsHour,
+      deadlineAbsHour, unlockedThroughDayAtStart,
     );
 
     // Sort by marginal cost per unit absorbed (most efficient absorption first)
@@ -907,6 +962,7 @@ export function foldInDemands(
         unitId, n, minRo, maxRoLevel, Math.max(1, remainingCities),
         scenarioAbsHour, deadlineAbsHour,
         catalog, buildings, doctrine, moraleAtAbsHour, planWeights,
+        unlockedThroughDayAtStart,
       );
 
       // Scale marginal cost proportionally to n
@@ -929,6 +985,7 @@ export function foldInDemands(
         unitId, remaining, minRo, maxRoLevel, Math.max(1, remainingCities),
         scenarioAbsHour, deadlineAbsHour,
         catalog, buildings, doctrine, moraleAtAbsHour, planWeights,
+        unlockedThroughDayAtStart,
       );
       if (!est) continue;
 

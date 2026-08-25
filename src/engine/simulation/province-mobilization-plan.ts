@@ -153,6 +153,15 @@ export function planProvinceMobilization(args: {
    * research gate, so only the mobilisation phase respects this floor.
    * Keyed by tranche level; a level with no entry gets floor 0 (no gate). */
   mobilisationEarliestHourByLevel?: Record<number, number>;
+  /** Relative hour (from scenario start, same convention as `startHour`) of
+   * the truce deadline. Omitted ⇒ no deadline deferral (today's behaviour):
+   * every tranche mobilises the instant it's ready. Supplied ⇒ tranches are
+   * pulled as late as the deadline safely allows (never earlier than their
+   * own readiness floor), the same JIT shape `applyUnitLimitTrancheConstraint`
+   * already applies to city-mobilised unit_limit tranches — provinces had no
+   * equivalent, so a tranche mobilised the moment its mercenary_outpost level
+   * and research were ready regardless of how far off the deadline was. */
+  deadlineHour?: number;
 }): ProvinceMobilizationPlan {
   const {
     unitId,
@@ -164,6 +173,7 @@ export function planProvinceMobilization(args: {
     moralePct = 90,
     startHour = 0,
     mobilisationEarliestHourByLevel = {},
+    deadlineHour = Infinity,
   } = args;
 
   if (provinceCount <= 0) {
@@ -211,7 +221,11 @@ export function planProvinceMobilization(args: {
   let prevOutpostLevel = 0;
   let prevOutpostCompleteHour = startHour;
 
-  const tranches: ProvinceMobilizationTrancheResult[] = rawTranches.map(({ level, count: trancheCount }) => {
+  // Pass 1: readiness (mercenary_outpost timing, research floor) and each
+  // tranche's own mobilisation duration — none of this depends on the
+  // deadline, only on build/research timing and capacity.
+  type TrancheIntermediate = Omit<ProvinceMobilizationTrancheResult, "mobStartHour" | "completionHour">;
+  const intermediates: TrancheIntermediate[] = rawTranches.map(({ level, count: trancheCount }) => {
     const requirements = unit.levels[String(level)]?.requirements ?? [];
     const requiredLevels = requirementsToLevelMap(requirements);
     const mercenaryOutpostRequiredLevel = requiredLevels.mercenary_outpost ?? 0;
@@ -245,8 +259,6 @@ export function planProvinceMobilization(args: {
     const mobilizationDurationHours = Math.ceil(Math.ceil(trancheCount / effectiveCapacity) * perUnitDurationHours);
 
     const mobilizationCost = calculateMobilizationCost(unitId, level, trancheCount, unitCatalog, doctrine);
-    const mobStartHour = Math.max(mercenaryOutpostCompleteHour, mobilisationEarliestHour);
-    const completionHour = mobStartHour + mobilizationDurationHours;
 
     return {
       level,
@@ -255,12 +267,36 @@ export function planProvinceMobilization(args: {
       mercenaryOutpostStartHour,
       mercenaryOutpostCompleteHour,
       mobilisationEarliestHour,
-      mobStartHour,
       mobilizationDurationHours,
-      completionHour,
       mobilizationCost,
     };
   });
+
+  // Pass 2 (backward): defer each tranche's mobStart as late as the deadline
+  // safely allows, never earlier than its own readiness floor — the same
+  // shape as applyUnitLimitTrancheConstraint's ceiling for city-mobilised
+  // tranches, just deriving a start instead of a ceiling. Conservative:
+  // treats every later tranche as consuming time immediately before the
+  // deadline, which can only push a tranche later than truly necessary if
+  // provinces could mobilise several tranches fully in parallel — matches
+  // the "doesn't have to be maximally late-optimal" precedent already
+  // documented for the city-side constraint.
+  let remainingMobHoursFromHere = 0;
+  const tranches: ProvinceMobilizationTrancheResult[] = new Array(intermediates.length);
+  for (let i = intermediates.length - 1; i >= 0; i--) {
+    const t = intermediates[i];
+    remainingMobHoursFromHere += t.mobilizationDurationHours;
+    const readinessFloor = Math.max(t.mercenaryOutpostCompleteHour, t.mobilisationEarliestHour);
+    // deadlineHour defaults to Infinity (no deadline supplied) — in that case
+    // there's nothing to defer toward, so skip the JIT term entirely rather
+    // than letting `Infinity - remainingMobHoursFromHere` (still Infinity)
+    // win the max and force mobStartHour to Infinity.
+    const mobStartHour = Number.isFinite(deadlineHour)
+      ? Math.max(readinessFloor, deadlineHour - remainingMobHoursFromHere)
+      : readinessFloor;
+    const completionHour = mobStartHour + t.mobilizationDurationHours;
+    tranches[i] = { ...t, mobStartHour, completionHour };
+  }
 
   const highestLevel = Math.max(...tranches.map(t => t.level));
   const { hours: mercenaryOutpostBuildHours, cost: mercenaryOutpostBuildCost } = outpostThroughLevel(

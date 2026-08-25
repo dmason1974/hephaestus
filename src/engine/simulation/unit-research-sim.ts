@@ -834,22 +834,36 @@ export function simulateUnitResearchTargets(
     const selectedTask = plannedTasks.get(args.selectedTaskId);
     if (!selectedTask) return true;
 
-    // Compare by end hour (start + duration): both tasks ideally end at the deadline.
-    // A short-duration task placed at the deadline has a later start but the same end as
-    // a long-duration task — comparing ends prevents short tasks from crowding out high-
-    // count tasks purely because they have a later computed start hour.
-    const candidateEndHour = args.candidateStartHour + args.candidateTask.durationHours;
-    const selectedEndHour = args.selectedStartHour + selectedTask.durationHours;
-
-    if (Math.abs(candidateEndHour - selectedEndHour) >= 1) {
-      return candidateEndHour > selectedEndHour;
-    }
-
-    // Same end hour: break tie by total demand weight (count × mob+upkeep).
-    // Higher weight = more economic impact of being late → gets the JIT slot.
+    // Primary: which task's research is more cost-impactful to protect from
+    // arbitrary contention-driven gaps. Weight (demand count × mob+upkeep
+    // impact) now decides who wins a contested round, not "whichever task
+    // happens to achieve a technically later end this round" — the latter
+    // has no relationship to cost and was confirmed (via Russia's
+    // mobile_sam_launcher) to let an unrelated lower-stakes task's research
+    // land in the middle of a high-stakes chain purely by contention
+    // accident, forcing that chain's own levels to complete earlier than its
+    // mobilisation queue needed them to, pricing units above L1 for no
+    // reason. A high-weight chain now wins every round it's eligible for
+    // against lower-weight competitors, so it naturally claims consecutive
+    // rounds and gets packed tightly without needing a separate mechanism; a
+    // low-weight task (e.g. a unit demanded in isolated single digits) loses
+    // every contest for the valuable late slots and ends up using whatever's
+    // left — typically the early, uncontested part of the timeline, not a
+    // narrow fragment wedged next to a just-committed high-weight neighbour.
     const candidateWeight = taskPriority(args.candidateTask);
     const selectedWeight = taskPriority(selectedTask);
     if (candidateWeight !== selectedWeight) return candidateWeight > selectedWeight;
+
+    // Tie-break (equal weight): compare by end hour (start + duration) — both
+    // tasks ideally end at the deadline. A short-duration task placed at the
+    // deadline has a later start but the same end as a long-duration task —
+    // comparing ends prevents short tasks from crowding out high-count tasks
+    // purely because they have a later computed start hour.
+    const candidateEndHour = args.candidateStartHour + args.candidateTask.durationHours;
+    const selectedEndHour = args.selectedStartHour + selectedTask.durationHours;
+    if (Math.abs(candidateEndHour - selectedEndHour) >= 1) {
+      return candidateEndHour > selectedEndHour;
+    }
 
     if (args.candidateStartHour !== args.selectedStartHour) return args.candidateStartHour > args.selectedStartHour;
     if (args.candidateTaskId !== args.selectedTaskId) return args.candidateTaskId.localeCompare(args.selectedTaskId) < 0;
@@ -936,7 +950,21 @@ export function simulateUnitResearchTargets(
    *  scheduled earlier in this very backward-fill pass) — a general
    *  correctness floor: never place a task before a dependency whose real
    *  completion is already known, regardless of why it's already known. */
-  function bestPlacement(task: PlannedTask, bound: number): { slot: number; intervalIndex: number; start: number; end: number } | null {
+  function bestPlacement(
+    task: PlannedTask,
+    bound: number,
+    /** Idle slot time this task must reserve immediately before its own
+     *  start, within the SAME free interval — not just enough room for the
+     *  task's raw duration. Without this check, a candidate interval too
+     *  narrow to hold `duration + leadBuffer` could still be accepted (since
+     *  only `start >= interval.start` was verified), and the buffer would
+     *  then be silently truncated at commit time (consumedStart clamped to
+     *  interval.start) — a real invariant violation (confirmed via Russia/
+     *  Italy real data: a lower-weight task's own required buffer against a
+     *  just-committed higher-weight neighbour got clamped to a few hours
+     *  instead of the full researchBufferHours), not just a quality issue. */
+    leadBuffer = 0,
+  ): { slot: number; intervalIndex: number; start: number; end: number } | null {
     const dependencyFloor = task.dependencyIds.reduce(
       (floor, depId) => Math.max(floor, scheduledEnds.get(depId) ?? -Infinity),
       -Infinity,
@@ -950,6 +978,7 @@ export function simulateUnitResearchTargets(
         const end = Math.min(interval.end, bound);
         const start = end - task.durationHours;
         if (start < Math.max(interval.start, releaseFloor)) continue;
+        if (start - leadBuffer < interval.start) continue;
         if (best === null || end > best.end) best = { slot, intervalIndex: i, start, end };
       }
     }
@@ -1095,7 +1124,9 @@ export function simulateUnitResearchTargets(
       // examined here is genuinely JIT.
       const hardCeiling = opts?.latestCompletionByUnitLevel?.[taskId] ?? deadlineAbsoluteHour;
       const bound = boundWithOverride(hardCeiling);
-      const placement = bestPlacement(task, bound);
+      const skipBuffer = task.isLevel1 || (opts?.noBufferTaskIds?.has(taskId) ?? false);
+      const leadBuffer = skipBuffer ? 0 : (opts?.bufferHours ?? 0);
+      const placement = bestPlacement(task, bound, leadBuffer);
 
       if (!placement) {
         if (process.env.PLAN_DEBUG === "true") {

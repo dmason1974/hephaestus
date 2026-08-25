@@ -1623,7 +1623,13 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
   // tranche's mobilisation can't start before ITS OWN level's research
   // completes (e.g. commando: 5 at L1, 5 more at L2, 2 more at L3) — derived
   // here from combinedResearch the same way city-mobilised units' JIT floor is
-  // derived above.
+  // derived above. `deadlineHour` additionally defers each tranche's
+  // mobilisation start as late as the deadline safely allows (never earlier
+  // than its own readiness floor) — without it, a tranche mobilised the
+  // instant it was ready regardless of how far off the deadline was, which
+  // became a real bug once fast ASAP-scheduled research made readiness
+  // arrive very early (confirmed: Russia's first commando tranche mobilising
+  // on day 3 of a 28-day truce).
   const provinceMobResults = provinceDemands.map(demand => {
     const limitLevels = getUnitLimitLevels(demand.unitId, catalog, doctrine);
     const trancheLevels = computeMobilizationTranches(demand.count, limitLevels).map(t => t.level);
@@ -1642,6 +1648,7 @@ export function computeCountryForceProjection(input: CountryForceProjectionInput
       buildings,
       doctrine,
       mobilisationEarliestHourByLevel,
+      deadlineHour: deadlineAbsHour - scenarioAbsHour,
     });
   });
   let aggProvinceMob: ResourceCost = {};
